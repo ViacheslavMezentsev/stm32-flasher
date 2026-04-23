@@ -1,38 +1,273 @@
 <# :
 @echo off
 chcp 65001 >nul
-echo ===================================================
-echo   Утилита автоматической прошивки STM32
-echo ===================================================
-
 set "SCRIPT_PATH=%~f0"
 
-REM Проверяем наличие pwsh
+REM Launch PowerShell with UTF-8 encoded script text
 where pwsh >nul 2>nul
 if errorlevel 1 goto use_ps5
 
 :use_pwsh
-pwsh -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))"
+pwsh -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %*
 goto end
 
 :use_ps5
-echo.
-echo [!] PowerShell 7 (pwsh) не найден. Пробую Windows PowerShell 5...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %*
 
 :end
 pause
 exit /b
 #>
+param(
+    [string]$Input = "",
+    [string]$Lang = "",
+    [string]$HexFile = "",
+    [string]$Engine = "",
+    [string]$Target = "",
+    [switch]$Silent,
+    [switch]$DryRun
+)
+
 #Requires -Version 5.1
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Версия скрипта
+$VERSION = "1.0.0"
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Встроенные словари локализации (RU / EN)
+# ══════════════════════════════════════════════════════════════════════════════
+
+$LangRu = @{
+    BannerTitle         = "Утилита автоматической прошивки STM32"
+    StepSearchHex       = "Поиск файлов прошивки..."
+    ErrNoHex            = "Файлы .hex не найдены!"
+    ListAvailable       = "Доступные прошивки:"
+    PromptChoose        = "Выберите номер прошивки"
+    PromptChooseEng     = "Выберите утилиту (рекомендуется CubeProgrammer)"
+    Selected            = "Выбрано: "
+    ErrBadChoice        = "Неверный выбор."
+    InvalidHexFile      = "Указанный файл прошивки не найден или не является .hex: "
+    InvalidEngine       = "Неверный движок. Возвращаемся к выбору..."
+    InvalidTarget       = "Неверный параметр Target. Будет выбран автоматически."
+    StepSelectEngine    = "Определение движка прошивки..."
+    SearchCubeProg      = "Поиск STM32CubeProgrammer..."
+    FoundEngines        = "Найдено несколько утилит прошивки:"
+    EngineOpenOCD       = "OpenOCD (Встроенный/Автоматический)"
+    EngineCubeProg      = "CubeProgrammer"
+    StepPrepareOpenOCD  = "Подготовка OpenOCD..."
+    DownloadOpenOCD     = "Скачивание OpenOCD с GitHub (~5 MB)..."
+    StepPrepareCubeProg = "Подготовка CubeProgrammer..."
+    EngineOpenOCDCfg    = "Движок: OpenOCD (Конфиг: "
+    EngineCubeProgName  = "Движок: STM32CubeProgrammer"
+    AutoDetectMcu       = "Автоопределение семейства микроконтроллера включено (через DAP)."
+    Flashing            = "Прошивка... Пожалуйста, подождите 10-15 секунд."
+    TargetFoundIoc      = "Таргет найден в .ioc"
+    NoTargetDef         = "Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg):"
+    OkSuccess           = "УСПЕШНО! Прошивка загружена и проверена."
+    ErrFailed           = "Что-то пошло не так. Exit code: "
+    OpeningReport       = "Открываю отчёт..."
+
+    # DRY RUN
+    DryRunSimulating    = "DRY RUN: Симуляция процесса прошивки..."
+    DryRunLog           = "DRY RUN: Имитация успешной прошивки"
+    HtmlTitle           = "Flash Report"
+    StatusStages        = "Статус этапов"
+    Build               = "Сборка"
+    Scheme              = "Схема прошивки"
+    Host                = "Хост"
+    OS                  = "Операционная система"
+    PowerShell          = "PowerShell"
+    FlashEngine         = "Движок прошивки"
+    Programmer          = "Программатор"
+    StLink              = "ST-Link"
+    TargetVoltage       = "Напряжение питания МК"
+    Family              = "Семейство"
+    Core                = "Ядро / Процессор"
+    DeviceId            = "Device ID"
+    Flash               = "Flash"
+    StLinkDetected      = "ST-Link обнаружен"
+    Yes                 = "Да"
+    No                  = "Нет — проверьте USB и питание"
+    FlashWrite          = "Запись во Flash"
+    WriteCompleted      = "Завершена"
+    WriteError          = "Ошибка записи"
+    Verification        = "Верификация"
+    VerPassed           = "Пройдена"
+    VerFailed           = "Провалена"
+    ExitCode            = "Код выхода утилиты"
+    ExitSuccess         = "0 (успех)"
+    ExitError           = "(ошибка)"
+    SuccessMsg          = "Прошивка завершена успешно"
+    ErrorMsg            = "Ошибка прошивки — см. детали и лог ниже"
+    Changelog           = "История изменений (CHANGELOG)"
+    ToolOutput          = "Вывод утилиты"
+    ToolNotDetected     = "не удалось определить"
+    StLinkNotFound      = "не обнаружен"
+    DownloadFailed      = "Все методы загрузки не удались.`nСкачайте OpenOCD вручную: "
+    DownloadWhere       = "`nРаспакуйте в: "
+    Source              = "Источник"
+}
+
+$LangEn = @{
+    BannerTitle         = "STM32 Automatic Flashing Utility"
+    StepSearchHex       = "Searching for firmware files..."
+    ErrNoHex            = "No .hex files found!"
+    ListAvailable       = "Available firmwares:"
+    PromptChoose        = "Select firmware number"
+    PromptChooseEng     = "Select flashing utility (CubeProgrammer recommended)"
+    Selected            = "Selected: "
+    ErrBadChoice        = "Invalid choice."
+    InvalidHexFile      = "Specified firmware file was not found or is not .hex: "
+    InvalidEngine       = "Invalid engine specified. Falling back to interactive selection..."
+    InvalidTarget       = "Invalid Target parameter. It will be selected automatically."
+    StepSelectEngine    = "Determining flashing engine..."
+    SearchCubeProg      = "Searching for STM32CubeProgrammer..."
+    FoundEngines        = "Multiple flashing utilities found:"
+    EngineOpenOCD       = "OpenOCD (Built-in/Automatic)"
+    EngineCubeProg      = "CubeProgrammer"
+    StepPrepareOpenOCD  = "Preparing OpenOCD..."
+    DownloadOpenOCD     = "Downloading OpenOCD from GitHub (~5 MB)..."
+    StepPrepareCubeProg = "Preparing CubeProgrammer..."
+    EngineOpenOCDCfg    = "Engine: OpenOCD (Config: "
+    EngineCubeProgName  = "Engine: STM32CubeProgrammer"
+    AutoDetectMcu       = "Microcontroller auto-detection enabled (via DAP)."
+    Flashing            = "Flashing... Please wait 10-15 seconds."
+    TargetFoundIoc      = "Target found in .ioc"
+    NoTargetDef         = "Could not determine family. Enter config name (e.g., target/stm32f4x.cfg):"
+    OkSuccess           = "SUCCESS! Firmware loaded and verified."
+    ErrFailed           = "Something went wrong. Exit code: "
+    OpeningReport       = "Opening report..."
+
+    # DRY RUN
+    DryRunSimulating    = "DRY RUN: Simulating flash process..."
+    DryRunLog           = "DRY RUN: Simulated successful flash"
+    HtmlTitle           = "Flash Report"
+    StatusStages        = "Stage Status"
+    Build               = "Build"
+    Scheme              = "Flash Scheme"
+    Host                = "Host"
+    OS                  = "Operating System"
+    PowerShell          = "PowerShell"
+    FlashEngine         = "Flash Engine"
+    Programmer          = "Programmer"
+    StLink              = "ST-Link"
+    TargetVoltage       = "Target Voltage"
+    Mcu                 = "Microcontroller"
+    Family              = "Family"
+    Core                = "Core / Processor"
+    DeviceId            = "Device ID"
+    Flash               = "Flash"
+    StLinkDetected      = "ST-Link Detected"
+    Yes                 = "Yes"
+    No                  = "No — check USB and power"
+    FlashWrite          = "Flash Write"
+    WriteCompleted      = "Completed"
+    WriteError          = "Write Error"
+    Verification        = "Verification"
+    VerPassed           = "Passed"
+    VerFailed           = "Failed"
+    ExitCode            = "Utility Exit Code"
+    ExitSuccess         = "0 (success)"
+    ExitError           = "(error)"
+    SuccessMsg          = "Flashing completed successfully"
+    ErrorMsg            = "Flashing error — see details and log below"
+    Changelog           = "Change History (CHANGELOG)"
+    ToolOutput          = "Utility Output"
+    ToolNotDetected     = "could not be determined"
+    StLinkNotFound      = "not detected"
+    DownloadFailed      = "All download methods failed.`nDownload OpenOCD manually: "
+    DownloadWhere       = "`nExtract to: "
+    Source              = "Source"
+}
+
+# Выбор активного словаря и функция перевода
+if ($Lang -eq "en") {
+    $ActiveLang = $LangEn
+} elseif ($Lang -eq "ru") {
+    $ActiveLang = $LangRu
+} else {
+    # Автовыбор по системной локали
+    if ($PSUICulture -match "^ru") {
+        $ActiveLang = $LangRu
+    } else {
+        $ActiveLang = $LangEn
+    }
+}
+
+function T($key) {
+    $val = $ActiveLang[$key]
+    if ($null -eq $val) { return $key }
+    return $val
+}
+
+function Resolve-HexPath($value) {
+    if (-not $value) { return $null }
+    $candidate = $value.Trim('"')
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Get-Item -LiteralPath $candidate).FullName }
+    $candidate = Join-Path $CurrentDir $candidate
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Get-Item -LiteralPath $candidate).FullName }
+    return $null
+}
+
+# Normalize CLI arguments: positional file/lang support, named params optional
+if (-not $Lang -and $Input) {
+    if ($Input -in @('ru','en')) {
+        $Lang = $Input
+    } else {
+        $HexFile = if ($HexFile) { $HexFile } else { $Input }
+    }
+}
+
+if ($Lang -eq 'en') {
+    $ActiveLang = $LangEn
+} elseif ($Lang -eq 'ru') {
+    $ActiveLang = $LangRu
+} else {
+    if ($PSUICulture -match '^ru') { $ActiveLang = $LangRu } else { $ActiveLang = $LangEn }
+}
+
+if ($HexFile) {
+    $ResolvedHex = Resolve-HexPath $HexFile
+    if ($ResolvedHex) {
+        $HexFile = $ResolvedHex
+    } else {
+        Write-Warn "$(T 'InvalidHexFile')$HexFile"
+        $HexFile = ""
+    }
+}
+
+$SelectedEngine = ""
+if ($Engine) {
+    if (($Engine -ieq 'OPENOCD') -or (Test-Path -LiteralPath $Engine -PathType Leaf)) {
+        $SelectedEngine = $Engine
+    } else {
+        Write-Warn (T 'InvalidEngine')
+        $Engine = ""
+    }
+}
+
+if ($Input) {
+    $ResolvedInput = Resolve-HexPath $Input
+    if ($ResolvedInput) {
+        $HexFile = $ResolvedInput
+    } else {
+        Write-Warn "$(T 'InvalidHexFile')$Input"
+    }
+}
+
+if (-not $Silent) {
+    Write-Host "===================================================" -ForegroundColor Cyan
+    Write-Host "  $(T 'BannerTitle')" -ForegroundColor Cyan
+    Write-Host "===================================================" -ForegroundColor Cyan
+}
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Вспомогательные функции — вывод
 # ══════════════════════════════════════════════════════════════════════════════
 
-function Write-Step($n, $text) { Write-Host "`n$n. $text" -ForegroundColor Cyan }
+function Write-Step($n, $text) { if (-not $Silent) { Write-Host "`n$n. $text" -ForegroundColor Cyan } }
 function Write-Ok($text)   { Write-Host "   [+] $text" -ForegroundColor Green   }
 function Write-Warn($text) { Write-Host "   [!] $text" -ForegroundColor Yellow  }
 function Write-Err($text)  { Write-Host "   [X] $text" -ForegroundColor Red     }
@@ -110,14 +345,17 @@ function Invoke-Download($url, $outFile) {
     try { Invoke-WebRequest -Uri $url -OutFile $outFile -UseBasicParsing -ErrorAction Stop; return } catch {}
     try { $wc = [System.Net.WebClient]::new(); $wc.Proxy = [System.Net.WebRequest]::GetSystemWebProxy(); $wc.Proxy.Credentials = [System.Net.CredentialCache]::DefaultCredentials; $wc.DownloadFile($url, $outFile); return } catch {}
     try { Start-BitsTransfer -Source $url -Destination $outFile -ErrorAction Stop; return } catch {}
-    throw "Все методы загрузки не удались.`nСкачайте OpenOCD вручную: $url`nРаспакуйте в: $ToolDir"
+    throw "$(T 'DownloadFailed')$url$(T 'DownloadWhere')$ToolDir"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Пути и окружение
 # ══════════════════════════════════════════════════════════════════════════════
 
-$CurrentDir     = if ($env:SCRIPT_PATH) { Split-Path -Parent $env:SCRIPT_PATH } else { $PSScriptRoot }
+$CurrentDir     = if ($env:SCRIPT_PATH) { Split-Path -Parent $env:SCRIPT_PATH }
+elseif ($PSScriptRoot -and $PSScriptRoot -ne '\' -and $PSScriptRoot -ne '/') { $PSScriptRoot }
+else { (Get-Location).Path }
+$CurrentDir     = if ($CurrentDir) { $CurrentDir } else { (Get-Location).Path }
 $ToolDir        = Join-Path $CurrentDir ".tools"
 $LogFile        = Join-Path $CurrentDir "flash_log.txt"
 $HtmlReport     = Join-Path $CurrentDir "report.html"
@@ -135,20 +373,36 @@ if (-not $WinInfo) { $WinInfo = [System.Environment]::OSVersion.VersionString }
 #  1. Выбор .hex
 # ══════════════════════════════════════════════════════════════════════════════
 
-Write-Step "1" "Поиск файлов прошивки..."
-$HexFiles = @(Get-ChildItem -LiteralPath $CurrentDir -Filter "*.hex" -ErrorAction SilentlyContinue)
+Write-Step "1" (T "StepSearchHex")
+$TargetHex = ""
+$HexName   = ""
 
-if ($HexFiles.Count -eq 0) { Write-Err "Файлы .hex не найдены!"; Start-Sleep -Seconds 3; exit 1 }
+if ($HexFile) {
+    if ($HexFile -match '(?i)\.hex$') {
+        $TargetHex = $HexFile
+        $HexName = Split-Path -Leaf $HexFile
+        Write-Info "$(T 'Selected')$HexName"
+    } else {
+        Write-Warn "$(T 'InvalidHexFile')$HexFile"
+        $HexFile = ""
+    }
+}
 
-Write-Host "   Доступные прошивки:"
-$i = 1; foreach ($f in $HexFiles) { Write-Host "     [$i] $($f.Name)"; $i++ }
-$choice = Read-Host "`n   Выберите номер прошивки"
-$idx = [int]$choice - 1
-if ($idx -lt 0 -or $idx -ge $HexFiles.Count) { Write-Err "Неверный выбор."; Start-Sleep -Seconds 3; exit 1 }
+if (-not $TargetHex) {
+    $HexFiles = @(Get-ChildItem -LiteralPath $CurrentDir -Filter "*.hex" -ErrorAction SilentlyContinue)
+    if ($HexFiles.Count -eq 0) { Write-Err (T "ErrNoHex"); Start-Sleep -Seconds 3; exit 1 }
 
-$TargetHex = $HexFiles[$idx].FullName
-$HexName   = $HexFiles[$idx].Name
-Write-Info "Выбрано: $HexName"
+    Write-Host "   $(T 'ListAvailable')"
+    $i = 1; foreach ($f in $HexFiles) { Write-Host "     [$i] $($f.Name)"; $i++ }
+    $choice = Read-Host "`n   $(T 'PromptChoose')"
+    $idx = [int]$choice - 1
+    if ($idx -lt 0 -or $idx -ge $HexFiles.Count) { Write-Err (T "ErrBadChoice"); Start-Sleep -Seconds 3; exit 1 }
+
+    $TargetHex = $HexFiles[$idx].FullName
+    $HexName   = $HexFiles[$idx].Name
+    Write-Info "$(T 'Selected')$HexName"
+}
+
 $BuildType = if ($HexName -match 'Debug') { "Debug" } elseif ($HexName -match 'Release') { "Release" } else { "Unknown" }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -164,12 +418,12 @@ $ChangelogContent = if (Test-Path -LiteralPath $ChangelogPath) { Get-Content -Li
 #  3. Выбор движка (STM32CubeProgrammer vs OpenOCD)
 # ══════════════════════════════════════════════════════════════════════════════
 
-Write-Step "2" "Определение движка прошивки..."
+Write-Step "2" (T "StepSelectEngine")
 
 $EngineCfgPath = Join-Path $CurrentDir ".flash_engine"
-$SelectedEngine = ""
+# $SelectedEngine may already be set from CLI parameter
 
-if (Test-Path -LiteralPath $EngineCfgPath) {
+if (-not $SelectedEngine -and (Test-Path -LiteralPath $EngineCfgPath)) {
     $SavedEngine = (Get-Content -LiteralPath $EngineCfgPath -TotalCount 1).Trim()
     if ($SavedEngine -eq "OPENOCD" -or (Test-Path -LiteralPath $SavedEngine)) {
         $SelectedEngine = $SavedEngine
@@ -177,7 +431,7 @@ if (Test-Path -LiteralPath $EngineCfgPath) {
 }
 
 if (-not $SelectedEngine) {
-    Write-Info "Поиск STM32CubeProgrammer..."
+    Write-Info (T "SearchCubeProg")
     $SearchPaths = @(
         "C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
         "C:\ST\STM32CubeCLT*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
@@ -192,15 +446,15 @@ if (-not $SelectedEngine) {
     $FoundCli = $FoundCli | Select-Object -Unique
 
     $Opts = @()
-    $Opts += @{ Label = "OpenOCD (Встроенный/Автоматический)"; Value = "OPENOCD" }
-    foreach ($cli in $FoundCli) { $Opts += @{ Label = "CubeProgrammer ($cli)"; Value = $cli } }
+    $Opts += @{ Label = "$(T 'EngineOpenOCD')"; Value = "OPENOCD" }
+    foreach ($cli in $FoundCli) { $Opts += @{ Label = "$(T 'EngineCubeProg') ($cli)"; Value = $cli } }
 
     if ($Opts.Count -eq 1) {
         $SelectedEngine = "OPENOCD"
     } else {
-        Write-Host "   Найдено несколько утилит прошивки:" -ForegroundColor Yellow
+        Write-Host "   $(T 'FoundEngines')" -ForegroundColor Yellow
         for ($k=0; $k -lt $Opts.Count; $k++) { Write-Host "     [$($k+1)] $($Opts[$k].Label)" }
-        $ans = Read-Host "   Выберите утилиту (рекомендуется CubeProgrammer)"
+        $ans = Read-Host "   $(T 'PromptChooseEng')"
         $idx = [int]$ans - 1
         if ($idx -ge 0 -and $idx -lt $Opts.Count) { $SelectedEngine = $Opts[$idx].Value } else { $SelectedEngine = "OPENOCD" }
     }
@@ -217,9 +471,9 @@ $ExePath = ""
 $ExeArgs = @()
 
 if ($SelectedEngine -eq "OPENOCD") {
-    Write-Step "3" "Подготовка OpenOCD..."
+    Write-Step "3" (T "StepPrepareOpenOCD")
     if (-Not (Test-Path -LiteralPath $OpenOcdExe)) {
-        Write-Warn "Скачивание OpenOCD с GitHub (~5 MB)..."
+        Write-Warn (T "DownloadOpenOCD")
         New-Item -ItemType Directory -Force -Path $ToolDir | Out-Null
         Invoke-Download $OpenOcdUrl $OpenOcdZip
         Expand-Archive -Path $OpenOcdZip -DestinationPath $ToolDir -Force
@@ -235,14 +489,15 @@ if ($SelectedEngine -eq "OPENOCD") {
     $TargetCfg = ""
     $SavedTargetCfg = Join-Path $CurrentDir ".openocd_target"
     if (Test-Path -LiteralPath $SavedTargetCfg) { $TargetCfg = (Get-Content -LiteralPath $SavedTargetCfg -TotalCount 1).Trim() }
-    
+    if ($Target) { $TargetCfg = $Target }
+
     if (-not $TargetCfg) {
         $Roots = @( $CurrentDir, (Split-Path $CurrentDir -Parent -ErrorAction SilentlyContinue), (Split-Path (Split-Path $CurrentDir -Parent -ErrorAction SilentlyContinue) -Parent -ErrorAction SilentlyContinue) ) | Where-Object { $_ } | Select-Object -Unique
         foreach ($r in $Roots) {
             $ioc = Get-ChildItem -Path $r -Filter "*.ioc" -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($ioc) {
                 if ((Get-Content -LiteralPath $ioc.FullName -ErrorAction SilentlyContinue) -match "^Mcu\.Family=STM32(.+)$") {
-                    $TargetCfg = "target/stm32$($Matches[1].ToLower())x.cfg"; Write-Info "Таргет найден в .ioc"; break
+                    $TargetCfg = "target/stm32$($Matches[1].ToLower())x.cfg"; Write-Info (T "TargetFoundIoc"); break
                 }
             }
         }
@@ -251,32 +506,45 @@ if ($SelectedEngine -eq "OPENOCD") {
         if ($HexName -match "(?i)stm32([fghlu]\d)") { $TargetCfg = "target/stm32$($Matches[1].ToLower())x.cfg" }
     }
     if (-not $TargetCfg) {
-        Write-Host "   [?] Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg):" -ForegroundColor Yellow -NoNewline
+        Write-Host "   [?] $(T 'NoTargetDef')" -ForegroundColor Yellow -NoNewline
         $TargetCfg = Read-Host
     }
     try { Set-Content -LiteralPath $SavedTargetCfg -Value $TargetCfg -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 
-    Write-Host "   Движок: OpenOCD (Конфиг: $TargetCfg)" -ForegroundColor Cyan
+    Write-Host "   $(T 'EngineOpenOCDCfg')$TargetCfg)" -ForegroundColor Cyan
     $ExePath = $OpenOcdExe
     $TclCmd = "`"program {$TargetHex} verify reset exit`""
     $ExeArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg", "-f", $TargetCfg, "-c", $TclCmd)
 
 } else {
-    Write-Step "3" "Подготовка CubeProgrammer..."
-    Write-Host "   Движок: STM32CubeProgrammer" -ForegroundColor Cyan
-    Write-Info "Автоопределение семейства микроконтроллера включено (через DAP)."
+    Write-Step "3" (T "StepPrepareCubeProg")
+    Write-Host "   $(T 'EngineCubeProgName')" -ForegroundColor Cyan
+    Write-Info (T "AutoDetectMcu")
     $ExePath = $SelectedEngine
     # Ключи: -c port=SWD (подключение), -w (прошивка), -v (верификация), -rst (сброс)
     $ExeArgs = @("-c", "port=SWD", "-w", $TargetHex, "-v", "-rst")
 }
 
-Write-Host "   Прошивка... Пожалуйста, подождите 10-15 секунд."
+Write-Host "   $(T 'Flashing')"
 
-$process = Start-Process -FilePath $ExePath -ArgumentList $ExeArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
+if ($DryRun) {
+    Write-Warn (T 'DryRunSimulating')
+    Start-Sleep -Seconds 2
+    $process = [PSCustomObject]@{ ExitCode = 0 }
+    if ($SelectedEngine -eq "OPENOCD") {
+        $LogContent = "$(T 'DryRunLog')`ntarget voltage: 3.3`n** Programming Finished **`n** Verified OK **`n"
+    } else {
+        $LogContent = "$(T 'DryRunLog')`nST-LINK SN  : 0671FF555353885087123456`nVoltage     : 3.30V`nFile download complete`nDownload verified successfully`n"
+    }
+} else {
+    $process = Start-Process -FilePath $ExePath -ArgumentList $ExeArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
+}
 
 $stdout     = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
 $stderr     = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
-$LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
+if (-not $DryRun) {
+    $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
+}
 
 Remove-Item -LiteralPath $LogStd, $LogErr -ErrorAction SilentlyContinue
 $LogContent | Set-Content -LiteralPath $LogFile -Encoding UTF8
@@ -293,7 +561,7 @@ if ($SelectedEngine -eq "OPENOCD") {
     $IsStlinkFound = $LogContent -match "target voltage"
     $IsProgrammed  = $LogContent -match "\*\* Programming Finished \*\*"
     $IsVerified    = $LogContent -match "\*\* Verified OK \*\*"
-    
+
     if ($LogContent -match '(?m)^((?:xPack )?Open On-Chip Debugger[^\r\n]+)') { $ToolInfo = $Matches[1].Trim() }
     if ($LogContent -match 'Info\s*:\s*(STLINK[^\r\n]+)') { $StlinkInfo = $Matches[1].Trim() }
     if ($LogContent -match 'target voltage[^:]*:\s*([\d.]+)') { $TargetVoltage = "$($Matches[1]) V" }
@@ -319,10 +587,10 @@ if ($SelectedEngine -eq "OPENOCD") {
 $Success = $IsStlinkFound -and $IsProgrammed -and $IsVerified -and $ExitOk
 
 if ($Success) {
-    Write-Ok "УСПЕШНО! Прошивка загружена и проверена."
+    Write-Ok (T "OkSuccess")
 } else {
-    Write-Err "Что-то пошло не так. Exit code: $($process.ExitCode)"
-    Write-Info "Открываю отчёт..."
+    Write-Err "$(T 'ErrFailed')$($process.ExitCode)"
+    Write-Info (T "OpeningReport")
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -333,29 +601,43 @@ $Timestamp  = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 $ResultBg   = if ($Success) { "#d1f0de" } else { "#fde8e8" }
 $ResultFg   = if ($Success) { "#0f5c2e" } else { "#7a1c1c" }
 $ResultIcon = if ($Success) { "&#10003;" } else { "&#10007;" }
-$ResultMsg  = if ($Success) { "Прошивка завершена успешно" } else { "Ошибка прошивки — см. детали и лог ниже" }
+$ResultMsg  = if ($Success) { T "SuccessMsg" } else { T "ErrorMsg" }
 
 $BadgeBg    = switch ($BuildType) { "Release" { "#0d6efd" } "Debug" { "#fd7e14" } default { "#6c757d" } }
 $HexNameEsc = Escape-Html $HexName
 
-$LabelMap = [ordered]@{ "Firmware Version"="Версия прошивки"; "Stamp"="Метка сборки"; "Integrity"="Целостность (CRC32)"; "Project"="Проект"; "System"="HAL / SDK"; "Compiler"="Компилятор"; "Build Type"="Тип сборки"; "Branch"="Ветка Git"; "Author"="Автор"; "Commit Message"="Коммит"; "Commit Link"="Ссылка на коммит"; "Releases Page"="Страница релизов" }
+# Переводы для таблицы Build Info в зависимости от языка
+$LabelMap = [ordered]@{
+    "Firmware Version" = if ($ActiveLang -eq $LangRu) { "Версия прошивки" } else { "Firmware Version" }
+    "Stamp"            = if ($ActiveLang -eq $LangRu) { "Метка сборки" } else { "Build Stamp" }
+    "Integrity"        = if ($ActiveLang -eq $LangRu) { "Целостность (CRC32)" } else { "Integrity (CRC32)" }
+    "Project"          = if ($ActiveLang -eq $LangRu) { "Проект" } else { "Project" }
+    "System"           = if ($ActiveLang -eq $LangRu) { "HAL / SDK" } else { "HAL / SDK" }
+    "Compiler"         = if ($ActiveLang -eq $LangRu) { "Компилятор" } else { "Compiler" }
+    "Build Type"       = if ($ActiveLang -eq $LangRu) { "Тип сборки" } else { "Build Type" }
+    "Branch"           = if ($ActiveLang -eq $LangRu) { "Ветка Git" } else { "Git Branch" }
+    "Author"           = if ($ActiveLang -eq $LangRu) { "Автор" } else { "Author" }
+    "Commit Message"   = if ($ActiveLang -eq $LangRu) { "Коммит" } else { "Commit" }
+    "Commit Link"      = if ($ActiveLang -eq $LangRu) { "Ссылка на коммит" } else { "Commit Link" }
+    "Releases Page"    = if ($ActiveLang -eq $LangRu) { "Страница релизов" } else { "Releases Page" }
+}
 $BiRows = ""
 foreach ($key in $BuildInfo.Keys) {
     $label = if ($LabelMap[$key]) { $LabelMap[$key] } else { Escape-Html $key }
     $val = $BuildInfo[$key] -replace '\[([^\]]+)\]\(([^)]+)\)', '<a href="$2" target="_blank">$1</a>' -replace '(?<!href=")(https?://[^\s<>"]+)', '<a href="$1" target="_blank">$1</a>'
     $BiRows += "<tr><th>$label</th><td>$val</td></tr>`n"
 }
-$BuildInfoSection = if ($BiRows) { "<div class='card'><h2>&#128196; Сборка ($BuildType)</h2><table>$BiRows</table></div>" } else { "" }
+$BuildInfoSection = if ($BiRows) { "<div class='card'><h2>&#128196; $(T 'Build') ($BuildType)</h2><table>$BiRows</table></div>" } else { "" }
 
 $ChangelogSection = ""
 if ($ChangelogContent) {
     $ChangelogHtml = Md-ToHtml $ChangelogContent
     $ChangelogPathUrl = "file:///$($ChangelogPath -replace '\\','/')"
-    $ChangelogSection = "<div class='card'><h2>&#128221; История изменений (CHANGELOG)</h2><div class='changelog-box'>$ChangelogHtml</div><p class='changelog-footer'>Источник: <a href='$ChangelogPathUrl' target='_blank'>CHANGELOG.md</a></p></div>"
+    $ChangelogSection = "<div class='card'><h2>&#128221; $(T 'Changelog')</h2><div class='changelog-box'>$ChangelogHtml</div><p class='changelog-footer'>$(T 'Source'): <a href='$ChangelogPathUrl' target='_blank'>CHANGELOG.md</a></p></div>"
 }
 
-$EnvTool   = if ($ToolInfo)       { Escape-Html $ToolInfo }        else { "<em class='na'>не удалось определить</em>" }
-$EnvStlink = if ($StlinkInfo)     { Escape-Html $StlinkInfo }      else { "<em class='na'>не обнаружен</em>" }
+$EnvTool   = if ($ToolInfo)       { Escape-Html $ToolInfo }        else { "<em class='na'>$(T 'ToolNotDetected')</em>" }
+$EnvStlink = if ($StlinkInfo)     { Escape-Html $StlinkInfo }      else { "<em class='na'>$(T 'StLinkNotFound')</em>" }
 $EnvVolt   = if ($TargetVoltage)  { "<strong>$(Escape-Html $TargetVoltage)</strong>" } else { "<em class='na'>—</em>" }
 $EnvCore   = if ($McuCore)        { Escape-Html $McuCore }         else { "<em class='na'>—</em>" }
 $EnvFamily = if ($McuFamily)      { "<strong>$(Escape-Html $McuFamily)</strong>" }    else { "<em class='na'>—</em>" }
@@ -369,10 +651,10 @@ $ProjectTitle = if ($BuildInfo["Project"]) { Escape-Html $BuildInfo["Project"] }
 
 $HtmlContent = @"
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="$( if ($ActiveLang -eq $LangRu) { 'ru' } else { 'en' } )">
 <head>
   <meta charset="UTF-8">
-  <title>Flash Report — $ProjectTitle</title>
+  <title>$(T 'HtmlTitle') — $ProjectTitle</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #eef0f4; color: #212529; padding: 28px 36px; }
@@ -410,43 +692,43 @@ $HtmlContent = @"
 </head>
 <body>
   <div class="page-header">
-    <h1>&#128268; Flash Report — $ProjectTitle</h1>
+    <h1>&#128268; $(T 'HtmlTitle') — $ProjectTitle</h1>
     <span class="badge">$HexNameEsc</span>
   </div>
   <p class="sub">$Timestamp</p>
   <div class="result-banner"><span class="ico">$ResultIcon</span><span>$ResultMsg</span></div>
   <div class="grid2">
     <div class="card">
-      <h2>&#9745; Статус этапов</h2>
+      <h2>&#9745; $(T 'StatusStages')</h2>
       <table>
-        $(Status-Row "ST-Link обнаружен"  $IsStlinkFound "Да"        "Нет — проверьте USB и питание")
-        $(Status-Row "Запись во Flash"    $IsProgrammed  "Завершена" "Ошибка записи")
-        $(Status-Row "Верификация"        $IsVerified    "Пройдена"  "Провалена")
-        $(Status-Row "Код выхода утилиты" $ExitOk        "0 (успех)" "$($process.ExitCode) (ошибка)")
+        $(Status-Row (T 'StLinkDetected')  $IsStlinkFound (T 'Yes')           (T 'No'))
+        $(Status-Row (T 'FlashWrite')      $IsProgrammed  (T 'WriteCompleted') (T 'WriteError'))
+        $(Status-Row (T 'Verification')    $IsVerified    (T 'VerPassed')      (T 'VerFailed'))
+        $(Status-Row (T 'ExitCode')        $ExitOk        (T 'ExitSuccess')    "$($process.ExitCode) $(T 'ExitError')")
       </table>
     </div>
 $BuildInfoSection
   </div>
   <div class="card">
-    <h2>&#128187; Схема прошивки</h2>
+    <h2>&#128187; $(T 'Scheme')</h2>
     <table>
-      <tr class="sh"><th colspan="2">Хост</th></tr>
-      <tr><th>Операционная система</th><td>$EnvWin</td></tr>
-      <tr><th>PowerShell</th><td>$EnvPs</td></tr>
-      <tr><th>Движок прошивки</th><td>$EnvTool</td></tr>
-      <tr class="sh"><th colspan="2">Программатор</th></tr>
-      <tr><th>ST-Link</th><td>$EnvStlink</td></tr>
-      <tr><th>Напряжение питания МК</th><td>$EnvVolt</td></tr>
-      <tr class="sh"><th colspan="2">Микроконтроллер</th></tr>
-      <tr><th>Семейство</th><td>$EnvFamily</td></tr>
-      <tr><th>Ядро / Процессор</th><td>$EnvCore</td></tr>
-      <tr><th>Device ID</th><td>$EnvDevId</td></tr>
-      <tr><th>Flash</th><td>$EnvFlash</td></tr>
+      <tr class="sh"><th colspan="2">$(T 'Host')</th></tr>
+      <tr><th>$(T 'OS')</th><td>$EnvWin</td></tr>
+      <tr><th>$(T 'PowerShell')</th><td>$EnvPs</td></tr>
+      <tr><th>$(T 'FlashEngine')</th><td>$EnvTool</td></tr>
+      <tr class="sh"><th colspan="2">$(T 'Programmer')</th></tr>
+      <tr><th>$(T 'StLink')</th><td>$EnvStlink</td></tr>
+      <tr><th>$(T 'TargetVoltage')</th><td>$EnvVolt</td></tr>
+      <tr class="sh"><th colspan="2">$(T 'Mcu')</th></tr>
+      <tr><th>$(T 'Family')</th><td>$EnvFamily</td></tr>
+      <tr><th>$(T 'Core')</th><td>$EnvCore</td></tr>
+      <tr><th>$(T 'DeviceId')</th><td>$EnvDevId</td></tr>
+      <tr><th>$(T 'Flash')</th><td>$EnvFlash</td></tr>
     </table>
   </div>
 $ChangelogSection
   <div class="card">
-    <h2>&#128220; Вывод утилиты</h2>
+    <h2>&#128220; $(T 'ToolOutput')</h2>
     <pre>$LogHtml</pre>
   </div>
 </body>

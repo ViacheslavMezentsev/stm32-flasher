@@ -1,227 +1,83 @@
 # stm32-flasher
 
-Утилита командной строки для прошивки микроконтроллеров STM32 через ST-Link.  
-Один `.cmd`-файл — двойной клик, выбор прошивки, готово.
-
-Поддерживает два движка прошивки — **OpenOCD** (встроенный, скачивается автоматически)
-и **STM32CubeProgrammer** (если установлен), запускается из любого окружения:
-Проводник, Far Manager, SSH, планировщик задач.
+[English version below](#english)
 
 ---
 
-## Возможности
+## Русский
 
-- **Один файл** — скрипт является одновременно `.cmd` и `.ps1` (polyglot), отдельный лаунчер не нужен
-- **Автозагрузка OpenOCD** — xPack OpenOCD скачивается автоматически тремя методами с fallback
-- **Выбор движка** — автоопределение STM32CubeProgrammer или явный выбор; выбор сохраняется
-- **Автоопределение таргета** — по имени hex-файла или через интерактивный ввод; сохраняется в `.openocd_target`
-- **Идентификация МК** — семейство, Device ID, объём Flash, ядро — извлекаются из лога без дополнительных файлов
-- **HTML-отчёт** — открывается в браузере после каждой прошивки: статус этапов, схема окружения, полный лог
-- **PS 5 / PS 7** — работает на обоих; при устаревшей версии показывает предупреждение с инструкцией по обновлению
+Утилита для прошивки STM32 через ST-Link. Один файл — двойной клик, выбор прошивки, готово.
 
----
+**Поддерживаемые движки:** OpenOCD (встроенный, скачивается автоматически), STM32CubeProgrammer (если установлен).
 
-## Требования
+### Быстрый старт
 
-| Компонент | Минимум | Рекомендуется |
-|---|---|---|
-| Windows | 10 | 10 / 11 |
-| PowerShell | 5.1 (встроен) | 7.x (`winget install Microsoft.PowerShell`) |
-| Движок прошивки | — | OpenOCD (скачивается автоматически) или STM32CubeProgrammer |
-| Программатор | ST-Link v2 / v3 | ST-Link v3 |
-
-Интернет нужен только при первом запуске для загрузки OpenOCD (~5 MB).  
-Если сеть недоступна — см. [Ручная установка OpenOCD](#ручная-установка-openocd).
-
----
-
-## Быстрый старт
-
-1. Скопируйте `flash.cmd` в папку рядом с файлом прошивки `*.hex`
+1. Положите `flash.cmd` рядом с файлом `*.hex`
 2. Подключите ST-Link к компьютеру и плате
-3. Дважды кликните `flash.cmd`
-4. Выберите файл прошивки из списка
-5. При первом запуске выберите движок прошивки (если доступен CubeProgrammer)
+3. Двойной клик по `flash.cmd`
 
-```
-===================================================
-  Утилита автоматической прошивки STM32
-===================================================
-Версия PowerShell: 7.6.0
+### Требования
 
-1. Поиск файлов прошивки...
-   Доступные прошивки:
-     [1] firmware_v1.2.hex
-     [2] firmware_v1.2_debug.hex
+- Windows 10 / 11
+- PowerShell 5.1 (встроен) или 7+ (рекомендуется: `winget install Microsoft.PowerShell`)
+- Драйверы ST-Link — [st.com/stlink-v2](https://www.st.com/en/development-tools/stsw-link009.html)
+- Интернет при первом запуске (загрузка OpenOCD ~5 MB, если CubeProgrammer не установлен)
 
-   Выберите номер прошивки: 1
-   Выбрано: firmware_v1.2.hex
+### Локализация
 
-2. Определение движка прошивки...
-   Движок: OpenOCD (Конфиг: target/stm32f4x.cfg)
-
-3. Подготовка OpenOCD...
-   Прошивка... Пожалуйста, подождите 10-15 секунд.
-
-   [+] УСПЕШНО! Прошивка загружена и проверена.
+Автоматически определяется по системной локали (`ru` / `en`).
+Принудительный выбор: создайте файл `.flash_lang` со значением `en` или `ru`.
+Внешние языки: положите `lang\de.ps1` рядом со скриптом и переопределите нужные ключи:
+```powershell
+$Lang["BannerTitle"] = "STM32 Programmierungswerkzeug"
 ```
 
----
+### Файлы, создаваемые автоматически
 
-## Структура файлов
-
-```
-your-release-folder/
-├── flash.cmd               ← скрипт (единственный обязательный файл)
-├── firmware.hex            ← файл прошивки (один или несколько)
-│
-├── .flash_engine           ← сохранённый выбор движка (создаётся автоматически)
-├── .openocd_target         ← сохранённый OpenOCD target config (создаётся автоматически)
-│
-├── .tools/                 ← OpenOCD (создаётся автоматически при первом запуске)
-│   └── xpack-openocd-0.12.0-3/
-│
-├── flash_log.txt           ← последний лог прошивки
-└── report.html             ← HTML-отчёт последней прошивки
-```
-
-`.flash_engine` и `.openocd_target` — текстовые однострочные файлы. Их можно удалить,
-чтобы скрипт задал вопросы заново, или отредактировать вручную.
-
----
-
-## Выбор движка прошивки
-
-При первом запуске (или при отсутствии `.flash_engine`) скрипт ищет STM32CubeProgrammer
-в стандартных путях установки. Если найден — предлагает выбор:
-
-```
-   Найдено несколько утилит прошивки:
-     [1] OpenOCD (Встроенный/Автоматический)
-     [2] CubeProgrammer (C:\Program Files\STMicroelectronics\...\STM32_Programmer_CLI.exe)
-   Выберите утилиту (рекомендуется CubeProgrammer): _
-```
-
-**OpenOCD** — не требует установки, подходит для большинства случаев.  
-**STM32CubeProgrammer** — официальный инструмент ST, лучше справляется с защищёнными устройствами и RDP.
-
-Выбор сохраняется в `.flash_engine`. Для смены движка удалите этот файл.
-
----
-
-## Определение таргета (только для OpenOCD)
-
-OpenOCD требует знать конфигурационный файл семейства МК (`target/stm32f4x.cfg` и т.п.).
-
-Скрипт определяет таргет в следующем порядке:
-
-1. **Кэш** — файл `.openocd_target` в папке скрипта
-2. **Имя hex-файла** — если содержит `STM32F4`, `STM32G0` и т.д.
-3. **Интерактивный ввод** — если определить не удалось
-
-```
-   [?] Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg): _
-```
-
-Определённый таргет сохраняется в `.openocd_target`. Примеры значений:
-
-| Семейство | Значение в файле |
+| Файл | Назначение |
 |---|---|
-| STM32F0 | `target/stm32f0x.cfg` |
-| STM32F1 | `target/stm32f1x.cfg` |
-| STM32F4 | `target/stm32f4x.cfg` |
-| STM32F7 | `target/stm32f7x.cfg` |
-| STM32G0 | `target/stm32g0x.cfg` |
-| STM32G4 | `target/stm32g4x.cfg` |
-| STM32H7 | `target/stm32h7x.cfg` |
-| STM32L4 | `target/stm32l4x.cfg` |
-| STM32U5 | `target/stm32u5x.cfg` |
-| STM32WB | `target/stm32wbx.cfg` |
-
-> STM32CubeProgrammer определяет таргет автоматически — файл `.openocd_target` не используется.
+| `.tools\` | OpenOCD (скачивается один раз) |
+| `.flash_engine` | Сохранённый выбор движка |
+| `.openocd_target` | Сохранённый таргет-конфиг OpenOCD |
+| `flash_log.txt` | Лог последней прошивки |
+| `report.html` | HTML-отчёт последней прошивки |
 
 ---
 
-## HTML-отчёт
+## English <a name="english"></a>
 
-После каждой прошивки автоматически открывается `report.html` со следующими секциями:
+STM32 flash utility via ST-Link. Single file — double-click, pick firmware, done.
 
-- **Результат** — баннер успех / ошибка
-- **Статус этапов** — обнаружение ST-Link, запись, верификация, код выхода
-- **Схема прошивки** — ОС, PowerShell, версия движка, ST-Link, напряжение питания МК, семейство / ядро / Device ID / Flash МК
+**Supported engines:** OpenOCD (built-in, auto-downloaded), STM32CubeProgrammer (if installed).
 
-При ошибке отчёт помогает понять на каком именно этапе произошёл сбой.
+### Quick start
 
----
+1. Place `flash.cmd` next to your `*.hex` file
+2. Connect ST-Link to PC and board
+3. Double-click `flash.cmd`
 
-## Поддерживаемые семейства STM32
+### Requirements
 
-Идентификация по Device ID (из лога): F0, F1, F2, F3, F4, F7, G0, G4, H7, L0, L1, L4/L4+, U5, WB, WL.
+- Windows 10 / 11
+- PowerShell 5.1 (built-in) or 7+ (recommended: `winget install Microsoft.PowerShell`)
+- ST-Link drivers — [st.com/stlink-v2](https://www.st.com/en/development-tools/stsw-link009.html)
+- Internet on first run (OpenOCD ~5 MB download, if CubeProgrammer is not installed)
 
----
+### Localization
 
-## Устранение неполадок
-
-### ST-Link не обнаружен
-- Проверьте USB-подключение программатора
-- Убедитесь что плата запитана
-- Установите драйверы ST-Link: [st.com/stlink-v2](https://www.st.com/en/development-tools/stsw-link009.html)
-- Попробуйте другой USB-порт (не через хаб)
-
-### Ошибка загрузки OpenOCD
-Скрипт последовательно пробует `Invoke-WebRequest` → `WebClient` → `BITS`.  
-Если все три упали (например, корпоративный прокси) — установите OpenOCD вручную:
-
-#### Ручная установка OpenOCD
-1. Скачайте архив: https://github.com/xpack-dev-tools/openocd-xpack/releases/tag/v0.12.0-3  
-   Файл: `xpack-openocd-0.12.0-3-win32-x64.zip`
-2. Распакуйте в папку `.tools` рядом со скриптом:
-   ```
-   your-folder/
-   └── .tools/
-       └── xpack-openocd-0.12.0-3/
-           └── bin/
-               └── openocd.exe  ← должен быть здесь
-   ```
-
-### Ошибка записи / верификации
-- Проверьте, не защищён ли МК (RDP Level 1/2) — в этом случае используйте STM32CubeProgrammer
-- Убедитесь в соответствии таргет-конфига семейству МК (`.openocd_target`)
-- Проверьте питание платы — просадка напряжения во время прошивки ведёт к ошибке
-
-### Скрипт не запускается из Far Manager
-Это нормальная особенность Far — сетевой контекст процессов инициализируется иначе.  
-Скрипт обходит это через `WebClient` (fallback метод 2), который работает без WinSock-инициализации.  
-Если всё равно не работает — запустите из обычного CMD или Проводника для первоначальной загрузки OpenOCD.
-
-### PowerShell 5 вместо 7
-Скрипт работает на PS 5.1, но рекомендуется обновиться:
-```
-winget install Microsoft.PowerShell
-```
-Или скачайте с [aka.ms/powershell](https://aka.ms/powershell).
-
----
-
-## Как работает polyglot-файл
-
-`flash.cmd` является одновременно batch-скриптом и PowerShell-скриптом:
-
-```
-<# :         ← PS: начало блочного комментария
-@echo off    ← CMD: выполняется как обычно
-...
-pwsh -File "%~f0"   ← CMD запускает pwsh на самом себе
-exit /b      ← CMD завершается здесь
-#>           ← PS: конец комментария, строки выше невидимы
-# PS-код...
+Auto-detected from system locale (`ru` / `en`).
+Override: create a `.flash_lang` file containing `en` or `ru`.
+External languages: place `lang\de.ps1` next to the script and override keys:
+```powershell
+$Lang["BannerTitle"] = "STM32 Programmierungswerkzeug"
 ```
 
-CMD видит batch-часть и завершается на `exit /b`.  
-PowerShell видит только код после `#>`, batch-часть скрыта в блочном комментарии.
+### Auto-created files
 
----
-
-## Лицензия
-
-MIT
+| File | Purpose |
+|---|---|
+| `.tools\` | OpenOCD (downloaded once) |
+| `.flash_engine` | Saved engine choice |
+| `.openocd_target` | Saved OpenOCD target config |
+| `flash_log.txt` | Last flash log |
+| `report.html` | Last flash HTML report |
