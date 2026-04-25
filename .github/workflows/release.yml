@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Build And Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate tag and script version
+        id: meta
+        shell: pwsh
+        run: |
+          if (-not $env:GITHUB_REF_NAME) {
+            throw 'GITHUB_REF_NAME is not set.'
+          }
+
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') {
+            throw "Release tag '$tag' must match vMajor.Minor.Patch"
+          }
+
+          $tagVersion = $Matches[1]
+          $content = Get-Content -LiteralPath 'flash.cmd' -Raw -Encoding UTF8
+          if ($content -notmatch '\$VERSION\s*=\s*"(\d+\.\d+\.\d+)"') {
+            throw 'Unable to read $VERSION from flash.cmd'
+          }
+
+          $scriptVersion = $Matches[1]
+          if ($scriptVersion -ne $tagVersion) {
+            throw "Tag version '$tagVersion' does not match flash.cmd version '$scriptVersion'"
+          }
+
+          "version=$scriptVersion" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Prepare release package
+        id: package
+        shell: pwsh
+        run: |
+          $version = '${{ steps.meta.outputs.version }}'
+          $stagingDir = Join-Path $PWD 'dist'
+          $packageRoot = Join-Path $stagingDir "stm32-flasher-$version"
+          $archivePath = Join-Path $stagingDir "stm32-flasher-$version.zip"
+
+          New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
+
+          $files = @(
+            'flash.cmd',
+            'README.md',
+            'LICENSE',
+            'Инструкция по использованию stm32-flasher.md'
+          )
+
+          foreach ($file in $files) {
+            Copy-Item -LiteralPath $file -Destination (Join-Path $packageRoot $file)
+          }
+
+          if (Test-Path -LiteralPath $archivePath) {
+            Remove-Item -LiteralPath $archivePath -Force
+          }
+
+          Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $archivePath -CompressionLevel Optimal
+          "archive=$archivePath" >> $env:GITHUB_OUTPUT
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: stm32-flasher ${{ steps.meta.outputs.version }}
+          generate_release_notes: true
+          files: ${{ steps.package.outputs.archive }}
