@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and the project uses semantic versioning in `Major.Minor.Patch` form while it is still in active development.
 
+## [0.2.3] - 2026-04-25
+
+### Changed
+- Updated release publishing so GitHub Release pages use the matching `CHANGELOG.md` section as the release description.
+
 ## [0.2.2] - 2026-04-25
 
 ### Added
