@@ -72,17 +72,22 @@ $LangRu = @{
     # DRY RUN
     DryRunSimulating    = "DRY RUN: Симуляция процесса прошивки..."
     DryRunLog           = "DRY RUN: Имитация успешной прошивки"
-    HtmlTitle           = "Flash Report"
+    HtmlTitle           = "Отчёт о прошивке"
     StatusStages        = "Статус этапов"
     Build               = "Сборка"
     Scheme              = "Схема прошивки"
     Host                = "Хост"
+    Operator            = "Оператор"
+    UserAccount         = "Учётная запись"
+    Machine             = "Машина"
+    NetworkHost         = "Сетевое имя"
     OS                  = "Операционная система"
     PowerShell          = "PowerShell"
     FlashEngine         = "Движок прошивки"
     Programmer          = "Программатор"
     StLink              = "ST-Link"
     TargetVoltage       = "Напряжение питания МК"
+    Mcu                 = "Микроконтроллер"
     Family              = "Семейство"
     Core                = "Ядро / Процессор"
     DeviceId            = "Device ID"
@@ -108,6 +113,8 @@ $LangRu = @{
     DownloadFailed      = "Все методы загрузки не удались.`nСкачайте OpenOCD вручную: "
     DownloadWhere       = "`nРаспакуйте в: "
     Source              = "Источник"
+    ReportTimeLocal     = "Локальное время"
+    ReportTimeUtc       = "UTC"
 }
 
 $LangEn = @{
@@ -148,6 +155,10 @@ $LangEn = @{
     Build               = "Build"
     Scheme              = "Flash Scheme"
     Host                = "Host"
+    Operator            = "Operator"
+    UserAccount         = "User Account"
+    Machine             = "Machine"
+    NetworkHost         = "Network Host"
     OS                  = "Operating System"
     PowerShell          = "PowerShell"
     FlashEngine         = "Flash Engine"
@@ -180,6 +191,8 @@ $LangEn = @{
     DownloadFailed      = "All download methods failed.`nDownload OpenOCD manually: "
     DownloadWhere       = "`nExtract to: "
     Source              = "Source"
+    ReportTimeLocal     = "Local time"
+    ReportTimeUtc       = "UTC"
 }
 
 # Выбор активного словаря и функция перевода
@@ -206,7 +219,11 @@ function Resolve-HexPath($value) {
     if (-not $value) { return $null }
     $candidate = $value.Trim('"')
     if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Get-Item -LiteralPath $candidate).FullName }
-    $candidate = Join-Path $CurrentDir $candidate
+    $baseDir = if ($env:SCRIPT_PATH) { Split-Path -Parent $env:SCRIPT_PATH }
+    elseif ($PSScriptRoot -and $PSScriptRoot -ne '\' -and $PSScriptRoot -ne '/') { $PSScriptRoot }
+    else { (Get-Location).Path }
+    if (-not $baseDir) { return $null }
+    $candidate = Join-Path $baseDir $candidate
     if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Get-Item -LiteralPath $candidate).FullName }
     return $null
 }
@@ -248,7 +265,7 @@ if ($Engine) {
     }
 }
 
-if ($Input) {
+if ($Input -and -not $HexFile -and $Input -notin @('ru','en')) {
     $ResolvedInput = Resolve-HexPath $Input
     if ($ResolvedInput) {
         $HexFile = $ResolvedInput
@@ -298,6 +315,21 @@ function Md-ToHtml($text) {
         else                            { $html += "<p>$l</p>" }
     }
     return $html -join "`n"
+}
+
+function Normalize-ToolLog($text) {
+    if (-not $text) { return "" }
+    $replacementChar = [regex]::Escape([string][char]0xFFFD)
+    $lines = $text -split "`r?`n"
+    $normalized = foreach ($line in $lines) {
+        $clean = $line
+        if ($clean -match $replacementChar) {
+            $clean = $clean -replace "$replacementChar+", "="
+            $clean = $clean -replace '=+\s*(\d+%)', '= $1'
+        }
+        $clean.TrimEnd()
+    }
+    return ($normalized -join "`n").TrimEnd()
 }
 
 function Status-Row($label, $ok, $okText, $failText) {
@@ -368,6 +400,14 @@ $PsVerStr = $PSVersionTable.PSVersion.ToString()
 $WinInfo = ""
 try { $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue; if ($os) { $WinInfo = "$($os.Caption) (Build $($os.BuildNumber))" } } catch {}
 if (-not $WinInfo) { $WinInfo = [System.Environment]::OSVersion.VersionString }
+$OperatorName = $env:USERNAME
+$UserAccount = if ($env:USERDOMAIN) { "$($env:USERDOMAIN)\$($env:USERNAME)" } else { $env:USERNAME }
+$MachineName = $env:COMPUTERNAME
+$NetworkHostName = $MachineName
+try {
+    $hostEntry = [System.Net.Dns]::GetHostEntry($MachineName)
+    if ($hostEntry -and $hostEntry.HostName) { $NetworkHostName = $hostEntry.HostName }
+} catch {}
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  1. Выбор .hex
@@ -376,11 +416,13 @@ if (-not $WinInfo) { $WinInfo = [System.Environment]::OSVersion.VersionString }
 Write-Step "1" (T "StepSearchHex")
 $TargetHex = ""
 $HexName   = ""
+$AutoFlash = $false
 
 if ($HexFile) {
     if ($HexFile -match '(?i)\.hex$') {
         $TargetHex = $HexFile
         $HexName = Split-Path -Leaf $HexFile
+        $AutoFlash = $true
         Write-Info "$(T 'Selected')$HexName"
     } else {
         Write-Warn "$(T 'InvalidHexFile')$HexFile"
@@ -392,14 +434,22 @@ if (-not $TargetHex) {
     $HexFiles = @(Get-ChildItem -LiteralPath $CurrentDir -Filter "*.hex" -ErrorAction SilentlyContinue)
     if ($HexFiles.Count -eq 0) { Write-Err (T "ErrNoHex"); Start-Sleep -Seconds 3; exit 1 }
 
-    Write-Host "   $(T 'ListAvailable')"
-    $i = 1; foreach ($f in $HexFiles) { Write-Host "     [$i] $($f.Name)"; $i++ }
-    $choice = Read-Host "`n   $(T 'PromptChoose')"
-    $idx = [int]$choice - 1
-    if ($idx -lt 0 -or $idx -ge $HexFiles.Count) { Write-Err (T "ErrBadChoice"); Start-Sleep -Seconds 3; exit 1 }
+    if ($HexFiles.Count -eq 1) {
+        $TargetHex = $HexFiles[0].FullName
+        $HexName   = $HexFiles[0].Name
+        $AutoFlash = $true
+    } else {
+        Write-Host "   $(T 'ListAvailable')"
+        $i = 1; foreach ($f in $HexFiles) { Write-Host "     [$i] $($f.Name)"; $i++ }
+        $choice = Read-Host "`n   $(T 'PromptChoose')"
+        $parsedChoice = 0
+        if (-not [int]::TryParse($choice, [ref]$parsedChoice)) { Write-Err (T "ErrBadChoice"); Start-Sleep -Seconds 3; exit 1 }
+        $idx = $parsedChoice - 1
+        if ($idx -lt 0 -or $idx -ge $HexFiles.Count) { Write-Err (T "ErrBadChoice"); Start-Sleep -Seconds 3; exit 1 }
 
-    $TargetHex = $HexFiles[$idx].FullName
-    $HexName   = $HexFiles[$idx].Name
+        $TargetHex = $HexFiles[$idx].FullName
+        $HexName   = $HexFiles[$idx].Name
+    }
     Write-Info "$(T 'Selected')$HexName"
 }
 
@@ -451,11 +501,16 @@ if (-not $SelectedEngine) {
 
     if ($Opts.Count -eq 1) {
         $SelectedEngine = "OPENOCD"
+    } elseif ($AutoFlash) {
+        $PreferredCubeProg = $Opts | Where-Object { $_.Value -ne "OPENOCD" } | Select-Object -First 1
+        if ($PreferredCubeProg) { $SelectedEngine = $PreferredCubeProg.Value } else { $SelectedEngine = "OPENOCD" }
     } else {
         Write-Host "   $(T 'FoundEngines')" -ForegroundColor Yellow
         for ($k=0; $k -lt $Opts.Count; $k++) { Write-Host "     [$($k+1)] $($Opts[$k].Label)" }
         $ans = Read-Host "   $(T 'PromptChooseEng')"
-        $idx = [int]$ans - 1
+        $parsedEngineChoice = 0
+        if (-not [int]::TryParse($ans, [ref]$parsedEngineChoice)) { $parsedEngineChoice = 1 }
+        $idx = $parsedEngineChoice - 1
         if ($idx -ge 0 -and $idx -lt $Opts.Count) { $SelectedEngine = $Opts[$idx].Value } else { $SelectedEngine = "OPENOCD" }
     }
     try { Set-Content -LiteralPath $EngineCfgPath -Value $SelectedEngine -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
@@ -490,6 +545,13 @@ if ($SelectedEngine -eq "OPENOCD") {
     $SavedTargetCfg = Join-Path $CurrentDir ".openocd_target"
     if (Test-Path -LiteralPath $SavedTargetCfg) { $TargetCfg = (Get-Content -LiteralPath $SavedTargetCfg -TotalCount 1).Trim() }
     if ($Target) { $TargetCfg = $Target }
+    if ($TargetCfg) {
+        $TargetCfgPath = Join-Path $OpenOcdScripts ($TargetCfg -replace '/','\')
+        if (-not (Test-Path -LiteralPath $TargetCfgPath -PathType Leaf)) {
+            Write-Warn (T 'InvalidTarget')
+            $TargetCfg = ""
+        }
+    }
 
     if (-not $TargetCfg) {
         $Roots = @( $CurrentDir, (Split-Path $CurrentDir -Parent -ErrorAction SilentlyContinue), (Split-Path (Split-Path $CurrentDir -Parent -ErrorAction SilentlyContinue) -Parent -ErrorAction SilentlyContinue) ) | Where-Object { $_ } | Select-Object -Unique
@@ -509,6 +571,14 @@ if ($SelectedEngine -eq "OPENOCD") {
         Write-Host "   [?] $(T 'NoTargetDef')" -ForegroundColor Yellow -NoNewline
         $TargetCfg = Read-Host
     }
+    if ($TargetCfg) {
+        $TargetCfgPath = Join-Path $OpenOcdScripts ($TargetCfg -replace '/','\')
+        if (-not (Test-Path -LiteralPath $TargetCfgPath -PathType Leaf)) {
+            Write-Err (T 'InvalidTarget')
+            Start-Sleep -Seconds 3
+            exit 1
+        }
+    }
     try { Set-Content -LiteralPath $SavedTargetCfg -Value $TargetCfg -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 
     Write-Host "   $(T 'EngineOpenOCDCfg')$TargetCfg)" -ForegroundColor Cyan
@@ -525,7 +595,9 @@ if ($SelectedEngine -eq "OPENOCD") {
     $ExeArgs = @("-c", "port=SWD", "-w", $TargetHex, "-v", "-rst")
 }
 
-Write-Host "   $(T 'Flashing')"
+if (-not $Silent) {
+    Write-Host "   $(T 'Flashing')"
+}
 
 if ($DryRun) {
     Write-Warn (T 'DryRunSimulating')
@@ -545,6 +617,7 @@ $stderr     = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinu
 if (-not $DryRun) {
     $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
 }
+$LogContent = Normalize-ToolLog $LogContent
 
 Remove-Item -LiteralPath $LogStd, $LogErr -ErrorAction SilentlyContinue
 $LogContent | Set-Content -LiteralPath $LogFile -Encoding UTF8
@@ -597,7 +670,9 @@ if ($Success) {
 #  6. HTML-отчёт
 # ══════════════════════════════════════════════════════════════════════════════
 
-$Timestamp  = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$NowLocal   = [DateTimeOffset]::Now
+$NowUtc     = $NowLocal.ToUniversalTime()
+$Timestamp  = "$(T 'ReportTimeLocal'): $($NowLocal.ToString('yyyy-MM-dd HH:mm:ss zzz')) | $(T 'ReportTimeUtc'): $($NowUtc.ToString('yyyy-MM-dd HH:mm:ss ''UTC'''))"
 $ResultBg   = if ($Success) { "#d1f0de" } else { "#fde8e8" }
 $ResultFg   = if ($Success) { "#0f5c2e" } else { "#7a1c1c" }
 $ResultIcon = if ($Success) { "&#10003;" } else { "&#10007;" }
@@ -643,6 +718,10 @@ $EnvCore   = if ($McuCore)        { Escape-Html $McuCore }         else { "<em c
 $EnvFamily = if ($McuFamily)      { "<strong>$(Escape-Html $McuFamily)</strong>" }    else { "<em class='na'>—</em>" }
 $EnvDevId  = if ($McuDevId)       { "<code>$(Escape-Html $McuDevId)</code>" }         else { "<em class='na'>—</em>" }
 $EnvFlash  = if ($McuFlash)       { Escape-Html $McuFlash }        else { "<em class='na'>—</em>" }
+$EnvOperator = if ($OperatorName) { Escape-Html $OperatorName } else { "<em class='na'>—</em>" }
+$EnvUserAccount = if ($UserAccount) { Escape-Html $UserAccount } else { "<em class='na'>—</em>" }
+$EnvMachine = if ($MachineName) { Escape-Html $MachineName } else { "<em class='na'>—</em>" }
+$EnvNetworkHost = if ($NetworkHostName) { Escape-Html $NetworkHostName } else { "<em class='na'>—</em>" }
 $EnvWin    = Escape-Html $WinInfo
 $EnvPs     = Escape-Html $PsVerStr
 
@@ -713,6 +792,10 @@ $BuildInfoSection
     <h2>&#128187; $(T 'Scheme')</h2>
     <table>
       <tr class="sh"><th colspan="2">$(T 'Host')</th></tr>
+      <tr><th>$(T 'Operator')</th><td>$EnvOperator</td></tr>
+      <tr><th>$(T 'UserAccount')</th><td>$EnvUserAccount</td></tr>
+      <tr><th>$(T 'Machine')</th><td>$EnvMachine</td></tr>
+      <tr><th>$(T 'NetworkHost')</th><td>$EnvNetworkHost</td></tr>
       <tr><th>$(T 'OS')</th><td>$EnvWin</td></tr>
       <tr><th>$(T 'PowerShell')</th><td>$EnvPs</td></tr>
       <tr><th>$(T 'FlashEngine')</th><td>$EnvTool</td></tr>
@@ -736,4 +819,6 @@ $ChangelogSection
 "@
 
 Set-Content -LiteralPath $HtmlReport -Value $HtmlContent -Encoding UTF8
-Invoke-Item $HtmlReport
+if (-not $Success) {
+    Invoke-Item $HtmlReport
+}
