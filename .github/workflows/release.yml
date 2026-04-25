@@ -81,12 +81,31 @@ jobs:
           "archive=$archivePath" >> $env:GITHUB_OUTPUT
           "checksum=$checksumPath" >> $env:GITHUB_OUTPUT
 
+      - name: Extract release notes from changelog
+        id: notes
+        shell: pwsh
+        run: |
+          $version = '${{ steps.meta.outputs.version }}'
+          $changelogPath = Join-Path $PWD 'CHANGELOG.md'
+          $bodyPath = Join-Path (Join-Path $PWD 'dist') "release-notes-$version.md"
+          $content = Get-Content -LiteralPath $changelogPath -Raw -Encoding UTF8
+
+          $pattern = "(?ms)^## \[$([regex]::Escape($version))\] - .+?(?=^## \[|\z)"
+          $match = [regex]::Match($content, $pattern)
+          if (-not $match.Success) {
+            throw "Could not find changelog section for version $version"
+          }
+
+          $body = $match.Value.Trim()
+          Set-Content -LiteralPath $bodyPath -Encoding UTF8 -Value $body
+          "body=$bodyPath" >> $env:GITHUB_OUTPUT
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: stm32-flasher ${{ steps.meta.outputs.version }}
-          generate_release_notes: true
+          body_path: ${{ steps.notes.outputs.body }}
           files: |
             ${{ steps.package.outputs.archive }}
             ${{ steps.package.outputs.checksum }}
