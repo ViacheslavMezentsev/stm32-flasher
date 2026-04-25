@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - codex-fix-flash-cmd-fragility
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Script And Docs
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate required files
+        shell: pwsh
+        run: |
+          $required = @(
+            'flash.cmd',
+            'README.md',
+            'LICENSE',
+            'Инструкция по использованию stm32-flasher.md'
+          )
+
+          $missing = $required | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) }
+          if ($missing) {
+            throw "Missing required files: $($missing -join ', ')"
+          }
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $errors = $null
+          $tokens = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'flash.cmd'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            throw "PowerShell syntax validation failed."
+          }
+
+      - name: Validate script version format
+        shell: pwsh
+        run: |
+          $content = Get-Content -LiteralPath 'flash.cmd' -Raw -Encoding UTF8
+          if ($content -notmatch '\$VERSION\s*=\s*"(\d+)\.(\d+)\.(\d+)"') {
+            throw 'Version string not found or not in Major.Minor.Patch format.'
+          }
+          Write-Host "Detected script version $($Matches[1]).$($Matches[2]).$($Matches[3])"
