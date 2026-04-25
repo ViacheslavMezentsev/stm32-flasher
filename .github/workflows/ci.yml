@@ -27,6 +27,7 @@ jobs:
             'flash.cmd',
             'README.md',
             'LICENSE',
+            'CHANGELOG.md',
             'Инструкция по использованию stm32-flasher.md'
           )
 
