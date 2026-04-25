@@ -15,7 +15,6 @@ goto end
 powershell -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %*
 
 :end
-pause
 exit /b
 #>
 param(
@@ -33,7 +32,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "1.0.0"
+$VERSION = "0.2.1"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Встроенные словари локализации (RU / EN)
@@ -62,7 +61,7 @@ $LangRu = @{
     EngineOpenOCDCfg    = "Движок: OpenOCD (Конфиг: "
     EngineCubeProgName  = "Движок: STM32CubeProgrammer"
     AutoDetectMcu       = "Автоопределение семейства микроконтроллера включено (через DAP)."
-    Flashing            = "Прошивка... Пожалуйста, подождите 10-15 секунд."
+    Flashing            = "Прошивка..."
     TargetFoundIoc      = "Таргет найден в .ioc"
     NoTargetDef         = "Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg):"
     OkSuccess           = "УСПЕШНО! Прошивка загружена и проверена."
@@ -77,6 +76,7 @@ $LangRu = @{
     Build               = "Сборка"
     Scheme              = "Схема прошивки"
     Host                = "Хост"
+    ScriptVersion       = "Версия скрипта"
     Operator            = "Оператор"
     UserAccount         = "Учётная запись"
     Machine             = "Машина"
@@ -102,6 +102,8 @@ $LangRu = @{
     VerPassed           = "Пройдена"
     VerFailed           = "Провалена"
     ExitCode            = "Код выхода утилиты"
+    OperationDuration   = "Длительность операции"
+    ConsoleDuration     = "Общее время"
     ExitSuccess         = "0 (успех)"
     ExitError           = "(ошибка)"
     SuccessMsg          = "Прошивка завершена успешно"
@@ -140,7 +142,7 @@ $LangEn = @{
     EngineOpenOCDCfg    = "Engine: OpenOCD (Config: "
     EngineCubeProgName  = "Engine: STM32CubeProgrammer"
     AutoDetectMcu       = "Microcontroller auto-detection enabled (via DAP)."
-    Flashing            = "Flashing... Please wait 10-15 seconds."
+    Flashing            = "Flashing..."
     TargetFoundIoc      = "Target found in .ioc"
     NoTargetDef         = "Could not determine family. Enter config name (e.g., target/stm32f4x.cfg):"
     OkSuccess           = "SUCCESS! Firmware loaded and verified."
@@ -155,6 +157,7 @@ $LangEn = @{
     Build               = "Build"
     Scheme              = "Flash Scheme"
     Host                = "Host"
+    ScriptVersion       = "Script Version"
     Operator            = "Operator"
     UserAccount         = "User Account"
     Machine             = "Machine"
@@ -180,6 +183,8 @@ $LangEn = @{
     VerPassed           = "Passed"
     VerFailed           = "Failed"
     ExitCode            = "Utility Exit Code"
+    OperationDuration   = "Operation Duration"
+    ConsoleDuration     = "Total Time"
     ExitSuccess         = "0 (success)"
     ExitError           = "(error)"
     SuccessMsg          = "Flashing completed successfully"
@@ -276,7 +281,7 @@ if ($Input -and -not $HexFile -and $Input -notin @('ru','en')) {
 
 if (-not $Silent) {
     Write-Host "===================================================" -ForegroundColor Cyan
-    Write-Host "  $(T 'BannerTitle')" -ForegroundColor Cyan
+    Write-Host "  $(T 'BannerTitle') v$VERSION" -ForegroundColor Cyan
     Write-Host "===================================================" -ForegroundColor Cyan
 }
 
@@ -599,6 +604,7 @@ if (-not $Silent) {
     Write-Host "   $(T 'Flashing')"
 }
 
+$FlashTimer = [System.Diagnostics.Stopwatch]::StartNew()
 if ($DryRun) {
     Write-Warn (T 'DryRunSimulating')
     Start-Sleep -Seconds 2
@@ -611,6 +617,8 @@ if ($DryRun) {
 } else {
     $process = Start-Process -FilePath $ExePath -ArgumentList $ExeArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
 }
+$FlashTimer.Stop()
+$OperationDuration = $FlashTimer.Elapsed.ToString("hh\:mm\:ss\.fff")
 
 $stdout     = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
 $stderr     = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
@@ -661,8 +669,10 @@ $Success = $IsStlinkFound -and $IsProgrammed -and $IsVerified -and $ExitOk
 
 if ($Success) {
     Write-Ok (T "OkSuccess")
+    Write-Info "$(T 'ConsoleDuration'): $OperationDuration"
 } else {
     Write-Err "$(T 'ErrFailed')$($process.ExitCode)"
+    Write-Info "$(T 'ConsoleDuration'): $OperationDuration"
     Write-Info (T "OpeningReport")
 }
 
@@ -724,6 +734,7 @@ $EnvMachine = if ($MachineName) { Escape-Html $MachineName } else { "<em class='
 $EnvNetworkHost = if ($NetworkHostName) { Escape-Html $NetworkHostName } else { "<em class='na'>—</em>" }
 $EnvWin    = Escape-Html $WinInfo
 $EnvPs     = Escape-Html $PsVerStr
+$EnvScriptVersion = Escape-Html $VERSION
 
 $LogHtml = Escape-Html $LogContent
 $ProjectTitle = if ($BuildInfo["Project"]) { Escape-Html $BuildInfo["Project"] } else { Escape-Html ($HexName -replace '\.hex$','') }
@@ -749,8 +760,12 @@ $HtmlContent = @"
     table { width: 100%; border-collapse: collapse; font-size: .86rem; }
     th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
     th { background: #f8f9fa; font-weight: 600; color: #495057; white-space: nowrap; width: 44%; }
+    tr:nth-child(even) th, tr:nth-child(even) td { background: #fcfcfd; }
     tr:last-child th, tr:last-child td { border-bottom: none; }
-    .sh th { background: #e9ecef !important; color: #6c757d; font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; }
+    .sh th { color: #6c757d; font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; }
+    .sh-host th { background: #e7f1ff !important; color: #355070; }
+    .sh-programmer th { background: #eafaf1 !important; color: #2d6a4f; }
+    .sh-mcu th { background: #fff4e6 !important; color: #9c6644; }
     .ok   { color: #198754; font-weight: 600; }
     .err  { color: #dc3545; font-weight: 600; }
     .warn { color: #856404; font-weight: 500; }
@@ -783,6 +798,7 @@ $HtmlContent = @"
         $(Status-Row (T 'StLinkDetected')  $IsStlinkFound (T 'Yes')           (T 'No'))
         $(Status-Row (T 'FlashWrite')      $IsProgrammed  (T 'WriteCompleted') (T 'WriteError'))
         $(Status-Row (T 'Verification')    $IsVerified    (T 'VerPassed')      (T 'VerFailed'))
+        <tr><th>$(T 'OperationDuration')</th><td><code>$OperationDuration</code></td></tr>
         $(Status-Row (T 'ExitCode')        $ExitOk        (T 'ExitSuccess')    "$($process.ExitCode) $(T 'ExitError')")
       </table>
     </div>
@@ -791,18 +807,19 @@ $BuildInfoSection
   <div class="card">
     <h2>&#128187; $(T 'Scheme')</h2>
     <table>
-      <tr class="sh"><th colspan="2">$(T 'Host')</th></tr>
+      <tr class="sh sh-host"><th colspan="2">$(T 'Host')</th></tr>
       <tr><th>$(T 'Operator')</th><td>$EnvOperator</td></tr>
       <tr><th>$(T 'UserAccount')</th><td>$EnvUserAccount</td></tr>
       <tr><th>$(T 'Machine')</th><td>$EnvMachine</td></tr>
       <tr><th>$(T 'NetworkHost')</th><td>$EnvNetworkHost</td></tr>
+      <tr><th>$(T 'ScriptVersion')</th><td><code>$EnvScriptVersion</code></td></tr>
       <tr><th>$(T 'OS')</th><td>$EnvWin</td></tr>
       <tr><th>$(T 'PowerShell')</th><td>$EnvPs</td></tr>
       <tr><th>$(T 'FlashEngine')</th><td>$EnvTool</td></tr>
-      <tr class="sh"><th colspan="2">$(T 'Programmer')</th></tr>
+      <tr class="sh sh-programmer"><th colspan="2">$(T 'Programmer')</th></tr>
       <tr><th>$(T 'StLink')</th><td>$EnvStlink</td></tr>
       <tr><th>$(T 'TargetVoltage')</th><td>$EnvVolt</td></tr>
-      <tr class="sh"><th colspan="2">$(T 'Mcu')</th></tr>
+      <tr class="sh sh-mcu"><th colspan="2">$(T 'Mcu')</th></tr>
       <tr><th>$(T 'Family')</th><td>$EnvFamily</td></tr>
       <tr><th>$(T 'Core')</th><td>$EnvCore</td></tr>
       <tr><th>$(T 'DeviceId')</th><td>$EnvDevId</td></tr>
