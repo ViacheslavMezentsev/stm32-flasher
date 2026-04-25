@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and the project uses semantic versioning in `Major.Minor.Patch` form while it is still in active development.
 
+## [0.2.2] - 2026-04-25
+
+### Added
+- Added `CHANGELOG.md` to the repository and release package.
+- Added a separate `.sha256` checksum file to release assets.
+
+### Changed
+- Updated CI to require `CHANGELOG.md` as part of the tracked release documentation set.
+- Updated the release workflow to package changelog and publish checksum assets alongside the zip archive.
+
 ## [0.2.1] - 2026-04-25
 
 ### Added
