@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and the project uses semantic versioning in `Major.Minor.Patch` form while it is still in active development.
 
+## [0.2.4] - 2026-05-13
+
+### Added
+- Added `st-info`-based STM32 detection for OpenOCD target auto-selection.
+- Added support for choosing a specific ST-Link when multiple programmers are connected.
+- Added `-Serial` parameter to select a programmer by its serial number.
+- Added persistence of the selected programmer in `.stlink_serial`.
+
+### Changed
+- Updated OpenOCD flashing to bind to the selected ST-Link instead of using the first matching device.
+- Added automatic OpenOCD serial-format fallback for Windows setups where plain serial matching is rejected.
+- Updated README and Russian usage guide to document multi-probe selection and `st-info` behavior.
+
 ## [0.2.3] - 2026-04-25
 
 ### Changed
