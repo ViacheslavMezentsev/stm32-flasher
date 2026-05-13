@@ -52,17 +52,26 @@ $LangRu = @{
     InvalidTarget       = "Неверный параметр Target. Будет выбран автоматически."
     StepSelectEngine    = "Определение движка прошивки..."
     SearchCubeProg      = "Поиск STM32CubeProgrammer..."
+    SearchStLinkInfo    = "Поиск st-info..."
     FoundEngines        = "Найдено несколько утилит прошивки:"
     EngineOpenOCD       = "OpenOCD (Встроенный/Автоматический)"
     EngineCubeProg      = "CubeProgrammer"
     StepPrepareOpenOCD  = "Подготовка OpenOCD..."
     DownloadOpenOCD     = "Скачивание OpenOCD с GitHub (~5 MB)..."
+    DownloadStLink      = "Скачивание stlink tools с GitHub (~1 MB)..."
     StepPrepareCubeProg = "Подготовка CubeProgrammer..."
     EngineOpenOCDCfg    = "Движок: OpenOCD (Конфиг: "
     EngineCubeProgName  = "Движок: STM32CubeProgrammer"
     AutoDetectMcu       = "Автоопределение семейства микроконтроллера включено (через DAP)."
     Flashing            = "Прошивка..."
     TargetFoundIoc      = "Таргет найден в .ioc"
+    TargetFoundProbe    = "Таргет определён через st-info"
+    ProbeSkippedMulti   = "Найдено несколько ST-Link. Автоопределение таргета через st-info пока пропущено."
+    ProbeUnavailable    = "st-info недоступен. Продолжаю стандартное определение таргета."
+    ProbeFoundCount     = "st-info: найдено программаторов"
+    ProbeChipId         = "st-info: chipid"
+    ProbeNoChipId       = "st-info: chipid не распознан"
+    ProbeNoTarget       = "st-info не смог сопоставить chipid с target OpenOCD"
     NoTargetDef         = "Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg):"
     OkSuccess           = "УСПЕШНО! Прошивка загружена и проверена."
     ErrFailed           = "Что-то пошло не так. Exit code: "
@@ -133,17 +142,26 @@ $LangEn = @{
     InvalidTarget       = "Invalid Target parameter. It will be selected automatically."
     StepSelectEngine    = "Determining flashing engine..."
     SearchCubeProg      = "Searching for STM32CubeProgrammer..."
+    SearchStLinkInfo    = "Searching for st-info..."
     FoundEngines        = "Multiple flashing utilities found:"
     EngineOpenOCD       = "OpenOCD (Built-in/Automatic)"
     EngineCubeProg      = "CubeProgrammer"
     StepPrepareOpenOCD  = "Preparing OpenOCD..."
     DownloadOpenOCD     = "Downloading OpenOCD from GitHub (~5 MB)..."
+    DownloadStLink      = "Downloading stlink tools from GitHub (~1 MB)..."
     StepPrepareCubeProg = "Preparing CubeProgrammer..."
     EngineOpenOCDCfg    = "Engine: OpenOCD (Config: "
     EngineCubeProgName  = "Engine: STM32CubeProgrammer"
     AutoDetectMcu       = "Microcontroller auto-detection enabled (via DAP)."
     Flashing            = "Flashing..."
     TargetFoundIoc      = "Target found in .ioc"
+    TargetFoundProbe    = "Target resolved via st-info"
+    ProbeSkippedMulti   = "Multiple ST-Link devices found. Target auto-detection via st-info is skipped for now."
+    ProbeUnavailable    = "st-info is unavailable. Falling back to standard target detection."
+    ProbeFoundCount     = "st-info: programmers found"
+    ProbeChipId         = "st-info: chipid"
+    ProbeNoChipId       = "st-info: chipid not recognized"
+    ProbeNoTarget       = "st-info could not map chipid to an OpenOCD target"
     NoTargetDef         = "Could not determine family. Enter config name (e.g., target/stm32f4x.cfg):"
     OkSuccess           = "SUCCESS! Firmware loaded and verified."
     ErrFailed           = "Something went wrong. Exit code: "
@@ -356,7 +374,7 @@ function Parse-BuildInfo($path) {
 function Get-Stm32Family($deviceIdHex) {
     if (-not $deviceIdHex) { return $null }
     $raw = $deviceIdHex -replace '^0x',''
-    try { $id = [Convert]::ToInt64($raw, 16) -band 0xFFF } catch { return $null }
+    try { $id = [int](([Convert]::ToInt64($raw, 16)) -band 0xFFF) } catch { return $null }
 
     $table = @{
         0x440="STM32F030x8"; 0x442="STM32F09x"; 0x444="STM32F030x4/6"; 0x445="STM32F04x/F070x6"; 0x448="STM32F07x/F070xB";
@@ -385,6 +403,95 @@ function Invoke-Download($url, $outFile) {
     throw "$(T 'DownloadFailed')$url$(T 'DownloadWhere')$ToolDir"
 }
 
+function Find-StInfoExe() {
+    $candidates = @()
+
+    try {
+        $cmd = Get-Command "st-info.exe" -ErrorAction Stop
+        if ($cmd -and $cmd.Source) { $candidates += $cmd.Source }
+    } catch {}
+
+    if ($env:USERPROFILE) {
+        $candidates += (Join-Path $env:USERPROFILE "scoop\apps\stlink\current\bin\st-info.exe")
+    }
+
+    $candidates += @(
+        "C:\Program Files (x86)\stlink\bin\st-info.exe",
+        "C:\Program Files\stlink\bin\st-info.exe"
+    )
+
+    $stlinkToolRoot = Join-Path $ToolDir "stlink"
+    if (Test-Path -LiteralPath $stlinkToolRoot) {
+        $found = Get-ChildItem -Path $stlinkToolRoot -Recurse -Filter "st-info.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) { $candidates += $found.FullName }
+    }
+
+    foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Ensure-StInfoExe() {
+    $stInfoExe = Find-StInfoExe
+    if ($stInfoExe) { return $stInfoExe }
+
+    Write-Warn (T "DownloadStLink")
+    $stlinkToolRoot = Join-Path $ToolDir "stlink"
+    $stlinkZip = Join-Path $ToolDir "stlink.zip"
+
+    New-Item -ItemType Directory -Force -Path $stlinkToolRoot | Out-Null
+    Invoke-Download $StLinkUrl $stlinkZip
+    Expand-Archive -Path $stlinkZip -DestinationPath $stlinkToolRoot -Force
+    Remove-Item -LiteralPath $stlinkZip -ErrorAction SilentlyContinue
+
+    $stInfoExe = Find-StInfoExe
+    if ($stInfoExe) { return $stInfoExe }
+
+    throw "st-info.exe was not found after extracting stlink tools."
+}
+
+function Get-OpenOcdTargetFromDeviceId($deviceIdHex) {
+    $family = Get-Stm32Family $deviceIdHex
+    if (-not $family) { return $null }
+
+    if ($family -like 'STM32WB*') { return 'target/stm32wbx.cfg' }
+    if ($family -like 'STM32WL*') { return 'target/stm32wlx.cfg' }
+    if ($family -match '^STM32([FHGUL])(\d)') { return "target/stm32$($Matches[1].ToLower())$($Matches[2])x.cfg" }
+
+    return $null
+}
+
+function Get-StInfoProbeInfo($stInfoExe) {
+    $probeText = (& $stInfoExe --probe 2>&1 | Out-String).Trim()
+    $probeCount = 0
+    if ($probeText -match 'Found\s+(\d+)\s+stlink programmers') {
+        $probeCount = [int]$Matches[1]
+    }
+
+    $chipIdHex = $null
+    $serial = $null
+    if ($probeCount -eq 1) {
+        if ($probeText -match 'serial:\s*([0-9A-Fa-f]+)') { $serial = $Matches[1] }
+        if ($probeText -match 'chipid:\s*(0x[\da-fA-F]+)') { $chipIdHex = $Matches[1] }
+    }
+
+    $family = if ($chipIdHex) { Get-Stm32Family $chipIdHex } else { $null }
+    $targetCfg = if ($chipIdHex) { Get-OpenOcdTargetFromDeviceId $chipIdHex } else { $null }
+
+    return [PSCustomObject]@{
+        Count = $probeCount
+        Serial = $serial
+        ChipIdHex = $chipIdHex
+        Family = $family
+        TargetCfg = $targetCfg
+        Output = $probeText
+    }
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Пути и окружение
 # ══════════════════════════════════════════════════════════════════════════════
@@ -400,6 +507,7 @@ $HtmlReport     = Join-Path $CurrentDir "report.html"
 $OpenOcdUrl     = "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-3/xpack-openocd-0.12.0-3-win32-x64.zip"
 $OpenOcdZip     = Join-Path $ToolDir "openocd.zip"
 $OpenOcdExe     = Join-Path $ToolDir "xpack-openocd-0.12.0-3\bin\openocd.exe"
+$StLinkUrl      = "https://github.com/stlink-org/stlink/releases/download/v1.8.0/stlink-1.8.0-win32.zip"
 
 $PsVerStr = $PSVersionTable.PSVersion.ToString()
 $WinInfo = ""
@@ -555,6 +663,29 @@ if ($SelectedEngine -eq "OPENOCD") {
         if (-not (Test-Path -LiteralPath $TargetCfgPath -PathType Leaf)) {
             Write-Warn (T 'InvalidTarget')
             $TargetCfg = ""
+        }
+    }
+
+    if (-not $TargetCfg) {
+        Write-Info (T "SearchStLinkInfo")
+        try {
+            $stInfoExe = Ensure-StInfoExe
+            $probeInfo = Get-StInfoProbeInfo $stInfoExe
+            Write-Info "$(T 'ProbeFoundCount'): $($probeInfo.Count)"
+            if ($probeInfo.Count -eq 1 -and $probeInfo.TargetCfg) {
+                Write-Info "$(T 'ProbeChipId'): $($probeInfo.ChipIdHex)"
+                $TargetCfg = $probeInfo.TargetCfg
+                Write-Info "$(T 'TargetFoundProbe'): $($probeInfo.ChipIdHex) -> $($probeInfo.Family) -> $($probeInfo.TargetCfg)"
+            } elseif ($probeInfo.Count -eq 1 -and $probeInfo.ChipIdHex) {
+                Write-Info "$(T 'ProbeChipId'): $($probeInfo.ChipIdHex)"
+                Write-Warn "$(T 'ProbeNoTarget'): $($probeInfo.Family)"
+            } elseif ($probeInfo.Count -eq 1) {
+                Write-Warn (T "ProbeNoChipId")
+            } elseif ($probeInfo.Count -gt 1) {
+                Write-Warn (T "ProbeSkippedMulti")
+            }
+        } catch {
+            Write-Warn (T "ProbeUnavailable")
         }
     }
 
