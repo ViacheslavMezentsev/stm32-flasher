@@ -23,6 +23,7 @@ param(
     [string]$HexFile = "",
     [string]$Engine = "",
     [string]$Target = "",
+    [string]$Serial = "",
     [switch]$Silent,
     [switch]$DryRun
 )
@@ -32,7 +33,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "0.2.3"
+$VERSION = "0.2.4"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Встроенные словари локализации (RU / EN)
@@ -52,17 +53,32 @@ $LangRu = @{
     InvalidTarget       = "Неверный параметр Target. Будет выбран автоматически."
     StepSelectEngine    = "Определение движка прошивки..."
     SearchCubeProg      = "Поиск STM32CubeProgrammer..."
+    SearchStLinkInfo    = "Поиск st-info..."
     FoundEngines        = "Найдено несколько утилит прошивки:"
     EngineOpenOCD       = "OpenOCD (Встроенный/Автоматический)"
     EngineCubeProg      = "CubeProgrammer"
     StepPrepareOpenOCD  = "Подготовка OpenOCD..."
     DownloadOpenOCD     = "Скачивание OpenOCD с GitHub (~5 MB)..."
+    DownloadStLink      = "Скачивание stlink tools с GitHub (~1 MB)..."
     StepPrepareCubeProg = "Подготовка CubeProgrammer..."
     EngineOpenOCDCfg    = "Движок: OpenOCD (Конфиг: "
     EngineCubeProgName  = "Движок: STM32CubeProgrammer"
     AutoDetectMcu       = "Автоопределение семейства микроконтроллера включено (через DAP)."
     Flashing            = "Прошивка..."
     TargetFoundIoc      = "Таргет найден в .ioc"
+    TargetFoundProbe    = "Таргет определён через st-info"
+    ProbeSkippedMulti   = "Найдено несколько ST-Link. Автоопределение таргета через st-info пока пропущено."
+    ProbeUnavailable    = "st-info недоступен. Продолжаю стандартное определение таргета."
+    ProbeFoundCount     = "st-info: найдено программаторов"
+    ProbeChipId         = "st-info: chipid"
+    ProbeNoChipId       = "st-info: chipid не распознан"
+    ProbeNoTarget       = "st-info не смог сопоставить chipid с target OpenOCD"
+    PromptChooseProbe   = "Выберите ST-Link"
+    SelectedProbe       = "Выбран программатор"
+    ProbeSerial         = "Серийный номер"
+    ProbeFamily         = "Тип МК"
+    InvalidSerial       = "Указанный ST-Link serial не найден. Возвращаюсь к выбору..."
+    RetryProbeSerial    = "OpenOCD не принял serial в текстовом виде, повторяю с байтовым форматом"
     NoTargetDef         = "Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg):"
     OkSuccess           = "УСПЕШНО! Прошивка загружена и проверена."
     ErrFailed           = "Что-то пошло не так. Exit code: "
@@ -133,17 +149,32 @@ $LangEn = @{
     InvalidTarget       = "Invalid Target parameter. It will be selected automatically."
     StepSelectEngine    = "Determining flashing engine..."
     SearchCubeProg      = "Searching for STM32CubeProgrammer..."
+    SearchStLinkInfo    = "Searching for st-info..."
     FoundEngines        = "Multiple flashing utilities found:"
     EngineOpenOCD       = "OpenOCD (Built-in/Automatic)"
     EngineCubeProg      = "CubeProgrammer"
     StepPrepareOpenOCD  = "Preparing OpenOCD..."
     DownloadOpenOCD     = "Downloading OpenOCD from GitHub (~5 MB)..."
+    DownloadStLink      = "Downloading stlink tools from GitHub (~1 MB)..."
     StepPrepareCubeProg = "Preparing CubeProgrammer..."
     EngineOpenOCDCfg    = "Engine: OpenOCD (Config: "
     EngineCubeProgName  = "Engine: STM32CubeProgrammer"
     AutoDetectMcu       = "Microcontroller auto-detection enabled (via DAP)."
     Flashing            = "Flashing..."
     TargetFoundIoc      = "Target found in .ioc"
+    TargetFoundProbe    = "Target resolved via st-info"
+    ProbeSkippedMulti   = "Multiple ST-Link devices found. Target auto-detection via st-info is skipped for now."
+    ProbeUnavailable    = "st-info is unavailable. Falling back to standard target detection."
+    ProbeFoundCount     = "st-info: programmers found"
+    ProbeChipId         = "st-info: chipid"
+    ProbeNoChipId       = "st-info: chipid not recognized"
+    ProbeNoTarget       = "st-info could not map chipid to an OpenOCD target"
+    PromptChooseProbe   = "Select ST-Link"
+    SelectedProbe       = "Selected programmer"
+    ProbeSerial         = "Serial"
+    ProbeFamily         = "MCU"
+    InvalidSerial       = "Specified ST-Link serial was not found. Falling back to selection..."
+    RetryProbeSerial    = "OpenOCD did not accept the plain serial, retrying with byte format"
     NoTargetDef         = "Could not determine family. Enter config name (e.g., target/stm32f4x.cfg):"
     OkSuccess           = "SUCCESS! Firmware loaded and verified."
     ErrFailed           = "Something went wrong. Exit code: "
@@ -356,7 +387,7 @@ function Parse-BuildInfo($path) {
 function Get-Stm32Family($deviceIdHex) {
     if (-not $deviceIdHex) { return $null }
     $raw = $deviceIdHex -replace '^0x',''
-    try { $id = [Convert]::ToInt64($raw, 16) -band 0xFFF } catch { return $null }
+    try { $id = [int](([Convert]::ToInt64($raw, 16)) -band 0xFFF) } catch { return $null }
 
     $table = @{
         0x440="STM32F030x8"; 0x442="STM32F09x"; 0x444="STM32F030x4/6"; 0x445="STM32F04x/F070x6"; 0x448="STM32F07x/F070xB";
@@ -385,6 +416,140 @@ function Invoke-Download($url, $outFile) {
     throw "$(T 'DownloadFailed')$url$(T 'DownloadWhere')$ToolDir"
 }
 
+function Find-StInfoExe() {
+    $candidates = @()
+
+    try {
+        $cmd = Get-Command "st-info.exe" -ErrorAction Stop
+        if ($cmd -and $cmd.Source) { $candidates += $cmd.Source }
+    } catch {}
+
+    if ($env:USERPROFILE) {
+        $candidates += (Join-Path $env:USERPROFILE "scoop\apps\stlink\current\bin\st-info.exe")
+    }
+
+    $candidates += @(
+        "C:\Program Files (x86)\stlink\bin\st-info.exe",
+        "C:\Program Files\stlink\bin\st-info.exe"
+    )
+
+    $stlinkToolRoot = Join-Path $ToolDir "stlink"
+    if (Test-Path -LiteralPath $stlinkToolRoot) {
+        $found = Get-ChildItem -Path $stlinkToolRoot -Recurse -Filter "st-info.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) { $candidates += $found.FullName }
+    }
+
+    foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Ensure-StInfoExe() {
+    $stInfoExe = Find-StInfoExe
+    if ($stInfoExe) { return $stInfoExe }
+
+    Write-Warn (T "DownloadStLink")
+    $stlinkToolRoot = Join-Path $ToolDir "stlink"
+    $stlinkZip = Join-Path $ToolDir "stlink.zip"
+
+    New-Item -ItemType Directory -Force -Path $stlinkToolRoot | Out-Null
+    Invoke-Download $StLinkUrl $stlinkZip
+    Expand-Archive -Path $stlinkZip -DestinationPath $stlinkToolRoot -Force
+    Remove-Item -LiteralPath $stlinkZip -ErrorAction SilentlyContinue
+
+    $stInfoExe = Find-StInfoExe
+    if ($stInfoExe) { return $stInfoExe }
+
+    throw "st-info.exe was not found after extracting stlink tools."
+}
+
+function Get-OpenOcdTargetFromDeviceId($deviceIdHex) {
+    $family = Get-Stm32Family $deviceIdHex
+    if (-not $family) { return $null }
+
+    if ($family -like 'STM32WB*') { return 'target/stm32wbx.cfg' }
+    if ($family -like 'STM32WL*') { return 'target/stm32wlx.cfg' }
+    if ($family -match '^STM32([FHGUL])(\d)') { return "target/stm32$($Matches[1].ToLower())$($Matches[2])x.cfg" }
+
+    return $null
+}
+
+function Get-StInfoProbeInfo($stInfoExe) {
+    $probeText = (& $stInfoExe --probe 2>&1 | Out-String).Trim()
+    $probeCount = 0
+    if ($probeText -match 'Found\s+(\d+)\s+stlink programmers') {
+        $probeCount = [int]$Matches[1]
+    }
+
+    $entries = @()
+    if ($probeCount -gt 1) {
+        $blocks = [regex]::Split($probeText, '(?m)^\s*\d+\.\s*$') | Where-Object { $_.Trim() }
+        foreach ($block in $blocks) {
+            $serial = $null
+            $chipIdHex = $null
+            $version = $null
+            if ($block -match 'version:\s*([^\r\n]+)') { $version = $Matches[1].Trim() }
+            if ($block -match 'serial:\s*([0-9A-Fa-f]+)') { $serial = $Matches[1] }
+            if ($block -match 'chipid:\s*(0x[\da-fA-F]+)') { $chipIdHex = $Matches[1] }
+            if (-not $serial -and -not $chipIdHex -and -not $version) { continue }
+            $family = if ($chipIdHex) { Get-Stm32Family $chipIdHex } else { $null }
+            $targetCfg = if ($chipIdHex) { Get-OpenOcdTargetFromDeviceId $chipIdHex } else { $null }
+            $entries += [PSCustomObject]@{
+                Version = $version
+                Serial = $serial
+                ChipIdHex = $chipIdHex
+                Family = $family
+                TargetCfg = $targetCfg
+            }
+        }
+    } elseif ($probeCount -eq 1) {
+        $serial = $null
+        $chipIdHex = $null
+        $version = $null
+        if ($probeText -match 'version:\s*([^\r\n]+)') { $version = $Matches[1].Trim() }
+        if ($probeText -match 'serial:\s*([0-9A-Fa-f]+)') { $serial = $Matches[1] }
+        if ($probeText -match 'chipid:\s*(0x[\da-fA-F]+)') { $chipIdHex = $Matches[1] }
+        $family = if ($chipIdHex) { Get-Stm32Family $chipIdHex } else { $null }
+        $targetCfg = if ($chipIdHex) { Get-OpenOcdTargetFromDeviceId $chipIdHex } else { $null }
+        $entries += [PSCustomObject]@{
+            Version = $version
+            Serial = $serial
+            ChipIdHex = $chipIdHex
+            Family = $family
+            TargetCfg = $targetCfg
+        }
+    }
+
+    return [PSCustomObject]@{
+        Count = $probeCount
+        Entries = $entries
+        Output = $probeText
+    }
+}
+
+function Convert-ToHlaSerial($serialHex) {
+    if (-not $serialHex) { return $null }
+    $bytes = @()
+    for ($i = 0; $i -lt $serialHex.Length; $i += 2) {
+        if ($i + 1 -lt $serialHex.Length) {
+            $bytes += "\x$($serialHex.Substring($i, 2).ToLower())"
+        }
+    }
+    return ($bytes -join '')
+}
+
+function Get-OpenOcdSerialCommand($serialHex, $mode = "plain") {
+    if (-not $serialHex) { return $null }
+    switch ($mode) {
+        "bytes" { return "adapter serial `"$((Convert-ToHlaSerial $serialHex))`"" }
+        default { return "adapter serial `"$serialHex`"" }
+    }
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Пути и окружение
 # ══════════════════════════════════════════════════════════════════════════════
@@ -400,6 +565,9 @@ $HtmlReport     = Join-Path $CurrentDir "report.html"
 $OpenOcdUrl     = "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-3/xpack-openocd-0.12.0-3-win32-x64.zip"
 $OpenOcdZip     = Join-Path $ToolDir "openocd.zip"
 $OpenOcdExe     = Join-Path $ToolDir "xpack-openocd-0.12.0-3\bin\openocd.exe"
+$StLinkUrl      = "https://github.com/stlink-org/stlink/releases/download/v1.8.0/stlink-1.8.0-win32.zip"
+$SelectedProbeSerial = ""
+$SelectedProbeInfo = $null
 
 $PsVerStr = $PSVersionTable.PSVersion.ToString()
 $WinInfo = ""
@@ -521,6 +689,54 @@ if (-not $SelectedEngine) {
     try { Set-Content -LiteralPath $EngineCfgPath -Value $SelectedEngine -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
 }
 
+$StLinkSerialCfgPath = Join-Path $CurrentDir ".stlink_serial"
+$ProbeInfo = $null
+try {
+    $stInfoExe = Ensure-StInfoExe
+    $ProbeInfo = Get-StInfoProbeInfo $stInfoExe
+} catch {}
+
+if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
+    $CandidateSerial = $null
+    if ($Serial) {
+        $CandidateSerial = $Serial
+    } elseif (Test-Path -LiteralPath $StLinkSerialCfgPath) {
+        $CandidateSerial = (Get-Content -LiteralPath $StLinkSerialCfgPath -TotalCount 1).Trim()
+    }
+
+    if ($CandidateSerial) {
+        $SelectedProbeInfo = $ProbeInfo.Entries | Where-Object { $_.Serial -eq $CandidateSerial } | Select-Object -First 1
+        if ($SelectedProbeInfo) {
+            $SelectedProbeSerial = $SelectedProbeInfo.Serial
+        } elseif ($Serial) {
+            Write-Warn (T "InvalidSerial")
+        }
+    }
+
+    if (-not $SelectedProbeInfo -and $ProbeInfo.Count -gt 1) {
+        for ($k = 0; $k -lt $ProbeInfo.Entries.Count; $k++) {
+            $entry = $ProbeInfo.Entries[$k]
+            $familyLabel = if ($entry.Family) { $entry.Family } else { "?" }
+            Write-Host "     [$($k+1)] $(T 'ProbeSerial'): $($entry.Serial) | $(T 'ProbeFamily'): $familyLabel"
+        }
+        $ans = Read-Host "   $(T 'PromptChooseProbe')"
+        $parsedProbeChoice = 0
+        if (-not [int]::TryParse($ans, [ref]$parsedProbeChoice)) { Write-Err (T "ErrBadChoice"); Start-Sleep -Seconds 3; exit 1 }
+        $idx = $parsedProbeChoice - 1
+        if ($idx -lt 0 -or $idx -ge $ProbeInfo.Entries.Count) { Write-Err (T "ErrBadChoice"); Start-Sleep -Seconds 3; exit 1 }
+        $SelectedProbeInfo = $ProbeInfo.Entries[$idx]
+        $SelectedProbeSerial = $SelectedProbeInfo.Serial
+    } elseif (-not $SelectedProbeInfo -and $ProbeInfo.Count -eq 1) {
+        $SelectedProbeInfo = $ProbeInfo.Entries[0]
+        $SelectedProbeSerial = $SelectedProbeInfo.Serial
+    }
+
+    if ($SelectedProbeSerial) {
+        Write-Info "$(T 'SelectedProbe'): $SelectedProbeSerial"
+        try { Set-Content -LiteralPath $StLinkSerialCfgPath -Value $SelectedProbeSerial -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    }
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  4. Подготовка и Прошивка
 # ══════════════════════════════════════════════════════════════════════════════
@@ -559,6 +775,32 @@ if ($SelectedEngine -eq "OPENOCD") {
     }
 
     if (-not $TargetCfg) {
+        Write-Info (T "SearchStLinkInfo")
+        try {
+            if (-not $ProbeInfo) {
+                $stInfoExe = Ensure-StInfoExe
+                $ProbeInfo = Get-StInfoProbeInfo $stInfoExe
+            }
+            Write-Info "$(T 'ProbeFoundCount'): $($ProbeInfo.Count)"
+            $probeEntry = if ($SelectedProbeInfo) { $SelectedProbeInfo } elseif ($ProbeInfo.Count -eq 1) { $ProbeInfo.Entries[0] } else { $null }
+            if ($probeEntry -and $probeEntry.TargetCfg) {
+                Write-Info "$(T 'ProbeChipId'): $($probeEntry.ChipIdHex)"
+                $TargetCfg = $probeEntry.TargetCfg
+                Write-Info "$(T 'TargetFoundProbe'): $($probeEntry.ChipIdHex) -> $($probeEntry.Family) -> $($probeEntry.TargetCfg)"
+            } elseif ($probeEntry -and $probeEntry.ChipIdHex) {
+                Write-Info "$(T 'ProbeChipId'): $($probeEntry.ChipIdHex)"
+                Write-Warn "$(T 'ProbeNoTarget'): $($probeEntry.Family)"
+            } elseif ($probeEntry) {
+                Write-Warn (T "ProbeNoChipId")
+            } elseif ($ProbeInfo.Count -gt 1) {
+                Write-Warn (T "ProbeSkippedMulti")
+            }
+        } catch {
+            Write-Warn (T "ProbeUnavailable")
+        }
+    }
+
+    if (-not $TargetCfg) {
         $Roots = @( $CurrentDir, (Split-Path $CurrentDir -Parent -ErrorAction SilentlyContinue), (Split-Path (Split-Path $CurrentDir -Parent -ErrorAction SilentlyContinue) -Parent -ErrorAction SilentlyContinue) ) | Where-Object { $_ } | Select-Object -Unique
         foreach ($r in $Roots) {
             $ioc = Get-ChildItem -Path $r -Filter "*.ioc" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -589,7 +831,11 @@ if ($SelectedEngine -eq "OPENOCD") {
     Write-Host "   $(T 'EngineOpenOCDCfg')$TargetCfg)" -ForegroundColor Cyan
     $ExePath = $OpenOcdExe
     $TclCmd = "`"program {$TargetHex} verify reset exit`""
-    $ExeArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg", "-f", $TargetCfg, "-c", $TclCmd)
+    $ExeArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg")
+    if ($SelectedProbeSerial) {
+        $ExeArgs += @("-c", "`"$(Get-OpenOcdSerialCommand $SelectedProbeSerial plain)`"")
+    }
+    $ExeArgs += @("-f", $TargetCfg, "-c", $TclCmd)
 
 } else {
     Write-Step "3" (T "StepPrepareCubeProg")
@@ -597,7 +843,8 @@ if ($SelectedEngine -eq "OPENOCD") {
     Write-Info (T "AutoDetectMcu")
     $ExePath = $SelectedEngine
     # Ключи: -c port=SWD (подключение), -w (прошивка), -v (верификация), -rst (сброс)
-    $ExeArgs = @("-c", "port=SWD", "-w", $TargetHex, "-v", "-rst")
+    $ConnectionArgs = if ($SelectedProbeSerial) { "port=SWD sn=$SelectedProbeSerial" } else { "port=SWD" }
+    $ExeArgs = @("-c", $ConnectionArgs, "-w", $TargetHex, "-v", "-rst")
 }
 
 if (-not $Silent) {
@@ -605,6 +852,7 @@ if (-not $Silent) {
 }
 
 $FlashTimer = [System.Diagnostics.Stopwatch]::StartNew()
+$RetryElapsed = [TimeSpan]::Zero
 if ($DryRun) {
     Write-Warn (T 'DryRunSimulating')
     Start-Sleep -Seconds 2
@@ -618,13 +866,29 @@ if ($DryRun) {
     $process = Start-Process -FilePath $ExePath -ArgumentList $ExeArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
 }
 $FlashTimer.Stop()
-$OperationDuration = $FlashTimer.Elapsed.ToString("hh\:mm\:ss\.fff")
-
-$stdout     = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
-$stderr     = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
+$stdout = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
+$stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
 if (-not $DryRun) {
     $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
+
+    if (
+        $SelectedEngine -eq "OPENOCD" -and
+        $SelectedProbeSerial -and
+        $process.ExitCode -ne 0 -and
+        $LogContent -match "No device matches the serial string"
+    ) {
+        Write-Warn (T "RetryProbeSerial")
+        $RetryElapsed = $FlashTimer.Elapsed
+        $RetryArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg", "-c", "`"$(Get-OpenOcdSerialCommand $SelectedProbeSerial bytes)`"", "-f", $TargetCfg, "-c", $TclCmd)
+        $FlashTimer.Restart()
+        $process = Start-Process -FilePath $ExePath -ArgumentList $RetryArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
+        $FlashTimer.Stop()
+        $stdout = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
+        $stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
+        $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
+    }
 }
+$OperationDuration = ($RetryElapsed + $FlashTimer.Elapsed).ToString("hh\:mm\:ss\.fff")
 $LogContent = Normalize-ToolLog $LogContent
 
 Remove-Item -LiteralPath $LogStd, $LogErr -ErrorAction SilentlyContinue

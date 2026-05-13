@@ -9,6 +9,7 @@
 Утилита для прошивки STM32 через ST-Link. Один файл, минимум подготовки, отчёт по результату.
 
 **Поддерживаемые движки:** OpenOCD (встроенный, скачивается автоматически), STM32CubeProgrammer (если установлен).
+Поддерживается выбор конкретного ST-Link, если к ПК подключено несколько программаторов.
 
 ### Быстрый старт
 
@@ -22,7 +23,9 @@
 - Windows 10 / 11
 - PowerShell 5.1 (встроен) или 7+ (рекомендуется: `winget install Microsoft.PowerShell`)
 - Драйверы ST-Link — [st.com/stlink-v2](https://www.st.com/en/development-tools/stsw-link009.html)
-- Интернет при первом запуске (загрузка OpenOCD ~5 MB, если CubeProgrammer не установлен)
+- Интернет при первом запуске:
+  - загрузка OpenOCD ~5 MB, если CubeProgrammer не установлен;
+  - загрузка `stlink` tools, если нужен `st-info` и он не найден локально.
 
 Подробная инструкция: [Инструкция по использованию](<D:/github/ViacheslavMezentsev/stm32-flasher/Инструкция по использованию stm32-flasher.md>)
 
@@ -33,6 +36,7 @@
 | `.tools\` | OpenOCD (скачивается один раз) |
 | `.flash_engine` | Сохранённый выбор движка |
 | `.openocd_target` | Сохранённый таргет-конфиг OpenOCD |
+| `.stlink_serial` | Сохранённый выбор конкретного ST-Link |
 | `flash_log.txt` | Лог последней прошивки |
 | `report.html` | HTML-отчёт последней прошивки |
 
@@ -43,6 +47,7 @@
 STM32 flashing utility via ST-Link. Single file, minimal setup, result report included.
 
 **Supported engines:** OpenOCD (built-in, auto-downloaded), STM32CubeProgrammer (if installed).
+Supports selecting a specific ST-Link when multiple programmers are connected.
 
 ### Quick start
 
@@ -56,7 +61,9 @@ STM32 flashing utility via ST-Link. Single file, minimal setup, result report in
 - Windows 10 / 11
 - PowerShell 5.1 (built-in) or 7+ (recommended: `winget install Microsoft.PowerShell`)
 - ST-Link drivers — [st.com/stlink-v2](https://www.st.com/en/development-tools/stsw-link009.html)
-- Internet on first run (OpenOCD ~5 MB download, if CubeProgrammer is not installed)
+- Internet on first run:
+  - OpenOCD ~5 MB download, if CubeProgrammer is not installed;
+  - `stlink` tools download, if `st-info` is needed and not found locally.
 
 ### Auto-created files
 
@@ -65,5 +72,6 @@ STM32 flashing utility via ST-Link. Single file, minimal setup, result report in
 | `.tools\` | OpenOCD (downloaded once) |
 | `.flash_engine` | Saved engine choice |
 | `.openocd_target` | Saved OpenOCD target config |
+| `.stlink_serial` | Saved ST-Link selection |
 | `flash_log.txt` | Last flash log |
 | `report.html` | Last flash HTML report |
