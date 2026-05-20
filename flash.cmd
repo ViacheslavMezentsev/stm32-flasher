@@ -34,7 +34,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "0.2.5"
+$VERSION = "0.2.6"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Встроенные словари локализации (RU / EN)
@@ -92,6 +92,16 @@ $LangRu = @{
     IntegrityFound      = "Найдена контрольная сумма"
     IntegrityInvalid    = "Не удалось прочитать SHA-256 из файла"
     IntegrityAbort      = "SHA-256 не совпадает. Прошивка отменена."
+    HistoryTitle        = "История прошивок"
+    HistorySessionTime  = "Время"
+    HistoryResult       = "Результат"
+    HistoryFirmware     = "Прошивка"
+    HistoryEngine       = "Движок"
+    HistoryDuration     = "Длительность"
+    HistoryReport       = "Отчёт"
+    HistoryLog          = "Лог"
+    HistoryOpen         = "Открыть"
+    HistoryIndexNote    = "Показаны последние сессии"
     NoTargetDef         = "Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg):"
     OkSuccess           = "УСПЕШНО! Прошивка загружена и проверена."
     ErrFailed           = "Что-то пошло не так. Exit code: "
@@ -200,6 +210,16 @@ $LangEn = @{
     IntegrityFound      = "Checksum found"
     IntegrityInvalid    = "Could not read SHA-256 from file"
     IntegrityAbort      = "SHA-256 mismatch. Flashing aborted."
+    HistoryTitle        = "Flash History"
+    HistorySessionTime  = "Time"
+    HistoryResult       = "Result"
+    HistoryFirmware     = "Firmware"
+    HistoryEngine       = "Engine"
+    HistoryDuration     = "Duration"
+    HistoryReport       = "Report"
+    HistoryLog          = "Log"
+    HistoryOpen         = "Open"
+    HistoryIndexNote    = "Latest sessions shown"
     NoTargetDef         = "Could not determine family. Enter config name (e.g., target/stm32f4x.cfg):"
     OkSuccess           = "SUCCESS! Firmware loaded and verified."
     ErrFailed           = "Something went wrong. Exit code: "
@@ -396,6 +416,89 @@ function Normalize-ToolLog($text) {
 function Status-Row($label, $ok, $okText, $failText) {
     if ($ok) { return "<tr><th>$label</th><td><span class='ok'>&#10003; $okText</span></td></tr>" }
     else     { return "<tr><th>$label</th><td><span class='err'>&#10007; $failText</span></td></tr>" }
+}
+
+function Write-HistoryIndex($historyDir, $entries) {
+    if (-not $historyDir) { return }
+    $sorted = @($entries | Sort-Object TimestampUtc -Descending | Select-Object -First 20)
+    $rows = foreach ($entry in $sorted) {
+        $timeLocal = if ($entry.TimestampLocal) { Escape-Html $entry.TimestampLocal } else { "<em class='na'>—</em>" }
+        $resultClass = if ($entry.Success) { "ok" } else { "err" }
+        $resultText = if ($entry.ResultText) { Escape-Html $entry.ResultText } else { "<em class='na'>—</em>" }
+        $firmware = if ($entry.HexName) { Escape-Html $entry.HexName } else { "<em class='na'>—</em>" }
+        $engine = if ($entry.EngineName) { Escape-Html $entry.EngineName } else { "<em class='na'>—</em>" }
+        $duration = if ($entry.OperationDuration) { "<code>$(Escape-Html $entry.OperationDuration)</code>" } else { "<em class='na'>—</em>" }
+        $reportLink = if ($entry.ReportFile) { "<a href='$(Escape-Html $entry.ReportFile)'>$(T 'HistoryOpen')</a>" } else { "<em class='na'>—</em>" }
+        $logLink = if ($entry.LogFile) { "<a href='$(Escape-Html $entry.LogFile)'>$(T 'HistoryOpen')</a>" } else { "<em class='na'>—</em>" }
+        "<tr><td>$timeLocal</td><td><span class='$resultClass'>$resultText</span></td><td>$firmware</td><td>$engine</td><td>$duration</td><td>$reportLink</td><td>$logLink</td></tr>"
+    }
+    $rowsHtml = if ($rows) { $rows -join "`n" } else { "<tr><td colspan='7'><em class='na'>—</em></td></tr>" }
+    $indexHtml = @"
+<!DOCTYPE html>
+<html lang="$( if ($ActiveLang -eq $LangRu) { 'ru' } else { 'en' } )">
+<head>
+  <meta charset="UTF-8">
+  <title>$(T 'HistoryTitle')</title>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #eef0f4; color: #212529; padding: 28px 36px; }
+    .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.09); padding: 18px 22px; }
+    h1 { font-size: 1.3rem; margin-bottom: 6px; }
+    .sub { color: #868e96; font-size: .82rem; margin-bottom: 18px; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+    th { background: #f8f9fa; font-weight: 600; color: #495057; white-space: nowrap; }
+    tr:nth-child(even) td { background: #fcfcfd; }
+    .ok { color: #198754; font-weight: 600; }
+    .err { color: #dc3545; font-weight: 600; }
+    .na { color: #adb5bd; font-style: italic; }
+    code { background: #f1f3f5; padding: 1px 5px; border-radius: 3px; font-size: .82rem; font-family: 'Consolas', monospace; }
+    a { color: #0d6efd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>$(T 'HistoryTitle')</h1>
+    <p class="sub">$(T 'HistoryIndexNote'): $($sorted.Count)</p>
+    <table>
+      <tr>
+        <th>$(T 'HistorySessionTime')</th>
+        <th>$(T 'HistoryResult')</th>
+        <th>$(T 'HistoryFirmware')</th>
+        <th>$(T 'HistoryEngine')</th>
+        <th>$(T 'HistoryDuration')</th>
+        <th>$(T 'HistoryReport')</th>
+        <th>$(T 'HistoryLog')</th>
+      </tr>
+      $rowsHtml
+    </table>
+  </div>
+</body>
+</html>
+"@
+    Set-Content -LiteralPath (Join-Path $historyDir "index.html") -Value $indexHtml -Encoding UTF8
+}
+
+function Save-HistoryArtifacts($historyDir, $logFile, $htmlReport, $entry) {
+    if (-not $historyDir -or -not $entry) { return }
+    New-Item -ItemType Directory -Force -Path $historyDir | Out-Null
+    $stamp = $entry.TimestampTag
+    $reportName = "report_$stamp.html"
+    $logName = "flash_$stamp.log"
+    $metaName = "session_$stamp.json"
+    Copy-Item -LiteralPath $htmlReport -Destination (Join-Path $historyDir $reportName) -Force
+    Copy-Item -LiteralPath $logFile -Destination (Join-Path $historyDir $logName) -Force
+    $entry["ReportFile"] = $reportName
+    $entry["LogFile"] = $logName
+    $entry | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $historyDir $metaName) -Encoding UTF8
+
+    $allEntries = @()
+    foreach ($metaFile in (Get-ChildItem -LiteralPath $historyDir -Filter "session_*.json" -ErrorAction SilentlyContinue)) {
+        try {
+            $allEntries += (Get-Content -LiteralPath $metaFile.FullName -Raw -Encoding UTF8 | ConvertFrom-Json)
+        } catch {}
+    }
+    Write-HistoryIndex $historyDir $allEntries
 }
 
 function Parse-BuildInfo($path) {
@@ -610,6 +713,7 @@ elseif ($PSScriptRoot -and $PSScriptRoot -ne '\' -and $PSScriptRoot -ne '/') { $
 else { (Get-Location).Path }
 $CurrentDir     = if ($CurrentDir) { $CurrentDir } else { (Get-Location).Path }
 $ToolDir        = Join-Path $CurrentDir ".tools"
+$HistoryDir     = Join-Path $CurrentDir ".history"
 $LogFile        = Join-Path $CurrentDir "flash_log.txt"
 $HtmlReport     = Join-Path $CurrentDir "report.html"
 
@@ -1145,6 +1249,8 @@ $EnvScriptVersion = Escape-Html $VERSION
 
 $LogHtml = Escape-Html $LogContent
 $ProjectTitle = if ($BuildInfo["Project"]) { Escape-Html $BuildInfo["Project"] } else { Escape-Html ($HexName -replace '\.hex$','') }
+$HistoryIndexRelative = ".history/index.html"
+$HistoryIndexLink = "<a href='$HistoryIndexRelative'>$(T 'HistoryTitle')</a>"
 
 $HtmlContent = @"
 <!DOCTYPE html>
@@ -1221,6 +1327,7 @@ $BuildInfoSection
       <tr><th>$(T 'Machine')</th><td>$EnvMachine</td></tr>
       <tr><th>$(T 'NetworkHost')</th><td>$EnvNetworkHost</td></tr>
       <tr><th>$(T 'ScriptVersion')</th><td><code>$EnvScriptVersion</code></td></tr>
+      <tr><th>$(T 'HistoryTitle')</th><td>$HistoryIndexLink</td></tr>
       <tr><th>$(T 'OS')</th><td>$EnvWin</td></tr>
       <tr><th>$(T 'PowerShell')</th><td>$EnvPs</td></tr>
       <tr><th>$(T 'FlashEngine')</th><td>$EnvTool</td></tr>
@@ -1245,6 +1352,19 @@ $IntegritySection
 "@
 
 Set-Content -LiteralPath $HtmlReport -Value $HtmlContent -Encoding UTF8
+$HistoryEntry = [ordered]@{
+    TimestampTag = $NowLocal.ToString('yyyyMMdd_HHmmss')
+    TimestampLocal = $NowLocal.ToString('yyyy-MM-dd HH:mm:ss zzz')
+    TimestampUtc = $NowUtc.ToString('o')
+    Success = $Success
+    ResultText = if ($Success) { T 'SuccessMsg' } else { T 'ErrorMsg' }
+    HexName = $HexName
+    EngineName = if ($SelectedEngine -eq "OPENOCD") { "OpenOCD" } elseif ($SelectedEngine) { "STM32CubeProgrammer" } else { "" }
+    OperationDuration = $OperationDuration
+    ReportFile = ""
+    LogFile = ""
+}
+Save-HistoryArtifacts $HistoryDir $LogFile $HtmlReport $HistoryEntry
 if (-not $Success) {
     Invoke-Item $HtmlReport
 }
