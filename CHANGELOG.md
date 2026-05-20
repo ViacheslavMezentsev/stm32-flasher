@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and the project uses semantic versioning in `Major.Minor.Patch` form while it is still in active development.
 
+## [0.2.5] - 2026-05-20
+
+### Added
+- Added SHA-256 verification for firmware `*.hex` files before flashing.
+- Added support for reading expected SHA-256 from `-Sha256`, `*.hex.sha256`, or `*.sha256`.
+- Added SHA-256 verification details to console output and the HTML report.
+
 ## [0.2.4] - 2026-05-13
 
 ### Added
