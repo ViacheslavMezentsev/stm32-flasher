@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and the project uses semantic versioning in `Major.Minor.Patch` form while it is still in active development.
 
+## [0.2.6] - 2026-05-20
+
+### Added
+- Added per-session history storage in `.history` with timestamped reports and logs.
+- Added `.history/index.html` with links to recent flashing sessions.
+- Added a history link to the main HTML report.
+
 ## [0.2.5] - 2026-05-20
 
 ### Added

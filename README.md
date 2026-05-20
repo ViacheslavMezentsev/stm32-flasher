@@ -11,6 +11,7 @@
 **Поддерживаемые движки:** OpenOCD (встроенный, скачивается автоматически), STM32CubeProgrammer (если установлен).
 Поддерживается выбор конкретного ST-Link, если к ПК подключено несколько программаторов.
 Поддерживается предварительная проверка SHA-256 для `*.hex` перед прошивкой.
+Поддерживается локальная история последних сессий прошивки в `.history\`.
 
 ### Быстрый старт
 
@@ -41,6 +42,7 @@
 | `*.hex.sha256` / `*.sha256` | Опциональная контрольная сумма SHA-256 для `*.hex` |
 | `flash_log.txt` | Лог последней прошивки |
 | `report.html` | HTML-отчёт последней прошивки |
+| `.history\` | Архив отчётов и логов предыдущих сессий |
 
 ---
 
@@ -51,6 +53,7 @@ STM32 flashing utility via ST-Link. Single file, minimal setup, result report in
 **Supported engines:** OpenOCD (built-in, auto-downloaded), STM32CubeProgrammer (if installed).
 Supports selecting a specific ST-Link when multiple programmers are connected.
 Supports optional SHA-256 verification for `*.hex` before flashing.
+Supports a local flash-session history in `.history\`.
 
 ### Quick start
 
@@ -79,3 +82,4 @@ Supports optional SHA-256 verification for `*.hex` before flashing.
 | `*.hex.sha256` / `*.sha256` | Optional SHA-256 checksum for `*.hex` |
 | `flash_log.txt` | Last flash log |
 | `report.html` | Last flash HTML report |
+| `.history\` | Archive of reports and logs from previous sessions |
