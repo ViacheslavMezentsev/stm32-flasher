@@ -24,6 +24,7 @@ param(
     [string]$Engine = "",
     [string]$Target = "",
     [string]$Serial = "",
+    [string]$Sha256 = "",
     [switch]$Silent,
     [switch]$DryRun
 )
@@ -33,7 +34,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "0.2.4"
+$VERSION = "0.2.5"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Встроенные словари локализации (RU / EN)
@@ -79,6 +80,18 @@ $LangRu = @{
     ProbeFamily         = "Тип МК"
     InvalidSerial       = "Указанный ST-Link serial не найден. Возвращаюсь к выбору..."
     RetryProbeSerial    = "OpenOCD не принял serial в текстовом виде, повторяю с байтовым форматом"
+    IntegrityCheck      = "Контроль целостности"
+    IntegrityNotChecked = "Не выполнялся"
+    IntegrityPassed     = "SHA-256 подтверждён"
+    IntegrityFailed     = "SHA-256 не совпадает"
+    IntegritySource     = "Источник SHA-256"
+    IntegrityExpected   = "Ожидаемый SHA-256"
+    IntegrityActual     = "Вычисленный SHA-256"
+    IntegritySourceCli  = "Параметр -Sha256"
+    IntegritySourceFile = "Файл .sha256"
+    IntegrityFound      = "Найдена контрольная сумма"
+    IntegrityInvalid    = "Не удалось прочитать SHA-256 из файла"
+    IntegrityAbort      = "SHA-256 не совпадает. Прошивка отменена."
     NoTargetDef         = "Не удалось определить семейство. Введите название cfg (например target/stm32f4x.cfg):"
     OkSuccess           = "УСПЕШНО! Прошивка загружена и проверена."
     ErrFailed           = "Что-то пошло не так. Exit code: "
@@ -175,6 +188,18 @@ $LangEn = @{
     ProbeFamily         = "MCU"
     InvalidSerial       = "Specified ST-Link serial was not found. Falling back to selection..."
     RetryProbeSerial    = "OpenOCD did not accept the plain serial, retrying with byte format"
+    IntegrityCheck      = "Integrity Check"
+    IntegrityNotChecked = "Not performed"
+    IntegrityPassed     = "SHA-256 verified"
+    IntegrityFailed     = "SHA-256 mismatch"
+    IntegritySource     = "SHA-256 Source"
+    IntegrityExpected   = "Expected SHA-256"
+    IntegrityActual     = "Computed SHA-256"
+    IntegritySourceCli  = "Parameter -Sha256"
+    IntegritySourceFile = ".sha256 file"
+    IntegrityFound      = "Checksum found"
+    IntegrityInvalid    = "Could not read SHA-256 from file"
+    IntegrityAbort      = "SHA-256 mismatch. Flashing aborted."
     NoTargetDef         = "Could not determine family. Enter config name (e.g., target/stm32f4x.cfg):"
     OkSuccess           = "SUCCESS! Firmware loaded and verified."
     ErrFailed           = "Something went wrong. Exit code: "
@@ -382,6 +407,32 @@ function Parse-BuildInfo($path) {
         }
     }
     return $result
+}
+
+function Find-Sha256File($targetPath) {
+    if (-not $targetPath) { return $null }
+    $candidates = @(
+        "$targetPath.sha256",
+        ([System.IO.Path]::ChangeExtension($targetPath, ".sha256"))
+    ) | Select-Object -Unique
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return (Get-Item -LiteralPath $candidate).FullName
+        }
+    }
+    return $null
+}
+
+function Parse-Sha256Value($text) {
+    if (-not $text) { return $null }
+    foreach ($line in ($text -split "`r?`n")) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed) { continue }
+        if ($trimmed -match '([A-Fa-f0-9]{64})') {
+            return $Matches[1].ToUpperInvariant()
+        }
+    }
+    return $null
 }
 
 function Get-Stm32Family($deviceIdHex) {
@@ -636,11 +687,68 @@ $BuildInfoPath = Join-Path $CurrentDir "build_info_$BuildType.md"
 $BuildInfo     = Parse-BuildInfo $BuildInfoPath
 $ChangelogPath = Join-Path $CurrentDir "CHANGELOG.md"
 $ChangelogContent = if (Test-Path -LiteralPath $ChangelogPath) { Get-Content -LiteralPath $ChangelogPath -Raw -Encoding UTF8 } else { "" }
+$HashCheckPerformed = $false
+$HashCheckOk = $false
+$HashExpected = ""
+$HashActual = ""
+$HashSource = ""
+$HashSpecPath = ""
+$PreflightFailed = $false
+$PreflightMessage = ""
+$PreflightLog = ""
+$PreflightDuration = [TimeSpan]::Zero
+
+try {
+    $hashSourceFile = Find-Sha256File $TargetHex
+    if ($Sha256) {
+        $HashExpected = (Parse-Sha256Value $Sha256)
+        if ($HashExpected) {
+            $HashSource = T "IntegritySourceCli"
+            $HashCheckPerformed = $true
+        } else {
+            Write-Warn "$(T 'IntegrityInvalid'): $Sha256"
+        }
+    } elseif ($hashSourceFile) {
+        $HashSpecPath = $hashSourceFile
+        $HashExpected = Parse-Sha256Value (Get-Content -LiteralPath $hashSourceFile -Raw -Encoding UTF8)
+        if ($HashExpected) {
+            $HashSource = "$(T 'IntegritySourceFile'): $([System.IO.Path]::GetFileName($hashSourceFile))"
+            $HashCheckPerformed = $true
+            Write-Info "$(T 'IntegrityFound'): $([System.IO.Path]::GetFileName($hashSourceFile))"
+        } else {
+            Write-Warn "$(T 'IntegrityInvalid'): $([System.IO.Path]::GetFileName($hashSourceFile))"
+        }
+    }
+
+    if ($HashCheckPerformed) {
+        $PreflightTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        $HashActual = (Get-FileHash -LiteralPath $TargetHex -Algorithm SHA256).Hash.ToUpperInvariant()
+        $PreflightTimer.Stop()
+        $PreflightDuration = $PreflightTimer.Elapsed
+        $HashCheckOk = $HashActual -eq $HashExpected
+        if ($HashCheckOk) {
+            Write-Ok (T "IntegrityPassed")
+        } else {
+            $PreflightFailed = $true
+            $PreflightMessage = T "IntegrityAbort"
+            Write-Err $PreflightMessage
+            $PreflightLog = @(
+                $PreflightMessage,
+                "$(T 'IntegritySource'): $HashSource",
+                "$(T 'IntegrityExpected'): $HashExpected",
+                "$(T 'IntegrityActual'): $HashActual"
+            ) -join "`n"
+        }
+    }
+} catch {
+    Write-Warn $_.Exception.Message
+}
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  3. Выбор движка (STM32CubeProgrammer vs OpenOCD)
 # ══════════════════════════════════════════════════════════════════════════════
 
+if (-not $PreflightFailed) {
 Write-Step "2" (T "StepSelectEngine")
 
 $EngineCfgPath = Join-Path $CurrentDir ".flash_engine"
@@ -736,6 +844,7 @@ if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
         try { Set-Content -LiteralPath $StLinkSerialCfgPath -Value $SelectedProbeSerial -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
     }
 }
+}
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  4. Подготовка и Прошивка
@@ -746,7 +855,11 @@ $LogErr = "$LogFile.stderr"
 $ExePath = ""
 $ExeArgs = @()
 
-if ($SelectedEngine -eq "OPENOCD") {
+if ($PreflightFailed) {
+    $process = [PSCustomObject]@{ ExitCode = 2 }
+    $LogContent = if ($PreflightLog) { $PreflightLog } else { T "IntegrityAbort" }
+    $OperationDuration = $PreflightDuration.ToString("hh\:mm\:ss\.fff")
+} elseif ($SelectedEngine -eq "OPENOCD") {
     Write-Step "3" (T "StepPrepareOpenOCD")
     if (-Not (Test-Path -LiteralPath $OpenOcdExe)) {
         Write-Warn (T "DownloadOpenOCD")
@@ -847,48 +960,50 @@ if ($SelectedEngine -eq "OPENOCD") {
     $ExeArgs = @("-c", $ConnectionArgs, "-w", $TargetHex, "-v", "-rst")
 }
 
-if (-not $Silent) {
-    Write-Host "   $(T 'Flashing')"
-}
+if (-not $PreflightFailed) {
+    if (-not $Silent) {
+        Write-Host "   $(T 'Flashing')"
+    }
 
-$FlashTimer = [System.Diagnostics.Stopwatch]::StartNew()
-$RetryElapsed = [TimeSpan]::Zero
-if ($DryRun) {
-    Write-Warn (T 'DryRunSimulating')
-    Start-Sleep -Seconds 2
-    $process = [PSCustomObject]@{ ExitCode = 0 }
-    if ($SelectedEngine -eq "OPENOCD") {
-        $LogContent = "$(T 'DryRunLog')`ntarget voltage: 3.3`n** Programming Finished **`n** Verified OK **`n"
+    $FlashTimer = [System.Diagnostics.Stopwatch]::StartNew()
+    $RetryElapsed = [TimeSpan]::Zero
+    if ($DryRun) {
+        Write-Warn (T 'DryRunSimulating')
+        Start-Sleep -Seconds 2
+        $process = [PSCustomObject]@{ ExitCode = 0 }
+        if ($SelectedEngine -eq "OPENOCD") {
+            $LogContent = "$(T 'DryRunLog')`ntarget voltage: 3.3`n** Programming Finished **`n** Verified OK **`n"
+        } else {
+            $LogContent = "$(T 'DryRunLog')`nST-LINK SN  : 0671FF555353885087123456`nVoltage     : 3.30V`nFile download complete`nDownload verified successfully`n"
+        }
     } else {
-        $LogContent = "$(T 'DryRunLog')`nST-LINK SN  : 0671FF555353885087123456`nVoltage     : 3.30V`nFile download complete`nDownload verified successfully`n"
+        $process = Start-Process -FilePath $ExePath -ArgumentList $ExeArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
     }
-} else {
-    $process = Start-Process -FilePath $ExePath -ArgumentList $ExeArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
-}
-$FlashTimer.Stop()
-$stdout = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
-$stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
-if (-not $DryRun) {
-    $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
-
-    if (
-        $SelectedEngine -eq "OPENOCD" -and
-        $SelectedProbeSerial -and
-        $process.ExitCode -ne 0 -and
-        $LogContent -match "No device matches the serial string"
-    ) {
-        Write-Warn (T "RetryProbeSerial")
-        $RetryElapsed = $FlashTimer.Elapsed
-        $RetryArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg", "-c", "`"$(Get-OpenOcdSerialCommand $SelectedProbeSerial bytes)`"", "-f", $TargetCfg, "-c", $TclCmd)
-        $FlashTimer.Restart()
-        $process = Start-Process -FilePath $ExePath -ArgumentList $RetryArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
-        $FlashTimer.Stop()
-        $stdout = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
-        $stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
+    $FlashTimer.Stop()
+    $stdout = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
+    $stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
+    if (-not $DryRun) {
         $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
+
+        if (
+            $SelectedEngine -eq "OPENOCD" -and
+            $SelectedProbeSerial -and
+            $process.ExitCode -ne 0 -and
+            $LogContent -match "No device matches the serial string"
+        ) {
+            Write-Warn (T "RetryProbeSerial")
+            $RetryElapsed = $FlashTimer.Elapsed
+            $RetryArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg", "-c", "`"$(Get-OpenOcdSerialCommand $SelectedProbeSerial bytes)`"", "-f", $TargetCfg, "-c", $TclCmd)
+            $FlashTimer.Restart()
+            $process = Start-Process -FilePath $ExePath -ArgumentList $RetryArgs -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
+            $FlashTimer.Stop()
+            $stdout = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
+            $stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
+            $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
+        }
     }
+    $OperationDuration = ($RetryElapsed + $FlashTimer.Elapsed).ToString("hh\:mm\:ss\.fff")
 }
-$OperationDuration = ($RetryElapsed + $FlashTimer.Elapsed).ToString("hh\:mm\:ss\.fff")
 $LogContent = Normalize-ToolLog $LogContent
 
 Remove-Item -LiteralPath $LogStd, $LogErr -ErrorAction SilentlyContinue
@@ -929,7 +1044,8 @@ if ($SelectedEngine -eq "OPENOCD") {
     if ($LogContent -match 'Device name\s*:\s*([^\r\n]+)') { $McuFamily = $Matches[1].Trim() } else { $McuFamily = Get-Stm32Family $McuDevIdHex }
 }
 
-$Success = $IsStlinkFound -and $IsProgrammed -and $IsVerified -and $ExitOk
+$IntegrityGateOk = (-not $HashCheckPerformed) -or $HashCheckOk
+$Success = $IntegrityGateOk -and $IsStlinkFound -and $IsProgrammed -and $IsVerified -and $ExitOk
 
 if ($Success) {
     Write-Ok (T "OkSuccess")
@@ -983,6 +1099,33 @@ if ($ChangelogContent) {
     $ChangelogHtml = Md-ToHtml $ChangelogContent
     $ChangelogPathUrl = "file:///$($ChangelogPath -replace '\\','/')"
     $ChangelogSection = "<div class='card'><h2>&#128221; $(T 'Changelog')</h2><div class='changelog-box'>$ChangelogHtml</div><p class='changelog-footer'>$(T 'Source'): <a href='$ChangelogPathUrl' target='_blank'>CHANGELOG.md</a></p></div>"
+}
+
+$IntegrityRow = if ($HashCheckPerformed) {
+    if ($HashCheckOk) {
+        "<tr><th>$(T 'IntegrityCheck')</th><td><span class='ok'>&#10003; $(T 'IntegrityPassed')</span></td></tr>"
+    } else {
+        "<tr><th>$(T 'IntegrityCheck')</th><td><span class='err'>&#10007; $(T 'IntegrityFailed')</span></td></tr>"
+    }
+} else {
+    "<tr><th>$(T 'IntegrityCheck')</th><td><span class='warn'>$(T 'IntegrityNotChecked')</span></td></tr>"
+}
+
+$IntegritySection = ""
+if ($HashCheckPerformed -or $HashSpecPath -or $Sha256) {
+    $IntegritySourceValue = if ($HashSource) { Escape-Html $HashSource } else { "<em class='na'>—</em>" }
+    $IntegrityExpectedValue = if ($HashExpected) { "<code>$(Escape-Html $HashExpected)</code>" } else { "<em class='na'>—</em>" }
+    $IntegrityActualValue = if ($HashActual) { "<code>$(Escape-Html $HashActual)</code>" } else { "<em class='na'>—</em>" }
+    $IntegritySection = @"
+  <div class="card">
+    <h2>&#128274; $(T 'IntegrityCheck')</h2>
+    <table>
+      <tr><th>$(T 'IntegritySource')</th><td>$IntegritySourceValue</td></tr>
+      <tr><th>$(T 'IntegrityExpected')</th><td>$IntegrityExpectedValue</td></tr>
+      <tr><th>$(T 'IntegrityActual')</th><td>$IntegrityActualValue</td></tr>
+    </table>
+  </div>
+"@
 }
 
 $EnvTool   = if ($ToolInfo)       { Escape-Html $ToolInfo }        else { "<em class='na'>$(T 'ToolNotDetected')</em>" }
@@ -1059,6 +1202,7 @@ $HtmlContent = @"
     <div class="card">
       <h2>&#9745; $(T 'StatusStages')</h2>
       <table>
+        $IntegrityRow
         $(Status-Row (T 'StLinkDetected')  $IsStlinkFound (T 'Yes')           (T 'No'))
         $(Status-Row (T 'FlashWrite')      $IsProgrammed  (T 'WriteCompleted') (T 'WriteError'))
         $(Status-Row (T 'Verification')    $IsVerified    (T 'VerPassed')      (T 'VerFailed'))
@@ -1091,6 +1235,7 @@ $BuildInfoSection
     </table>
   </div>
 $ChangelogSection
+$IntegritySection
   <div class="card">
     <h2>&#128220; $(T 'ToolOutput')</h2>
     <pre>$LogHtml</pre>
