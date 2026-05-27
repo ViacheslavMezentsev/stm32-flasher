@@ -34,7 +34,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "0.2.6"
+$VERSION = "0.2.7"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Встроенные словари локализации (RU / EN)
@@ -416,6 +416,52 @@ function Normalize-ToolLog($text) {
 function Status-Row($label, $ok, $okText, $failText) {
     if ($ok) { return "<tr><th>$label</th><td><span class='ok'>&#10003; $okText</span></td></tr>" }
     else     { return "<tr><th>$label</th><td><span class='err'>&#10007; $failText</span></td></tr>" }
+}
+
+function Get-LogMatchValue($text, $pattern) {
+    if (-not $text -or -not $pattern) { return "" }
+    $match = [regex]::Match($text, $pattern)
+    if (-not $match.Success -or $match.Groups.Count -lt 2) { return "" }
+    return $match.Groups[1].Value.Trim()
+}
+
+function Invoke-EngineLogParser($text, $patternSet) {
+    $result = [ordered]@{
+        IsStlinkFound = $false
+        IsProgrammed  = $false
+        IsVerified    = $false
+        ToolInfo      = ""
+        StlinkInfo    = ""
+        TargetVoltage = ""
+        McuCore       = ""
+        McuDevId      = ""
+        McuDevIdHex   = ""
+        McuFlash      = ""
+        McuFamily     = ""
+    }
+    if (-not $patternSet) { return [PSCustomObject]$result }
+
+    foreach ($flagName in @("IsStlinkFound", "IsProgrammed", "IsVerified")) {
+        $pattern = $patternSet.Flags[$flagName]
+        if ($pattern) { $result[$flagName] = [regex]::IsMatch($text, $pattern) }
+    }
+
+    foreach ($fieldName in $patternSet.Fields.Keys) {
+        $spec = $patternSet.Fields[$fieldName]
+        $value = Get-LogMatchValue $text $spec.Pattern
+        if ($value -and $spec.Prefix) { $value = "$($spec.Prefix)$value" }
+        if ($value -and $spec.Suffix) { $value = "$value$($spec.Suffix)" }
+        if ($value) { $result[$fieldName] = $value }
+    }
+
+    if ($result.McuDevIdHex -and -not $result.McuDevId) {
+        $result.McuDevId = $result.McuDevIdHex
+    }
+    if (-not $result.McuFamily -and $result.McuDevIdHex) {
+        $result.McuFamily = Get-Stm32Family $result.McuDevIdHex
+    }
+
+    return [PSCustomObject]$result
 }
 
 function Write-HistoryIndex($historyDir, $entries) {
@@ -1121,32 +1167,53 @@ $ExitOk = $process.ExitCode -eq 0
 $IsStlinkFound = $false; $IsProgrammed = $false; $IsVerified = $false
 $ToolInfo = ""; $StlinkInfo = ""; $TargetVoltage = ""; $McuCore = ""; $McuDevId = ""; $McuDevIdHex = ""; $McuFlash = ""; $McuFamily = ""
 
-if ($SelectedEngine -eq "OPENOCD") {
-    $IsStlinkFound = $LogContent -match "target voltage"
-    $IsProgrammed  = $LogContent -match "\*\* Programming Finished \*\*"
-    $IsVerified    = $LogContent -match "\*\* Verified OK \*\*"
-
-    if ($LogContent -match '(?m)^((?:xPack )?Open On-Chip Debugger[^\r\n]+)') { $ToolInfo = $Matches[1].Trim() }
-    if ($LogContent -match 'Info\s*:\s*(STLINK[^\r\n]+)') { $StlinkInfo = $Matches[1].Trim() }
-    if ($LogContent -match 'target voltage[^:]*:\s*([\d.]+)') { $TargetVoltage = "$($Matches[1]) V" }
-    if ($LogContent -match 'Info\s*:\s*(\S+\.cpu[:\s]+Cortex[^\r\n]+)') { $McuCore = $Matches[1].Trim() }
-    if ($LogContent -match 'device id(?:code)?\s*=\s*(0x[\da-fA-F]+)') { $McuDevIdHex = $Matches[1]; $McuDevId = $McuDevIdHex }
-    if ($LogContent -match 'flash size\s*=\s*([\d]+\s*KiB)') { $McuFlash = $Matches[1] }
-    $McuFamily = Get-Stm32Family $McuDevIdHex
-} else {
-    # STM32CubeProgrammer парсинг
-    $IsStlinkFound = ($LogContent -match "ST-LINK SN" -or $LogContent -match "Voltage")
-    $IsProgrammed  = $LogContent -match "File download complete"
-    $IsVerified    = $LogContent -match "Download verified successfully"
-
-    if ($LogContent -match 'STM32CubeProgrammer\s+(v[\d\.]+)') { $ToolInfo = "STM32CubeProgrammer " + $Matches[1] }
-    if ($LogContent -match 'ST-LINK FW\s*:\s*([^\r\n]+)') { $StlinkInfo = $Matches[1].Trim() }
-    if ($LogContent -match 'Voltage\s*:\s*([^\r\n]+)') { $TargetVoltage = $Matches[1].Trim() }
-    if ($LogContent -match 'Device CPU\s*:\s*([^\r\n]+)') { $McuCore = $Matches[1].Trim() }
-    if ($LogContent -match 'Device ID\s*:\s*(0x[\da-fA-F]+)') { $McuDevIdHex = $Matches[1]; $McuDevId = $McuDevIdHex }
-    if ($LogContent -match 'Flash size\s*:\s*([^\r\n]+)') { $McuFlash = $Matches[1].Trim() }
-    if ($LogContent -match 'Device name\s*:\s*([^\r\n]+)') { $McuFamily = $Matches[1].Trim() } else { $McuFamily = Get-Stm32Family $McuDevIdHex }
+$EnginePatterns = @{
+    OPENOCD = @{
+        Flags = @{
+            IsStlinkFound = "target voltage"
+            IsProgrammed  = "\*\* Programming Finished \*\*"
+            IsVerified    = "\*\* Verified OK \*\*"
+        }
+        Fields = [ordered]@{
+            ToolInfo      = @{ Pattern = '(?m)^((?:xPack )?Open On-Chip Debugger[^\r\n]+)' }
+            StlinkInfo    = @{ Pattern = 'Info\s*:\s*(STLINK[^\r\n]+)' }
+            TargetVoltage = @{ Pattern = 'target voltage[^:]*:\s*([\d.]+)'; Suffix = ' V' }
+            McuCore       = @{ Pattern = 'Info\s*:\s*(\S+\.cpu[:\s]+Cortex[^\r\n]+)' }
+            McuDevIdHex   = @{ Pattern = 'device id(?:code)?\s*=\s*(0x[\da-fA-F]+)' }
+            McuFlash      = @{ Pattern = 'flash size\s*=\s*([\d]+\s*KiB)' }
+        }
+    }
+    CUBEPROGRAMMER = @{
+        Flags = @{
+            IsStlinkFound = "ST-LINK SN|Voltage"
+            IsProgrammed  = "File download complete"
+            IsVerified    = "Download verified successfully"
+        }
+        Fields = [ordered]@{
+            ToolInfo      = @{ Pattern = 'STM32CubeProgrammer\s+(v[\d\.]+)'; Prefix = 'STM32CubeProgrammer ' }
+            StlinkInfo    = @{ Pattern = 'ST-LINK FW\s*:\s*([^\r\n]+)' }
+            TargetVoltage = @{ Pattern = 'Voltage\s*:\s*([^\r\n]+)' }
+            McuCore       = @{ Pattern = 'Device CPU\s*:\s*([^\r\n]+)' }
+            McuDevIdHex   = @{ Pattern = 'Device ID\s*:\s*(0x[\da-fA-F]+)' }
+            McuFlash      = @{ Pattern = 'Flash size\s*:\s*([^\r\n]+)' }
+            McuFamily     = @{ Pattern = 'Device name\s*:\s*([^\r\n]+)' }
+        }
+    }
 }
+
+$ParserKey = if ($SelectedEngine -eq "OPENOCD") { "OPENOCD" } else { "CUBEPROGRAMMER" }
+$ParsedLog = Invoke-EngineLogParser $LogContent $EnginePatterns[$ParserKey]
+$IsStlinkFound = $ParsedLog.IsStlinkFound
+$IsProgrammed  = $ParsedLog.IsProgrammed
+$IsVerified    = $ParsedLog.IsVerified
+$ToolInfo      = $ParsedLog.ToolInfo
+$StlinkInfo    = $ParsedLog.StlinkInfo
+$TargetVoltage = $ParsedLog.TargetVoltage
+$McuCore       = $ParsedLog.McuCore
+$McuDevId      = $ParsedLog.McuDevId
+$McuDevIdHex   = $ParsedLog.McuDevIdHex
+$McuFlash      = $ParsedLog.McuFlash
+$McuFamily     = $ParsedLog.McuFamily
 
 $IntegrityGateOk = (-not $HashCheckPerformed) -or $HashCheckOk
 $Success = $IntegrityGateOk -and $IsStlinkFound -and $IsProgrammed -and $IsVerified -and $ExitOk
