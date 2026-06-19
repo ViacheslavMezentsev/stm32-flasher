@@ -23,6 +23,8 @@ param(
     [string]$HexFile = "",
     [string]$Engine = "",
     [string]$Target = "",
+    [string]$Device = "",
+    [string]$Probe = "",
     [string]$Serial = "",
     [string]$Sha256 = "",
     [switch]$Silent,
@@ -34,7 +36,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "0.2.7"
+$VERSION = "0.2.8"
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Встроенные словари локализации (RU / EN)
@@ -58,12 +60,19 @@ $LangRu = @{
     FoundEngines        = "Найдено несколько утилит прошивки:"
     EngineOpenOCD       = "OpenOCD (Встроенный/Автоматический)"
     EngineCubeProg      = "CubeProgrammer"
+    EngineJLink         = "SEGGER J-Link"
     StepPrepareOpenOCD  = "Подготовка OpenOCD..."
     DownloadOpenOCD     = "Скачивание OpenOCD с GitHub (~5 MB)..."
     DownloadStLink      = "Скачивание stlink tools с GitHub (~1 MB)..."
     StepPrepareCubeProg = "Подготовка CubeProgrammer..."
+    StepPrepareJLink    = "Подготовка SEGGER J-Link..."
     EngineOpenOCDCfg    = "Движок: OpenOCD (Конфиг: "
     EngineCubeProgName  = "Движок: STM32CubeProgrammer"
+    EngineJLinkName     = "Движок: SEGGER J-Link"
+    SearchJLink         = "Поиск SEGGER J-Link..."
+    JLinkDevice         = "Устройство J-Link"
+    PromptJLinkDevice   = "Введите имя устройства J-Link (например STM32G431CB)"
+    InvalidJLinkDevice  = "Не указано устройство J-Link. Прошивка отменена."
     AutoDetectMcu       = "Автоопределение семейства микроконтроллера включено (через DAP)."
     Flashing            = "Прошивка..."
     TargetFoundIoc      = "Таргет найден в .ioc"
@@ -78,8 +87,11 @@ $LangRu = @{
     SelectedProbe       = "Выбран программатор"
     ProbeSerial         = "Серийный номер"
     ProbeFamily         = "Тип МК"
+    ProbeType           = "Тип отладчика"
+    InvalidProbe        = "Неверный тип отладчика. Использую STLINK."
     InvalidSerial       = "Указанный ST-Link serial не найден. Возвращаюсь к выбору..."
     RetryProbeSerial    = "OpenOCD не принял serial в текстовом виде, повторяю с байтовым форматом"
+    RetryWithoutSerial  = "Сохранённый serial не подошёл, повторяю без serial"
     IntegrityCheck      = "Контроль целостности"
     IntegrityNotChecked = "Не выполнялся"
     IntegrityPassed     = "SHA-256 подтверждён"
@@ -124,14 +136,14 @@ $LangRu = @{
     PowerShell          = "PowerShell"
     FlashEngine         = "Движок прошивки"
     Programmer          = "Программатор"
-    StLink              = "ST-Link"
+    StLink              = "Отладчик / программатор"
     TargetVoltage       = "Напряжение питания МК"
     Mcu                 = "Микроконтроллер"
     Family              = "Семейство"
     Core                = "Ядро / Процессор"
     DeviceId            = "Device ID"
     Flash               = "Flash"
-    StLinkDetected      = "ST-Link обнаружен"
+    StLinkDetected      = "Программатор обнаружен"
     Yes                 = "Да"
     No                  = "Нет — проверьте USB и питание"
     FlashWrite          = "Запись во Flash"
@@ -176,12 +188,19 @@ $LangEn = @{
     FoundEngines        = "Multiple flashing utilities found:"
     EngineOpenOCD       = "OpenOCD (Built-in/Automatic)"
     EngineCubeProg      = "CubeProgrammer"
+    EngineJLink         = "SEGGER J-Link"
     StepPrepareOpenOCD  = "Preparing OpenOCD..."
     DownloadOpenOCD     = "Downloading OpenOCD from GitHub (~5 MB)..."
     DownloadStLink      = "Downloading stlink tools from GitHub (~1 MB)..."
     StepPrepareCubeProg = "Preparing CubeProgrammer..."
+    StepPrepareJLink    = "Preparing SEGGER J-Link..."
     EngineOpenOCDCfg    = "Engine: OpenOCD (Config: "
     EngineCubeProgName  = "Engine: STM32CubeProgrammer"
+    EngineJLinkName     = "Engine: SEGGER J-Link"
+    SearchJLink         = "Searching for SEGGER J-Link..."
+    JLinkDevice         = "J-Link Device"
+    PromptJLinkDevice   = "Enter J-Link device name (for example STM32G431CB)"
+    InvalidJLinkDevice  = "J-Link device was not specified. Flashing aborted."
     AutoDetectMcu       = "Microcontroller auto-detection enabled (via DAP)."
     Flashing            = "Flashing..."
     TargetFoundIoc      = "Target found in .ioc"
@@ -196,8 +215,11 @@ $LangEn = @{
     SelectedProbe       = "Selected programmer"
     ProbeSerial         = "Serial"
     ProbeFamily         = "MCU"
+    ProbeType           = "Probe type"
+    InvalidProbe        = "Invalid probe type. Falling back to STLINK."
     InvalidSerial       = "Specified ST-Link serial was not found. Falling back to selection..."
     RetryProbeSerial    = "OpenOCD did not accept the plain serial, retrying with byte format"
+    RetryWithoutSerial  = "Saved serial did not work, retrying without serial"
     IntegrityCheck      = "Integrity Check"
     IntegrityNotChecked = "Not performed"
     IntegrityPassed     = "SHA-256 verified"
@@ -242,14 +264,14 @@ $LangEn = @{
     PowerShell          = "PowerShell"
     FlashEngine         = "Flash Engine"
     Programmer          = "Programmer"
-    StLink              = "ST-Link"
+    StLink              = "Probe / Programmer"
     TargetVoltage       = "Target Voltage"
     Mcu                 = "Microcontroller"
     Family              = "Family"
     Core                = "Core / Processor"
     DeviceId            = "Device ID"
     Flash               = "Flash"
-    StLinkDetected      = "ST-Link Detected"
+    StLinkDetected      = "Programmer Detected"
     Yes                 = "Yes"
     No                  = "No — check USB and power"
     FlashWrite          = "Flash Write"
@@ -331,17 +353,17 @@ if ($HexFile) {
     if ($ResolvedHex) {
         $HexFile = $ResolvedHex
     } else {
-        Write-Warn "$(T 'InvalidHexFile')$HexFile"
+        Write-Host "   [!] $(T 'InvalidHexFile')$HexFile" -ForegroundColor Yellow
         $HexFile = ""
     }
 }
 
 $SelectedEngine = ""
 if ($Engine) {
-    if (($Engine -ieq 'OPENOCD') -or (Test-Path -LiteralPath $Engine -PathType Leaf)) {
+    if (($Engine -ieq 'OPENOCD') -or ($Engine -ieq 'JLINK') -or ($Engine -ieq 'CUBEPROGRAMMER') -or ($Engine -ieq 'CUBE') -or (Test-Path -LiteralPath $Engine -PathType Leaf)) {
         $SelectedEngine = $Engine
     } else {
-        Write-Warn (T 'InvalidEngine')
+        Write-Host "   [!] $(T 'InvalidEngine')" -ForegroundColor Yellow
         $Engine = ""
     }
 }
@@ -351,7 +373,7 @@ if ($Input -and -not $HexFile -and $Input -notin @('ru','en')) {
     if ($ResolvedInput) {
         $HexFile = $ResolvedInput
     } else {
-        Write-Warn "$(T 'InvalidHexFile')$Input"
+        Write-Host "   [!] $(T 'InvalidHexFile')$Input" -ForegroundColor Yellow
     }
 }
 
@@ -750,6 +772,57 @@ function Get-OpenOcdSerialCommand($serialHex, $mode = "plain") {
     }
 }
 
+function Test-IsJLinkEngine($engine) {
+    if (-not $engine) { return $false }
+    if ($engine -ieq "JLINK") { return $true }
+    $leaf = Split-Path -Leaf $engine -ErrorAction SilentlyContinue
+    return ($leaf -ieq "JLink.exe")
+}
+
+function Find-JLinkExe() {
+    $candidates = @()
+
+    try {
+        $cmd = Get-Command "JLink.exe" -ErrorAction Stop
+        if ($cmd -and $cmd.Source) { $candidates += $cmd.Source }
+    } catch {}
+
+    $candidates += @(
+        "C:\Program Files\SEGGER\JLink\JLink.exe",
+        "C:\Program Files (x86)\SEGGER\JLink\JLink.exe"
+    )
+
+    foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return (Get-Item -LiteralPath $candidate).FullName
+        }
+    }
+
+    return $null
+}
+
+function Find-CubeProgrammerCli() {
+    $searchPaths = @(
+        "C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
+        "C:\ST\STM32CubeCLT*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
+        "C:\ST\STM32CubeIDE*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
+        "$env:LOCALAPPDATA\Programs\STM32CubeCLT*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
+    )
+    $foundCli = @()
+    foreach ($p in $searchPaths) {
+        $found = Get-Item -Path $p -ErrorAction SilentlyContinue
+        if ($found) { $foundCli += $found.FullName }
+    }
+    return @($foundCli | Select-Object -Unique)
+}
+
+function Get-EngineDisplayName($engine) {
+    if ($engine -eq "OPENOCD") { return "OpenOCD" }
+    if (Test-IsJLinkEngine $engine) { return "SEGGER J-Link" }
+    if ($engine) { return "STM32CubeProgrammer" }
+    return ""
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Пути и окружение
 # ══════════════════════════════════════════════════════════════════════════════
@@ -769,6 +842,18 @@ $OpenOcdExe     = Join-Path $ToolDir "xpack-openocd-0.12.0-3\bin\openocd.exe"
 $StLinkUrl      = "https://github.com/stlink-org/stlink/releases/download/v1.8.0/stlink-1.8.0-win32.zip"
 $SelectedProbeSerial = ""
 $SelectedProbeInfo = $null
+$SelectedProbeType = "STLINK"
+$ProbeSpecified = [bool]$Probe
+if ($Probe) {
+    switch -Regex ($Probe.Trim()) {
+        '^(?i:STLINK|ST-LINK|SWD)$' { $SelectedProbeType = "STLINK"; break }
+        '^(?i:JLINK|J-LINK)$'       { $SelectedProbeType = "JLINK"; break }
+        default {
+            Write-Warn (T "InvalidProbe")
+            $SelectedProbeType = "STLINK"
+        }
+    }
+}
 
 $PsVerStr = $PSVersionTable.PSVersion.ToString()
 $WinInfo = ""
@@ -906,29 +991,21 @@ $EngineCfgPath = Join-Path $CurrentDir ".flash_engine"
 
 if (-not $SelectedEngine -and (Test-Path -LiteralPath $EngineCfgPath)) {
     $SavedEngine = (Get-Content -LiteralPath $EngineCfgPath -TotalCount 1).Trim()
-    if ($SavedEngine -eq "OPENOCD" -or (Test-Path -LiteralPath $SavedEngine)) {
+    if ($SavedEngine -eq "OPENOCD" -or $SavedEngine -eq "JLINK" -or $SavedEngine -eq "CUBEPROGRAMMER" -or $SavedEngine -eq "CUBE" -or (Test-Path -LiteralPath $SavedEngine)) {
         $SelectedEngine = $SavedEngine
     }
 }
 
 if (-not $SelectedEngine) {
     Write-Info (T "SearchCubeProg")
-    $SearchPaths = @(
-        "C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
-        "C:\ST\STM32CubeCLT*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
-        "C:\ST\STM32CubeIDE*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
-        "$env:LOCALAPPDATA\Programs\STM32CubeCLT*\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe"
-    )
-    $FoundCli = @()
-    foreach ($p in $SearchPaths) {
-        $found = Get-Item -Path $p -ErrorAction SilentlyContinue
-        if ($found) { $FoundCli += $found.FullName }
-    }
-    $FoundCli = $FoundCli | Select-Object -Unique
+    $FoundCli = Find-CubeProgrammerCli
+    Write-Info (T "SearchJLink")
+    $FoundJLink = Find-JLinkExe
 
     $Opts = @()
     $Opts += @{ Label = "$(T 'EngineOpenOCD')"; Value = "OPENOCD" }
     foreach ($cli in $FoundCli) { $Opts += @{ Label = "$(T 'EngineCubeProg') ($cli)"; Value = $cli } }
+    if ($FoundJLink) { $Opts += @{ Label = "$(T 'EngineJLink') ($FoundJLink)"; Value = "JLINK" } }
 
     if ($Opts.Count -eq 1) {
         $SelectedEngine = "OPENOCD"
@@ -948,10 +1025,28 @@ if (-not $SelectedEngine) {
 }
 
 $StLinkSerialCfgPath = Join-Path $CurrentDir ".stlink_serial"
+$JLinkSerialCfgPath = Join-Path $CurrentDir ".jlink_serial"
+$ProbeTypeCfgPath = Join-Path $CurrentDir ".probe_type"
 $ProbeInfo = $null
+if (-not $ProbeSpecified -and (Test-Path -LiteralPath $ProbeTypeCfgPath)) {
+    $SavedProbeType = (Get-Content -LiteralPath $ProbeTypeCfgPath -TotalCount 1).Trim()
+    if ($SavedProbeType -in @("STLINK", "JLINK")) {
+        $SelectedProbeType = $SavedProbeType
+    }
+}
+if ($SelectedProbeType -eq "JLINK") {
+    if ($Serial) {
+        $SelectedProbeSerial = $Serial
+    } elseif (Test-Path -LiteralPath $JLinkSerialCfgPath) {
+        $SelectedProbeSerial = (Get-Content -LiteralPath $JLinkSerialCfgPath -TotalCount 1).Trim()
+    }
+}
+if (-not (Test-IsJLinkEngine $SelectedEngine) -and $SelectedProbeType -ne "JLINK") {
 try {
-    $stInfoExe = Ensure-StInfoExe
-    $ProbeInfo = Get-StInfoProbeInfo $stInfoExe
+    $stInfoExe = Find-StInfoExe
+    if ($stInfoExe) {
+        $ProbeInfo = Get-StInfoProbeInfo $stInfoExe
+    }
 } catch {}
 
 if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
@@ -994,6 +1089,21 @@ if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
         try { Set-Content -LiteralPath $StLinkSerialCfgPath -Value $SelectedProbeSerial -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
     }
 }
+
+if (-not $ProbeSpecified -and $SelectedProbeType -eq "STLINK" -and -not $SelectedProbeSerial -and (Find-JLinkExe)) {
+    $SelectedProbeType = "JLINK"
+    if (Test-Path -LiteralPath $JLinkSerialCfgPath) {
+        $SelectedProbeSerial = (Get-Content -LiteralPath $JLinkSerialCfgPath -TotalCount 1).Trim()
+    }
+    Write-Info "$(T 'SelectedProbe'): J-Link"
+}
+}
+if (-not (Test-IsJLinkEngine $SelectedEngine)) {
+    try { Set-Content -LiteralPath $ProbeTypeCfgPath -Value $SelectedProbeType -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+}
+if ($SelectedProbeType -eq "JLINK" -and $SelectedProbeSerial) {
+    try { Set-Content -LiteralPath $JLinkSerialCfgPath -Value $SelectedProbeSerial -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+}
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1004,6 +1114,10 @@ $LogStd = "$LogFile.stdout"
 $LogErr = "$LogFile.stderr"
 $ExePath = ""
 $ExeArgs = @()
+$RetryArgsWithoutSerial = @()
+$JLinkScript = ""
+$SelectedJLinkDevice = ""
+$SelectedJLinkSerial = ""
 
 if ($PreflightFailed) {
     $process = [PSCustomObject]@{ ExitCode = 2 }
@@ -1011,7 +1125,7 @@ if ($PreflightFailed) {
     $OperationDuration = $PreflightDuration.ToString("hh\:mm\:ss\.fff")
 } elseif ($SelectedEngine -eq "OPENOCD") {
     Write-Step "3" (T "StepPrepareOpenOCD")
-    if (-Not (Test-Path -LiteralPath $OpenOcdExe)) {
+    if ((-not $DryRun) -and (-not (Test-Path -LiteralPath $OpenOcdExe))) {
         Write-Warn (T "DownloadOpenOCD")
         New-Item -ItemType Directory -Force -Path $ToolDir | Out-Null
         Invoke-Download $OpenOcdUrl $OpenOcdZip
@@ -1019,7 +1133,7 @@ if ($PreflightFailed) {
         Remove-Item -LiteralPath $OpenOcdZip -ErrorAction SilentlyContinue
     }
     $OpenOcdScripts = Join-Path $ToolDir "xpack-openocd-0.12.0-3\openocd\scripts"
-    if (-Not (Test-Path -LiteralPath $OpenOcdScripts)) {
+    if ((-not $DryRun) -and (-not (Test-Path -LiteralPath $OpenOcdScripts))) {
         $foundS = Get-ChildItem -Path (Join-Path $ToolDir "xpack-openocd-0.12.0-3") -Recurse -Filter "stlink.cfg" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($foundS) { $OpenOcdScripts = Split-Path -Parent $foundS.DirectoryName }
     }
@@ -1031,7 +1145,7 @@ if ($PreflightFailed) {
     if ($Target) { $TargetCfg = $Target }
     if ($TargetCfg) {
         $TargetCfgPath = Join-Path $OpenOcdScripts ($TargetCfg -replace '/','\')
-        if (-not (Test-Path -LiteralPath $TargetCfgPath -PathType Leaf)) {
+        if ((-not $DryRun) -and (-not (Test-Path -LiteralPath $TargetCfgPath -PathType Leaf))) {
             Write-Warn (T 'InvalidTarget')
             $TargetCfg = ""
         }
@@ -1083,7 +1197,7 @@ if ($PreflightFailed) {
     }
     if ($TargetCfg) {
         $TargetCfgPath = Join-Path $OpenOcdScripts ($TargetCfg -replace '/','\')
-        if (-not (Test-Path -LiteralPath $TargetCfgPath -PathType Leaf)) {
+        if ((-not $DryRun) -and (-not (Test-Path -LiteralPath $TargetCfgPath -PathType Leaf))) {
             Write-Err (T 'InvalidTarget')
             Start-Sleep -Seconds 3
             exit 1
@@ -1100,14 +1214,85 @@ if ($PreflightFailed) {
     }
     $ExeArgs += @("-f", $TargetCfg, "-c", $TclCmd)
 
+} elseif (Test-IsJLinkEngine $SelectedEngine) {
+    Write-Step "3" (T "StepPrepareJLink")
+    $JLinkExe = if ($SelectedEngine -ieq "JLINK") { Find-JLinkExe } else { $SelectedEngine }
+    if (-not $JLinkExe -or -not (Test-Path -LiteralPath $JLinkExe -PathType Leaf)) {
+        Write-Err (T "InvalidEngine")
+        Start-Sleep -Seconds 3
+        exit 1
+    }
+
+    $JLinkDeviceCfgPath = Join-Path $CurrentDir ".jlink_device"
+    if ($Device) {
+        $SelectedJLinkDevice = $Device.Trim()
+    } elseif (Test-Path -LiteralPath $JLinkDeviceCfgPath) {
+        $SelectedJLinkDevice = (Get-Content -LiteralPath $JLinkDeviceCfgPath -TotalCount 1).Trim()
+    }
+    if (-not $SelectedJLinkDevice) {
+        Write-Host "   [?] $(T 'PromptJLinkDevice'): " -ForegroundColor Yellow -NoNewline
+        $SelectedJLinkDevice = (Read-Host).Trim()
+    }
+    if (-not $SelectedJLinkDevice) {
+        Write-Err (T "InvalidJLinkDevice")
+        Start-Sleep -Seconds 3
+        exit 1
+    }
+    try { Set-Content -LiteralPath $JLinkDeviceCfgPath -Value $SelectedJLinkDevice -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+
+    $JLinkSerialCfgPath = Join-Path $CurrentDir ".jlink_serial"
+    if ($Serial) {
+        $SelectedJLinkSerial = $Serial
+    } elseif (Test-Path -LiteralPath $JLinkSerialCfgPath) {
+        $SelectedJLinkSerial = (Get-Content -LiteralPath $JLinkSerialCfgPath -TotalCount 1).Trim()
+    }
+
+    Write-Host "   $(T 'EngineJLinkName')" -ForegroundColor Cyan
+    Write-Info "$(T 'JLinkDevice'): $SelectedJLinkDevice"
+    if ($SelectedJLinkSerial) {
+        Write-Info "$(T 'ProbeSerial'): $SelectedJLinkSerial"
+        try { Set-Content -LiteralPath $JLinkSerialCfgPath -Value $SelectedJLinkSerial -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+        try { Set-Content -LiteralPath (Join-Path $CurrentDir ".probe_type") -Value "JLINK" -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    }
+
+    $JLinkScript = Join-Path $CurrentDir ".jlink_flash.jlink"
+    $scriptLines = @(
+        "EoE 1",
+        "r",
+        "h",
+        "loadfile `"$TargetHex`"",
+        "r",
+        "g",
+        "q"
+    )
+    Set-Content -LiteralPath $JLinkScript -Value ($scriptLines -join "`r`n") -Encoding ASCII
+
+    $ExePath = $JLinkExe
+    $ExeArgs = @("-device", $SelectedJLinkDevice, "-if", "swd", "-speed", "4000", "-nogui", "1")
+    $RetryArgsWithoutSerial = @("-device", $SelectedJLinkDevice, "-if", "swd", "-speed", "4000", "-nogui", "1", "-CommandFile", "`"$JLinkScript`"")
+    if ($SelectedJLinkSerial) { $ExeArgs += @("-usb", $SelectedJLinkSerial) }
+    $ExeArgs += @("-CommandFile", "`"$JLinkScript`"")
+
 } else {
     Write-Step "3" (T "StepPrepareCubeProg")
     Write-Host "   $(T 'EngineCubeProgName')" -ForegroundColor Cyan
-    Write-Info (T "AutoDetectMcu")
-    $ExePath = $SelectedEngine
-    # Ключи: -c port=SWD (подключение), -w (прошивка), -v (верификация), -rst (сброс)
-    $ConnectionArgs = if ($SelectedProbeSerial) { "port=SWD sn=$SelectedProbeSerial" } else { "port=SWD" }
-    $ExeArgs = @("-c", $ConnectionArgs, "-w", $TargetHex, "-v", "-rst")
+    Write-Info "$(T 'ProbeType'): $SelectedProbeType"
+    if ($SelectedProbeType -ne "JLINK") { Write-Info (T "AutoDetectMcu") }
+    $ExePath = if (($SelectedEngine -ieq "CUBEPROGRAMMER") -or ($SelectedEngine -ieq "CUBE")) { Find-CubeProgrammerCli | Select-Object -First 1 } else { $SelectedEngine }
+    if (-not $ExePath -or -not (Test-Path -LiteralPath $ExePath -PathType Leaf)) {
+        Write-Err (T "InvalidEngine")
+        Start-Sleep -Seconds 3
+        exit 1
+    }
+    # Ключи: -c (подключение), -w (прошивка), -v (верификация), -rst (сброс)
+    $ConnectionPort = if ($SelectedProbeType -eq "JLINK") { "JLINK" } else { "SWD" }
+    $ConnectionArgs = if ($SelectedProbeSerial) { "port=$ConnectionPort sn=$SelectedProbeSerial" } else { "port=$ConnectionPort" }
+    $ExeArgs = @("-c", $ConnectionArgs, "-w", $TargetHex, "-v")
+    $RetryArgsWithoutSerial = @("-c", "port=$ConnectionPort", "-w", $TargetHex, "-v")
+    if ($SelectedProbeType -ne "JLINK") {
+        $ExeArgs += "-rst"
+        $RetryArgsWithoutSerial += "-rst"
+    }
 }
 
 if (-not $PreflightFailed) {
@@ -1123,6 +1308,10 @@ if (-not $PreflightFailed) {
         $process = [PSCustomObject]@{ ExitCode = 0 }
         if ($SelectedEngine -eq "OPENOCD") {
             $LogContent = "$(T 'DryRunLog')`ntarget voltage: 3.3`n** Programming Finished **`n** Verified OK **`n"
+        } elseif (Test-IsJLinkEngine $SelectedEngine) {
+            $LogContent = "$(T 'DryRunLog')`nSEGGER J-Link Commander V9.60`nConnecting to J-Link via USB...O.K.`nS/N: 123456789`nVTref=3.300V`nDevice `"$SelectedJLinkDevice`" selected.`nCortex-M4 identified.`nDownloading file [$HexName]...O.K.`n"
+        } elseif ($SelectedProbeType -eq "JLINK") {
+            $LogContent = "$(T 'DryRunLog')`nSTM32CubeProgrammer v2.21.0`nJ-Link SN  : 123456789`nVoltage     : 3.30V`nFile download complete`nDownload verified successfully`n"
         } else {
             $LogContent = "$(T 'DryRunLog')`nST-LINK SN  : 0671FF555353885087123456`nVoltage     : 3.30V`nFile download complete`nDownload verified successfully`n"
         }
@@ -1151,12 +1340,35 @@ if (-not $PreflightFailed) {
             $stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
             $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
         }
+
+        $savedJLinkSerialWasUsed =
+            (-not $Serial) -and
+            ($RetryArgsWithoutSerial.Count -gt 0) -and
+            (
+                ((Test-IsJLinkEngine $SelectedEngine) -and $SelectedJLinkSerial) -or
+                ($SelectedProbeType -eq "JLINK" -and $SelectedProbeSerial)
+            )
+        if (
+            $savedJLinkSerialWasUsed -and
+            $process.ExitCode -ne 0 -and
+            $LogContent -match "(?i)(serial|S/N|No J-Link|Could not find|Cannot connect to J-Link|probe.*not.*found|No probe)"
+        ) {
+            Write-Warn (T "RetryWithoutSerial")
+            $RetryElapsed += $FlashTimer.Elapsed
+            $FlashTimer.Restart()
+            $process = Start-Process -FilePath $ExePath -ArgumentList $RetryArgsWithoutSerial -NoNewWindow -Wait -PassThru -RedirectStandardOutput $LogStd -RedirectStandardError $LogErr
+            $FlashTimer.Stop()
+            $stdout = Get-Content -LiteralPath $LogStd -Raw -ErrorAction SilentlyContinue
+            $stderr = Get-Content -LiteralPath $LogErr -Raw -ErrorAction SilentlyContinue
+            $LogContent = @($stdout, $stderr | Where-Object { $_ }) -join "`n"
+        }
     }
     $OperationDuration = ($RetryElapsed + $FlashTimer.Elapsed).ToString("hh\:mm\:ss\.fff")
 }
 $LogContent = Normalize-ToolLog $LogContent
 
 Remove-Item -LiteralPath $LogStd, $LogErr -ErrorAction SilentlyContinue
+if ($JLinkScript) { Remove-Item -LiteralPath $JLinkScript -ErrorAction SilentlyContinue }
 $LogContent | Set-Content -LiteralPath $LogFile -Encoding UTF8
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1185,23 +1397,37 @@ $EnginePatterns = @{
     }
     CUBEPROGRAMMER = @{
         Flags = @{
-            IsStlinkFound = "ST-LINK SN|Voltage"
+            IsStlinkFound = "ST-LINK SN|J-Link SN|Voltage"
             IsProgrammed  = "File download complete"
             IsVerified    = "Download verified successfully"
         }
         Fields = [ordered]@{
             ToolInfo      = @{ Pattern = 'STM32CubeProgrammer\s+(v[\d\.]+)'; Prefix = 'STM32CubeProgrammer ' }
-            StlinkInfo    = @{ Pattern = 'ST-LINK FW\s*:\s*([^\r\n]+)' }
+            StlinkInfo    = @{ Pattern = '(?m)^\s*(Connecting to J-Link/Flasher Probe|ST-LINK FW\s*:\s*[^\r\n]+|J-Link SN\s*:\s*[^\r\n]+)' }
             TargetVoltage = @{ Pattern = 'Voltage\s*:\s*([^\r\n]+)' }
-            McuCore       = @{ Pattern = 'Device CPU\s*:\s*([^\r\n]+)' }
+            McuCore       = @{ Pattern = '(?:Device CPU\s*:|Device=)\s*([^\r\n]+)' }
             McuDevIdHex   = @{ Pattern = 'Device ID\s*:\s*(0x[\da-fA-F]+)' }
             McuFlash      = @{ Pattern = 'Flash size\s*:\s*([^\r\n]+)' }
             McuFamily     = @{ Pattern = 'Device name\s*:\s*([^\r\n]+)' }
         }
     }
+    JLINK = @{
+        Flags = @{
+            IsStlinkFound = "SEGGER J-Link Commander|Connecting to J-Link|S/N:"
+            IsProgrammed  = "Downloading file[\s\S]*?O\.K\.|Loading file[\s\S]*?O\.K\."
+            IsVerified    = "Downloading file[\s\S]*?O\.K\.|Loading file[\s\S]*?O\.K\."
+        }
+        Fields = [ordered]@{
+            ToolInfo      = @{ Pattern = '(?m)^(SEGGER J-Link Commander[^\r\n]+)' }
+            StlinkInfo    = @{ Pattern = '(?m)^\s*(S/N:\s*[^\r\n]+)' }
+            TargetVoltage = @{ Pattern = 'VTref\s*=\s*([^\r\n]+)' }
+            McuCore       = @{ Pattern = '(Cortex-M[^\r\n]+)' }
+            McuFamily     = @{ Pattern = 'Device\s+"?([^"\r\n]+)"?\s+selected' }
+        }
+    }
 }
 
-$ParserKey = if ($SelectedEngine -eq "OPENOCD") { "OPENOCD" } else { "CUBEPROGRAMMER" }
+$ParserKey = if ($SelectedEngine -eq "OPENOCD") { "OPENOCD" } elseif (Test-IsJLinkEngine $SelectedEngine) { "JLINK" } else { "CUBEPROGRAMMER" }
 $ParsedLog = Invoke-EngineLogParser $LogContent $EnginePatterns[$ParserKey]
 $IsStlinkFound = $ParsedLog.IsStlinkFound
 $IsProgrammed  = $ParsedLog.IsProgrammed
@@ -1214,6 +1440,21 @@ $McuDevId      = $ParsedLog.McuDevId
 $McuDevIdHex   = $ParsedLog.McuDevIdHex
 $McuFlash      = $ParsedLog.McuFlash
 $McuFamily     = $ParsedLog.McuFamily
+if ((Test-IsJLinkEngine $SelectedEngine) -and -not $McuFamily -and $SelectedJLinkDevice) {
+    $McuFamily = $SelectedJLinkDevice
+}
+
+if (-not $DryRun -and -not $Serial -and ((Test-IsJLinkEngine $SelectedEngine) -or $SelectedProbeType -eq "JLINK")) {
+    $detectedJLinkSerial = ""
+    if ($StlinkInfo -match '(?i)S/N\s*:\s*([0-9A-F]+)') {
+        $detectedJLinkSerial = $Matches[1]
+    } elseif ($StlinkInfo -match '(?i)J-Link SN\s*:\s*([0-9A-F]+)') {
+        $detectedJLinkSerial = $Matches[1]
+    }
+    if ($detectedJLinkSerial) {
+        try { Set-Content -LiteralPath (Join-Path $CurrentDir ".jlink_serial") -Value $detectedJLinkSerial -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+    }
+}
 
 $IntegrityGateOk = (-not $HashCheckPerformed) -or $HashCheckOk
 $Success = $IntegrityGateOk -and $IsStlinkFound -and $IsProgrammed -and $IsVerified -and $ExitOk
@@ -1426,7 +1667,7 @@ $HistoryEntry = [ordered]@{
     Success = $Success
     ResultText = if ($Success) { T 'SuccessMsg' } else { T 'ErrorMsg' }
     HexName = $HexName
-    EngineName = if ($SelectedEngine -eq "OPENOCD") { "OpenOCD" } elseif ($SelectedEngine) { "STM32CubeProgrammer" } else { "" }
+    EngineName = Get-EngineDisplayName $SelectedEngine
     OperationDuration = $OperationDuration
     ReportFile = ""
     LogFile = ""

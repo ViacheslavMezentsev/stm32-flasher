@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and the project uses semantic versioning in `Major.Minor.Patch` form while it is still in active development.
 
+## [0.2.8] - 2026-06-19
+
+### Added
+- Added SEGGER J-Link Commander support via `-Engine JLINK`.
+- Added STM32CubeProgrammer J-Link probe mode via `-Probe JLINK`.
+- Added `-Device` for explicit J-Link device names such as `STM32G431CB`.
+- Added `.probe_type`, `.jlink_device`, and `.jlink_serial` persistence for J-Link workflows.
+- Added J-Link log parsing for reports and history.
+
+### Changed
+- Made J-Link serial optional when only one J-Link probe is connected.
+- Skipped CubeProgrammer `-rst` for `-Probe JLINK` to avoid failing after successful write and verify.
+- Improved dry-run behavior so OpenOCD dry runs do not download OpenOCD.
+- Updated README and Russian usage guide for J-Link workflows.
+
 ## [0.2.7] - 2026-05-28
 
 ### Changed
