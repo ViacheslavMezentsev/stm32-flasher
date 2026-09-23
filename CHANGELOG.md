@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog, and the project uses semantic versioning in `Major.Minor.Patch` form while it is still in active development.
 
+## [0.2.9] - 2026-09-24
+
+### Added
+- Added `erase.cmd`, `forget.cmd`, `backup.cmd` and `info.cmd` wrappers; implementation remains in `flash.cmd`.
+- Added operation-specific `--help` (`-Help`, `-h`) and `--version` (`-Version`) for every command, exiting before discovery or file changes; covered by isolated CMD tests in PowerShell 5.1 and 7.
+- Added full Flash erase with live probe selection, operation reports and history.
+- Added Intel HEX backups with SHA-256, filenames containing date/time, MCU device ID and image size, and protection against overwriting existing backups.
+- Added environment inventory and optional target inspection with `-Info -ProbeTarget`.
+- Added settings reset and local artifact cleanup; backups and firmware files are preserved.
+- Added hardware-free maintenance and backup tests for PowerShell 5.1 and 7.
+
+### Changed
+- Resolve local settings, tools and reports relative to the working directory.
+- Include all command wrappers in the release archive.
+- Mark the configured/automatically selected engine executable with `*` in environment info.
+- Reuse installed OpenOCD with its matching scripts before downloading a local copy.
+- Accept both capitalization variants of OpenOCD target voltage and capture st-info stderr warnings without aborting PowerShell 5.1.
+- Return a nonzero exit code on operation failure even when the tool exits successfully without a completion marker.
+
 ## [0.2.8] - 2026-06-19
 
 ### Added

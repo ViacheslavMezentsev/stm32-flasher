@@ -8,10 +8,23 @@
 
 Утилита для прошивки STM32 через ST-Link или J-Link. Один файл, минимум подготовки, отчёт по результату.
 
-**Поддерживаемые движки:** OpenOCD (встроенный, скачивается автоматически), STM32CubeProgrammer (если установлен), SEGGER J-Link Commander (если установлен).
+**Поддерживаемые движки:** OpenOCD (установленный или скачивается автоматически), STM32CubeProgrammer (если установлен), SEGGER J-Link Commander (если установлен).
 Поддерживается выбор конкретного ST-Link или J-Link, если к ПК подключено несколько программаторов.
 Поддерживается предварительная проверка SHA-256 для `*.hex` перед прошивкой.
 Поддерживается локальная история последних сессий прошивки в `.history\`.
+
+Версия **0.2.9**. Необязательные команды-обёртки держите рядом с `flash.cmd`:
+
+Все команды поддерживают `--help` (`-Help`, `-h`) и `--version` (`-Version`): только справка или версия, без выполнения операций. Язык: `-Lang ru` / `-Lang en`.
+
+| Команда | Действие |
+|---|---|
+| `erase.cmd` | Полное стирание Flash |
+| `backup.cmd` | Резервная копия в Intel HEX + SHA-256 в `backups` |
+| `info.cmd` | Обзор ПК, инструментов, USB-программаторов и сохранённых настроек |
+| `forget.cmd` | Удаление настроек, логов, отчётов и скачанных инструментов; копии сохраняются |
+
+Несколько программаторов при backup/erase выбираются через меню. `info.cmd -ProbeTarget` подключается к выбранному MCU. `forget.cmd -DryRun` показывает список удаления; `flash.cmd -ResetConfig` сбрасывает только настройки.
 
 ### Быстрый старт
 
@@ -29,7 +42,7 @@
   - загрузка OpenOCD ~5 MB, если CubeProgrammer не установлен;
   - загрузка `stlink` tools, если нужен `st-info` и он не найден локально.
 
-Подробная инструкция: [Инструкция по использованию](<D:/github/ViacheslavMezentsev/stm32-flasher/Инструкция по использованию stm32-flasher.md>)
+Подробная инструкция: [Инструкция по использованию](<Инструкция по использованию stm32-flasher.md>)
 
 ### Файлы, создаваемые автоматически
 
@@ -46,14 +59,28 @@
 | `flash_log.txt` | Лог последней прошивки |
 | `report.html` | HTML-отчёт последней прошивки |
 | `.history\` | Архив отчётов и логов предыдущих сессий |
+| `backups\` | Резервные копии Flash; `forget.cmd` их не удаляет |
 
 ---
 
 ## English <a name="english"></a>
 
+Version **0.2.9**. Keep optional command wrappers next to `flash.cmd`:
+
+| Command | Action |
+|---|---|
+| `erase.cmd` | Full Flash erase |
+| `backup.cmd` | Intel HEX + SHA-256 backup in `backups` |
+| `info.cmd` | PC, tools, USB probes and saved settings overview |
+| `forget.cmd` | Remove settings, logs, reports and downloaded tools; preserve backups |
+
+Backup/erase prompt when multiple probes are connected. `info.cmd -ProbeTarget` connects to the selected MCU. `forget.cmd -DryRun` previews cleanup; `flash.cmd -ResetConfig` resets settings only.
+
+All commands accept `--help` (`-Help`, `-h`) and `--version` (`-Version`): information only, without executing operations. Language: `-Lang ru` / `-Lang en`.
+
 STM32 flashing utility via ST-Link or J-Link. Single file, minimal setup, result report included.
 
-**Supported engines:** OpenOCD (built-in, auto-downloaded), STM32CubeProgrammer (if installed), SEGGER J-Link Commander (if installed).
+**Supported engines:** OpenOCD (installed or auto-downloaded), STM32CubeProgrammer (if installed), SEGGER J-Link Commander (if installed).
 Supports selecting a specific ST-Link or J-Link when multiple programmers are connected.
 Supports optional SHA-256 verification for `*.hex` before flashing.
 Supports a local flash-session history in `.history\`.
@@ -89,3 +116,4 @@ Supports a local flash-session history in `.history\`.
 | `flash_log.txt` | Last flash log |
 | `report.html` | Last flash HTML report |
 | `.history\` | Archive of reports and logs from previous sessions |
+| `backups\` | Flash backups; preserved by `forget.cmd` |

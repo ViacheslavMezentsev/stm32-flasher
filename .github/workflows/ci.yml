@@ -25,6 +25,10 @@ jobs:
         run: |
           $required = @(
             'flash.cmd',
+            'erase.cmd',
+            'forget.cmd',
+            'backup.cmd',
+            'info.cmd',
             'README.md',
             'LICENSE',
             'CHANGELOG.md',
@@ -60,3 +64,27 @@ jobs:
             throw 'Version string not found or not in Major.Minor.Patch format.'
           }
           Write-Host "Detected script version $($Matches[1]).$($Matches[2]).$($Matches[3])"
+
+      - name: Test maintenance modes (PowerShell 7)
+        shell: pwsh
+        run: ./tests/Test-Maintenance.ps1
+
+      - name: Test maintenance modes (Windows PowerShell 5.1)
+        shell: powershell
+        run: ./tests/Test-Maintenance.ps1
+
+      - name: Test backup (PowerShell 7)
+        shell: pwsh
+        run: ./tests/Test-Backup.ps1
+
+      - name: Test backup (Windows PowerShell 5.1)
+        shell: powershell
+        run: ./tests/Test-Backup.ps1
+
+      - name: Test help and version (PowerShell 7)
+        shell: pwsh
+        run: ./tests/Test-Help.ps1
+
+      - name: Test help and version (Windows PowerShell 5.1)
+        shell: powershell
+        run: ./tests/Test-Help.ps1

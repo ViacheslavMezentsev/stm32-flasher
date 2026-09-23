@@ -58,6 +58,10 @@ jobs:
 
           $files = @(
             'flash.cmd',
+            'erase.cmd',
+            'forget.cmd',
+            'backup.cmd',
+            'info.cmd',
             'README.md',
             'LICENSE',
             'CHANGELOG.md',
