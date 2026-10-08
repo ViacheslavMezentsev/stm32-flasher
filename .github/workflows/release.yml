@@ -65,10 +65,16 @@ jobs:
             'README.md',
             'LICENSE',
             'CHANGELOG.md',
-            'Инструкция по использованию stm32-flasher.md'
+            'CHANGELOG.en.md',
+            'docs/TECHNICAL_SPECIFICATION.md',
+            'docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md',
+            'docs/reference/stlink-inventory.md',
+            'docs/user-guide.md',
+            'docs/testing.md'
           )
 
           foreach ($file in $files) {
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent (Join-Path $packageRoot $file)) | Out-Null
             Copy-Item -LiteralPath $file -Destination (Join-Path $packageRoot $file)
           }
 

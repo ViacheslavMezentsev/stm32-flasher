@@ -96,7 +96,7 @@ mcu_lts_board.hex
 .\flash.cmd -HexFile .\mcu_lts_board.hex -Engine CUBEPROGRAMMER -Probe JLINK
 .\flash.cmd -HexFile .\mcu_lts_board.hex -Engine JLINK -Device STM32G431CB
 .\flash.cmd -HexFile .\mcu_lts_board.hex -Target target/stm32g4x.cfg
-.\flash.cmd -HexFile .\mcu_lts_board.hex -Serial 066AFF535548877187165246
+.\flash.cmd -HexFile .\mcu_lts_board.hex -Serial 0123456789ABCDEF01234567
 .\flash.cmd -HexFile .\mcu_lts_board.hex -Sha256 84A7B05EB12A9986D903F3FCF5281385062A99089ACE0C947614C9ACF02F887C
 .\flash.cmd -HexFile .\mcu_lts_board.hex -DryRun
 .\flash.cmd -HexFile .\mcu_lts_board.hex -Silent
@@ -136,6 +136,7 @@ mcu_lts_board.hex
 
 Если подключено несколько ST-Link:
 - можно сразу указать нужный параметром `-Serial`;
+- при прошивке явный `-Serial` не заменяется сохранённым или другим найденным программатором. Если доступное перечисление подтверждает отсутствие ST-Link, операция прекращается до опроса MCU. Если перечисление недоступно или неполно, serial всё равно передаётся движку; ошибка подключения не разрешает повтор без явного serial;
 - если параметр не передан, скрипт покажет меню выбора;
 - рядом с serial по возможности показывается распознанный тип МК;
 - выбранный serial сохраняется в `.stlink_serial` для следующего запуска.
@@ -304,9 +305,9 @@ HTML-отчёт содержит:
 
 ```powershell
 .\backup.cmd
-.\backup.cmd -Engine JLINK -Device STM32F103C8 -Serial 69653773 -Size 65536
-.\backup.cmd -Engine CUBEPROGRAMMER -Probe JLINK -Serial 69653773 -Size 0x10000 -Output backups/bluepill.hex
-.\flash.cmd -HexFile backups/bluepill.hex -Engine JLINK -Device STM32F103C8 -Serial 69653773
+.\backup.cmd -Engine JLINK -Device STM32F103C8 -Serial 12345678 -Size 65536
+.\backup.cmd -Engine CUBEPROGRAMMER -Probe JLINK -Serial 12345678 -Size 0x10000 -Output backups/bluepill.hex
+.\flash.cmd -HexFile backups/bluepill.hex -Engine JLINK -Device STM32F103C8 -Serial 12345678
 ```
 
 По умолчанию создаются, например, `backups/STM32_20260924_005318_ID0x410_64K.hex` и соседний `.hex.sha256`. Имя включает модель (либо `STM32`), локальную дату и время с точностью до секунды, код MCU в шестнадцатеричной записи и объём прочитанных данных. `64K` означает 64 КиБ (1 K = 1024 байта), округление вверх до целого K; это объём образа памяти, а не размер текстового HEX-файла на диске. Миллисекунд и случайного суффикса нет. Если код MCU недоступен, используется `IDunknown`, а не предположение по названию модели. J-Link для STM32F101/102/103/105/107 читает DBGMCU_IDCODE; CubeProgrammer и OpenOCD используют код из лога, ST-Link также предоставляет код через st-info.
@@ -325,16 +326,18 @@ J-Link и OpenOCD при чтении останавливают ядро и з�
 
 ## Обзор окружения
 
+Список ST-Link берётся из CubeProgrammer `-l stlink-only`, если установленная версия явно поддерживает этот режим без подключения к MCU. Резервный источник: Windows USB. Источник показывается в выводе. Нераспознанные номера обозначаются как недоступные, USB ID приводится отдельно; предупреждения CubeProgrammer не скрываются. Подробности: [карточка перечисления ST-Link](reference/stlink-inventory.md).
+
 Звёздочка `*` слева от пути отмечает EXE движка по текущим параметрам, сохранённому выбору или обычному автоматическому выбору. Явный `-Engine` имеет приоритет. Если требуется меню выбора либо EXE недоступен, звёздочка не ставится. Это настройка следующего запуска, а не признак запущенного процесса; команды с другими параметрами могут выбрать другой движок.
 
 OpenOCD ищется сначала в локальном комплекте `.tools`, затем среди доступных установок (PATH и Scoop), обязательно вместе с каталогом конфигураций. Если подходящего установленного комплекта нет, обычная операция скачивает штатный пакет; `info.cmd` ничего не скачивает. Установленные вне рабочей папки инструменты `forget.cmd` не удаляет.
 
 ```powershell
 .\info.cmd
-.\info.cmd -ProbeTarget -Engine JLINK -Device STM32F103C8 -Serial 69653773
+.\info.cmd -ProbeTarget -Engine JLINK -Device STM32F103C8 -Serial 12345678
 ```
 
-`info.cmd` вызывает `flash.cmd -Info`: показывает версию скрипта, ОС, PowerShell, рабочую папку, пути найденных инструментов, доступные версии и USB-программаторы. Версии CubeProgrammer, st-info и OpenOCD читаются через `--version` (включая stderr и запуск через Scoop shim), J-Link - из заголовка Commander. Если запрос версии не удался за 10 секунд, используются сведения файла EXE; при их отсутствии выводится «версия не определена». Сохранённые настройки отображаются отдельно и не выдаются за обнаруженную модель MCU. ST-Link определяется по списку подключённых USB-устройств Windows, J-Link - через `ShowEmuList USB`; базовый обзор не подключается к MCU.
+`info.cmd` вызывает `flash.cmd -Info`: показывает версию скрипта, ОС, PowerShell, рабочую папку, пути найденных инструментов, доступные версии и USB-программаторы. Версии CubeProgrammer, st-info и OpenOCD читаются через `--version` (включая stderr и запуск через Scoop shim), J-Link - из заголовка Commander. Если запрос версии не удался за 10 секунд, используются сведения файла EXE; при их отсутствии выводится «версия не определена». Сохранённые настройки отображаются отдельно и не выдаются за обнаруженную модель MCU. ST-Link перечисляется через CubeProgrammer или резервный список Windows, J-Link - через `ShowEmuList USB`; базовый обзор не подключается к MCU.
 
 Отдельный раздел перечисляет `*.hex` непосредственно в папке вызова, без обхода подпапок и `backups`: имя, размер текстового файла в байтах и найденный файл SHA-256 (`имя.hex.sha256` или `имя.sha256`). Это обзор наличия контрольных сумм, а не проверка их соответствия прошивке. При отсутствии HEX выводится «не найдено».
 

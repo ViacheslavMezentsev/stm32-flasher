@@ -2,9 +2,6 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - codex-fix-flash-cmd-fragility
   pull_request:
   workflow_dispatch:
 
@@ -15,6 +12,7 @@ jobs:
   validate:
     name: Validate Script And Docs
     runs-on: windows-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
@@ -32,7 +30,12 @@ jobs:
             'README.md',
             'LICENSE',
             'CHANGELOG.md',
-            'Инструкция по использованию stm32-flasher.md'
+            'CHANGELOG.en.md',
+            'docs/TECHNICAL_SPECIFICATION.md',
+            'docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md',
+            'docs/reference/stlink-inventory.md',
+            'docs/user-guide.md',
+            'docs/testing.md'
           )
 
           $missing = $required | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) }
@@ -45,15 +48,16 @@ jobs:
         run: |
           $errors = $null
           $tokens = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Join-Path $PWD 'flash.cmd'),
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_ }
-            throw "PowerShell syntax validation failed."
+          $files = @(Get-Item flash.cmd) + @(Get-ChildItem tests -Filter '*.ps1' -File)
+          foreach ($file in $files) {
+            [System.Management.Automation.Language.Parser]::ParseInput(
+              (Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              throw "Syntax errors in $($file.Name): $($errors | Out-String)"
+            }
           }
 
       - name: Validate script version format
@@ -65,26 +69,36 @@ jobs:
           }
           Write-Host "Detected script version $($Matches[1]).$($Matches[2]).$($Matches[3])"
 
-      - name: Test maintenance modes (PowerShell 7)
+      - name: Set up Python for specification checks
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate specification structure and traceability
         shell: pwsh
-        run: ./tests/Test-Maintenance.ps1
+        run: python -X utf8 tests/tools/check_spec.py docs/TECHNICAL_SPECIFICATION.md --strict
 
-      - name: Test maintenance modes (Windows PowerShell 5.1)
-        shell: powershell
-        run: ./tests/Test-Maintenance.ps1
+  regression:
+    name: Regression (${{ matrix.shell }})
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Test backup (PowerShell 7)
-        shell: pwsh
-        run: ./tests/Test-Backup.ps1
+      - name: Run all hardware-free tests
+        shell: ${{ matrix.shell }}
+        run: ./tests/Invoke-Tests.ps1 -LogDirectory "$env:RUNNER_TEMP/stm32-test-logs"
 
-      - name: Test backup (Windows PowerShell 5.1)
-        shell: powershell
-        run: ./tests/Test-Backup.ps1
-
-      - name: Test help and version (PowerShell 7)
-        shell: pwsh
-        run: ./tests/Test-Help.ps1
-
-      - name: Test help and version (Windows PowerShell 5.1)
-        shell: powershell
-        run: ./tests/Test-Help.ps1
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.shell }}
+          path: ${{ runner.temp }}/stm32-test-logs
+          if-no-files-found: warn
+          retention-days: 14
