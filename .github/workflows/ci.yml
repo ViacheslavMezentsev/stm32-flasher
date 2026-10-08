@@ -91,8 +91,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run all hardware-free tests
-        shell: ${{ matrix.shell }}
-        run: ./tests/Invoke-Tests.ps1 -LogDirectory "$env:RUNNER_TEMP/stm32-test-logs"
+        shell: pwsh
+        env:
+          TEST_POWERSHELL: ${{ matrix.shell }}
+        run: ./tests/Invoke-Tests.ps1 -PowerShellExe $env:TEST_POWERSHELL -LogDirectory "$env:RUNNER_TEMP/stm32-test-logs"
 
       - name: Upload test logs
         if: always()

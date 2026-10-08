@@ -59,6 +59,12 @@ fast-forward рабочей ветки, `git push --atomic origin main :<branch>
 
 ## Автоматические проверки
 
+Если после push нет заданий, откройте Actions → нужный запуск → Annotations.
+Ошибка `Invalid workflow file` возникает до выдачи Windows runner; повтор тестов
+локально её не проверяет. Для матрицы версий используйте фиксированный `shell: pwsh`,
+значение матрицы передавайте через `env` в `Invoke-Tests.ps1 -PowerShellExe`.
+Проверка YAML не равна проверке допустимости контекстов выражений GitHub Actions.
+
 Отдельно воспроизвести отказ J-Link без платы и установленных движков:
 
 ```powershell

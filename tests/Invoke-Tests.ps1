@@ -3,7 +3,7 @@ param(
     [string]$LogDirectory = (Join-Path $PSScriptRoot '.tmp-ci-logs')
 )
 $ErrorActionPreference = 'Stop'
-$PowerShellExe = (Get-Command $PowerShellExe -CommandType Application -ErrorAction Stop).Source
+$PowerShellExe = (Get-Command $PowerShellExe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 $tests = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter 'Test-*.ps1' -File | Sort-Object Name)
 if (-not $tests.Count) { throw 'No regression tests found.' }
 New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null

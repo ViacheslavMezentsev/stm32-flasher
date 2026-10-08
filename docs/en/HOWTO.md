@@ -58,6 +58,12 @@ or force-push. Signing failures must not be bypassed.
 
 ## Automated checks
 
+If a push produces no jobs, open Actions, the run, then Annotations. An
+`Invalid workflow file` error happens before a Windows runner is assigned;
+local test runs cannot detect it. Use a literal `shell: pwsh` and pass the matrix
+value through `env` to `Invoke-Tests.ps1 -PowerShellExe`. Parsing YAML alone does
+not validate GitHub Actions expression contexts.
+
 Reproduce J-Link failure without hardware or installed engines:
 
 ```powershell

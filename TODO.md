@@ -7,8 +7,9 @@
 - Документация находится в `docs`; ТЗ — черновик ревизии 1.3.
 - Добавлен шестой набор регрессии: полный PowerShell-процесс при ошибке J-Link.
   Все шесть наборов прошли локально в PS5.1/7 09.10.2026.
-  CI подхватывает его автоматически. Удалённый статус CI отдельно не проверялся;
-  новый релиз не подготовлен.
+  CI подхватывает его автоматически. Запуск для bfba8df отклонён GitHub до старта
+  заданий из-за matrix.shell в поле shell; исправление подготовлено, требуется новый push.
+  Новый релиз не подготовлен.
 - Безопасный DryRun согласован, но полностью не реализован. Текущий DryRun
   нельзя считать гарантией отсутствия обнаружения и файловых изменений.
 
@@ -36,8 +37,9 @@
 Current: version 0.2.9, branch `codex/jlink-failure-regression`; previous work landed on main at f4ec9bd.
 USB inventory, J-Link timeout diagnostics and explicit serial selection were fixed.
 Specification 1.3 is a draft. A sixth suite covers full PowerShell-process J-Link
-failures and is discovered by CI automatically. Remote CI status was not independently
-checked. No new release is prepared; full safe DryRun is pending.
+failures and is discovered by CI automatically. GitHub rejected the bfba8df workflow
+before jobs started because of matrix.shell in the shell field. A fix is prepared;
+a new push is required. No new release is prepared; full safe DryRun is pending.
 All six suites passed locally in PS5.1/7 on 2026-10-09.
 
 Contributor docs are approved and new public fixtures/examples use synthetic serials.
