@@ -91,7 +91,7 @@ try {
     Assert (Test-Path .history/keep.txt) 'ResetConfig removed history'
     Assert (Test-Path report.html) 'ResetConfig removed report'
     $preview = Run-Flash @('-Erase', '-Engine', 'OPENOCD', '-Probe', 'STLINK', '-Target', 'target/stm32f1x.cfg', '-DryRun')
-    Assert ($preview -match 'flash erase_sector') 'Erase command not generated without HEX selection'
+    Assert ($preview -match 'Operation: erase') 'Erase plan not generated without HEX selection'
     Assert (-not (Test-Path .flash_engine)) 'Erase preview saved engine'
     Assert (-not (Test-Path .openocd_target)) 'Erase preview saved target'
     Run-Flash @('-Clean') | Out-Null

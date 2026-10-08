@@ -161,5 +161,21 @@ startup. Stop and report to the owner if restoration fails.
 
 The first call previews deletion, the second removes settings, the last removes
 generated artifacts while preserving backups and firmware inputs. Check the current
-directory first. Do not extend cleanup preview guarantees to other modes: full safe
-DryRun is not implemented yet.
+directory first.
+
+## Preview Without Hardware
+
+```powershell
+& "$tool/flash.cmd" -DryRun -HexFile firmware.hex -Engine OPENOCD -Target target/stm32f1x.cfg
+& "$tool/erase.cmd" -DryRun -Engine JLINK -Device STM32F103C8
+& "$tool/backup.cmd" -DryRun -Engine JLINK -Device STM32F103C8 -Size 65536
+& "$tool/info.cmd" -DryRun -ProbeTarget -Engine JLINK -Device STM32F103C8
+$LASTEXITCODE
+```
+
+DryRun does not run tools, query USB/MCU or change files. HEX checks are local:
+format and checksums, not board compatibility. Exit 0 means a complete plan;
+1 means invalid or missing data, without menus. Serial is optional; target/device
+come from CLI or saved settings; backup size must be explicit.
+CMD preserves the PowerShell exit code. Quote paths containing spaces.
+Do not remove DryRun until the board and permission for the experiment are confirmed.

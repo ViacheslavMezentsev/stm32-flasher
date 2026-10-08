@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### DryRun
+- Plan before discovery: every command with `-DryRun` avoids external tools, USB/MCU queries, network access, prompts and file changes. Values include their sources; invalid/incomplete plans return 1, complete plans return 0 without claiming hardware success.
+- Validate local Intel HEX records, lengths, checksums, EOF and nonempty data, plus SHA-256 when supplied. MCU memory compatibility is not checked. Specification updated to revision 1.4.
+- Add guarded CMD-process regression tests for PS5.1/7, automatically discovered by CI. Preserve quoted paths containing spaces and nonzero PowerShell exit codes in the CMD launcher.
+
 ### CI
 - With multiple PowerShell installations, the runner selects the first executable in PATH rather than concatenating executable paths.
 - Fixed workflow validation before job startup: the step uses a literal pwsh shell and passes the matrix-selected PowerShell to the runner through an environment variable and `-PowerShellExe`.
@@ -10,9 +15,9 @@
 
 ### Documentation
 - Adapted AGENTS for the standalone CMD tool while retaining `<agent>/<task>` branches, signed commits and push/CI/land without PRs. Added TODO and RU/EN maintenance/HOWTO notes with known commands; simplified local research rules.
-- Specification revision 1.3 requires flash to fail when an explicitly requested serial is not found, without selecting another probe or accessing its MCU. TC-32–TC-34 are defined; full safe DryRun remains pending.
-- Specification revision 1.2 defines Info with DryRun as plan-only: no external tools, USB queries or MCU connection, even with ProbeTarget. TC-30–TC-31 are specified; implementation remains pending.
-- Specification revision 1.1 resolves incomplete DryRun plans: no prompts, exit codes 0/1, actionable diagnostics and optional serial. Requirements and test cases are defined; implementation remains pending.
+- Specification revision 1.3 requires flash to fail when an explicitly requested serial is not found, without selecting another probe or accessing its MCU. TC-32–TC-34 are defined; full safe DryRun was not implemented at that revision.
+- Specification revision 1.2 defines Info with DryRun as plan-only: no external tools, USB queries or MCU connection, even with ProbeTarget. TC-30–TC-31 are specified; implementation was added later, see DryRun above.
+- Specification revision 1.1 resolves incomplete DryRun plans: no prompts, exit codes 0/1, actionable diagnostics and optional serial. Requirements and test cases are defined; implementation was added later, see DryRun above.
 - Introduced the general specification draft revision 1.0 using embedded-tech-spec: stable requirement IDs, provenance, test cases, traceability and open questions. Archived the previous info-only revision 2 with a migration map. Distinguished planned DryRun behavior and hardware backup/restore procedures from existing functionality.
 
 ### Project layout

@@ -165,5 +165,20 @@ HEX и MCU должны соответствовать друг другу. Яв
 
 Первый вызов только показывает удаления; второй удаляет настройки; последний
 удаляет артефакты, но сохраняет backups и входные прошивки. Проверьте текущую папку.
-Не переносите гарантии `forget -DryRun` на остальные режимы: общий безопасный
-DryRun ещё не реализован.
+
+## Предварительный план без оборудования
+
+```powershell
+& "$tool/flash.cmd" -DryRun -HexFile firmware.hex -Engine OPENOCD -Target target/stm32f1x.cfg
+& "$tool/erase.cmd" -DryRun -Engine JLINK -Device STM32F103C8
+& "$tool/backup.cmd" -DryRun -Engine JLINK -Device STM32F103C8 -Size 65536
+& "$tool/info.cmd" -DryRun -ProbeTarget -Engine JLINK -Device STM32F103C8
+$LASTEXITCODE
+```
+
+DryRun не запускает утилиты, не опрашивает USB/MCU и не меняет файлы. Проверка HEX
+локальная: формат и контрольные суммы, не соответствие плате. Код 0 означает
+готовый план; 1 — ошибку или нехватку данных без меню. Serial необязателен,
+target/device берутся из CLI или настроек; размер backup задаётся явно.
+CMD передаёт ненулевой код PowerShell вызывающему процессу; пути с пробелами
+заключайте в кавычки. Не убирайте DryRun, пока не проверены плата и разрешение на опыт.

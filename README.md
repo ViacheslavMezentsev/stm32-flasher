@@ -17,6 +17,8 @@
 
 Все команды поддерживают `--help` (`-Help`, `-h`) и `--version` (`-Version`): только справка или версия, без выполнения операций. Язык: `-Lang ru` / `-Lang en`.
 
+`-DryRun` показывает план без запуска утилит, опроса USB/MCU, сети и изменения файлов. Проверяет локальный Intel HEX и SHA-256 при наличии; не проверяет совместимость с платой. Код `0` означает готовность плана, `1` — ошибку или нехватку параметров.
+
 | Команда | Действие |
 |---|---|
 | `erase.cmd` | Полное стирание Flash |
@@ -77,6 +79,8 @@ Version **0.2.9**. Keep optional command wrappers next to `flash.cmd`:
 Backup/erase prompt when multiple probes are connected. `info.cmd -ProbeTarget` connects to the selected MCU. `forget.cmd -DryRun` previews cleanup; `flash.cmd -ResetConfig` resets settings only.
 
 All commands accept `--help` (`-Help`, `-h`) and `--version` (`-Version`): information only, without executing operations. Language: `-Lang ru` / `-Lang en`.
+
+`-DryRun` previews the plan without running tools, querying USB/MCU, network access or file changes. It validates local Intel HEX and SHA-256 when provided, not board compatibility. Exit `0` means the plan is complete; `1` means an error or missing parameters.
 
 STM32 flashing utility via ST-Link or J-Link. Single file, minimal setup, result report included.
 

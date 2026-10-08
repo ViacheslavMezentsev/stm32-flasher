@@ -5,6 +5,7 @@ chcp 65001 >nul
 set "SCRIPT_PATH=%~f0"
 set "FLASH_HELP="
 set "FLASH_VERSION="
+set "FLASH_ARGS=%*"
 :scan_reference_args
 if "%~1"=="" goto launch
 if /i "%~1"=="--help" set "FLASH_HELP=1"
@@ -21,14 +22,14 @@ where pwsh >nul 2>nul
 if errorlevel 1 goto use_ps5
 
 :use_pwsh
-pwsh -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %*
-goto end
+pwsh -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %FLASH_ARGS:"=\"%
+exit /b %errorlevel%
 
 :use_ps5
-powershell -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %*
+powershell -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %FLASH_ARGS:"=\"%
 
 :end
-exit /b
+exit /b %errorlevel%
 #>
 param(
     [string]$Input = "",
@@ -515,7 +516,7 @@ if ($Backup) {
     $ActiveLang['HtmlTitle'] = T 'BackupName'
 }
 
-if ($HexFile) {
+if ($HexFile -and -not $DryRun) {
     $ResolvedHex = Resolve-HexPath $HexFile
     if ($ResolvedHex) {
         $HexFile = $ResolvedHex
@@ -526,7 +527,7 @@ if ($HexFile) {
 }
 
 $SelectedEngine = ""
-if ($Engine) {
+if ($Engine -and -not $DryRun) {
     if (($Engine -ieq 'OPENOCD') -or ($Engine -ieq 'JLINK') -or ($Engine -ieq 'CUBEPROGRAMMER') -or ($Engine -ieq 'CUBE') -or (Test-Path -LiteralPath $Engine -PathType Leaf)) {
         $SelectedEngine = $Engine
     } else {
@@ -536,7 +537,7 @@ if ($Engine) {
     }
 }
 
-if ($Input -and -not $HexFile -and $Input -notin @('ru','en')) {
+if (-not $DryRun -and $Input -and -not $HexFile -and $Input -notin @('ru','en')) {
     $ResolvedInput = Resolve-HexPath $Input
     if ($ResolvedInput) {
         $HexFile = $ResolvedInput
@@ -1384,6 +1385,176 @@ function Get-BackupFileName($deviceName, $log, $probeId, [uint64]$byteCount, [Da
     return '{0}_{1}_{2}_{3}K.hex' -f $name, $timestamp.ToString('yyyyMMdd_HHmmss'), $idLabel, $kilobytes
 }
 
+# TC-35: local format checks only, not MCU memory compatibility.
+function Test-PreviewHex([string]$path) {
+    $eof = $false; $data = $false; $lineNumber = 0
+    foreach ($line in [IO.File]::ReadLines($path)) {
+        $lineNumber++
+        $record = $line.Trim()
+        if (-not $record) { continue }
+        if ($eof -or $record -notmatch '^:(?:[0-9a-fA-F]{2}){5,260}$') { throw "Intel HEX: line $lineNumber" }
+        $bytes = @()
+        for ($i = 1; $i -lt $record.Length; $i += 2) { $bytes += [Convert]::ToInt32($record.Substring($i, 2), 16) }
+        if ($bytes.Count -ne $bytes[0] + 5 -or (($bytes | Measure-Object -Sum).Sum % 256) -ne 0) { throw "Intel HEX: length/checksum, line $lineNumber" }
+        $type = $bytes[3]
+        if ($type -eq 0) { if ($bytes[0] -gt 0) { $data = $true } }
+        elseif ($type -in @(1, 2, 3, 4, 5)) {
+            $length = switch ($type) { 1 { 0 } 2 { 2 } 3 { 4 } 4 { 2 } 5 { 4 } }
+            if ($bytes[0] -ne $length -or $bytes[1] -ne 0 -or $bytes[2] -ne 0) { throw "Intel HEX: record type $type, line $lineNumber" }
+            if ($type -eq 1) { $eof = $true }
+        } else { throw "Intel HEX: unsupported record type $type, line $lineNumber" }
+    }
+    if (-not $eof -or -not $data) { throw 'Intel HEX: EOF/data missing' }
+}
+
+# Keep planning before discovery and all execution-side effects (spec 4.7).
+function Show-DryRunPlan {
+    $ru = $ActiveLang -eq $LangRu
+    $p = if ($ru) { @{
+        Title='DRY RUN: план, операция не выполнялась'; Saved='сохранено'; Local='локальный файл'; Default='умолчание'
+        Deferred='выбор при выполнении; устройства не опрашивались'; Unknown='не определено'
+        Missing='Не хватает параметров'; Example='Пример (значения в <...> замените своими)'
+        Error='Ошибка плана'; Firmware='Прошивка'; Engine='Движок'; Probe='Тип программатора'; Serial='Serial'
+        Tool='Утилита'; Target='Target'; Device='Device'; Range='Диапазон'; Output='Выход'
+        Later='имя будет сформировано при выполнении'; ToolMissing='не найдена; потребуется установка/загрузка при выполнении'
+        Info='План обзора: ПК, локальные инструменты, настройки, USB-программаторы, HEX'
+        Connect='План подключения к MCU (подключение, сброс и чтение сейчас не выполняются)'
+        FileError='Нет однозначного доступного HEX'; HashError='Неверная SHA-256'; Valid='проверено локально'
+        Limits='Совместимость HEX с MCU, доступность оборудования и успех операции не проверены'
+        Erase='Полное стирание пользовательской Flash'; Flash='Запись прошивки и проверка'; Read='Чтение указанного диапазона в HEX и SHA-256'
+    } } else { @{
+        Title='DRY RUN: plan only, operation not performed'; Saved='saved'; Local='local file'; Default='default'
+        Deferred='selection at execution; devices not queried'; Unknown='unknown'
+        Missing='Missing parameters'; Example='Example (replace <...> placeholders)'
+        Error='Plan error'; Firmware='Firmware'; Engine='Engine'; Probe='Probe type'; Serial='Serial'
+        Tool='Tool'; Target='Target'; Device='Device'; Range='Range'; Output='Output'
+        Later='name will be generated at execution'; ToolMissing='not found; installation/download needed at execution'
+        Info='Inventory plan: PC, local tools, settings, USB probes, HEX'
+        Connect='Planned MCU connection (no connection, reset or read performed now)'
+        FileError='No unambiguous accessible HEX'; HashError='Invalid SHA-256'; Valid='checked locally'
+        Limits='HEX/MCU compatibility, hardware availability and operation success have not been checked'
+        Erase='Full user Flash erase'; Flash='Program firmware and verify'; Read='Read specified range to HEX and SHA-256'
+    } }
+    function Read-PlanValue($value, $config, $fallback = '') {
+        if ($value) { return @{ Value=$value; Source='CLI' } }
+        $path = if ($config) { Join-Path $CurrentDir $config }
+        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) {
+            $saved = ([string](Get-Content -LiteralPath $path -Raw -Encoding UTF8)).Trim()
+            if ($saved) { return @{ Value=$saved; Source="$($p.Saved): $config" } }
+        }
+        return @{ Value=$fallback; Source=$p.Default }
+    }
+    function Write-PlanValue($label, $item) {
+        $value = if ($item.Value) { $item.Value } else { $p.Unknown }
+        Write-Host "   ${label}: $value [$($item.Source)]"
+    }
+    Write-Host $p.Title
+    Write-Host $p.Limits
+    $operation = if ($Info) { 'info' } elseif ($Backup) { 'backup' } elseif ($Erase) { 'erase' } else { 'flash' }
+    Write-Host "   Operation: $operation [CLI/default]"
+    $missing = New-Object 'System.Collections.Generic.List[string]'
+    $errors = New-Object 'System.Collections.Generic.List[string]'
+    if ($Info) { Write-Host $p.Info }
+    if ($ProbeTarget) { Write-Host $p.Connect }
+    $planHex = $null
+    if (-not $NoFirmware) {
+        try {
+            $planHex = if ($HexFile) { Resolve-HexPath $HexFile } else {
+                $files = @(Get-ChildItem -LiteralPath $CurrentDir -Filter '*.hex' -File)
+                if ($files.Count -eq 1) { $files[0].FullName }
+            }
+            if (-not $planHex) { $missing.Add('-HexFile'); throw $p.FileError }
+            if ([IO.Path]::GetExtension($planHex) -ine '.hex') { throw $p.FileError }
+            Write-PlanValue $p.Firmware @{Value=$planHex; Source=$(if ($HexFile) {'CLI'} else {$p.Local})}
+            Test-PreviewHex $planHex
+            Write-Host "   Intel HEX: $($p.Valid)"
+            $sidecar = Find-Sha256File $planHex
+            if ($Sha256 -and $Sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw $p.HashError }
+            $expected = if ($Sha256) { Parse-Sha256Value $Sha256 } elseif ($sidecar) { Parse-Sha256Value (Get-Content -LiteralPath $sidecar -Raw -Encoding UTF8) }
+            if (($Sha256 -or $sidecar) -and -not $expected) { throw $p.HashError }
+            if ($expected) {
+                if ((Get-FileHash -LiteralPath $planHex -Algorithm SHA256).Hash -ne $expected) { throw $p.HashError }
+                Write-PlanValue 'SHA-256' @{Value=$expected; Source=$(if ($Sha256) {'CLI'} else {"$($p.Local): $sidecar"})}
+            }
+        } catch { $errors.Add($_.Exception.Message) }
+    }
+    $eng = Read-PlanValue $Engine '.flash_engine'
+    $probePlan = Read-PlanValue $Probe '.probe_type' 'STLINK'
+    if (-not $eng.Value -and -not ($Info -and -not $ProbeTarget)) {
+        $cube = @(Find-CubeProgrammerCli)
+        $jlink = Find-JLinkExe
+        $eng.Value = if ($cube.Count) { $cube[0] } elseif ($jlink) { 'JLINK' } else { 'OPENOCD' }
+    }
+    $directJlink = Test-IsJLinkEngine $eng.Value
+    if ($probePlan.Value -match '^(ST-LINK|SWD)$') { $probePlan.Value = 'STLINK' }
+    elseif ($probePlan.Value -eq 'J-LINK') { $probePlan.Value = 'JLINK' }
+    if ($probePlan.Value -notin @('STLINK','JLINK')) { $errors.Add('-Probe: STLINK / JLINK') }
+    if ($directJlink) {
+        if ($Probe -and $probePlan.Value -ne 'JLINK') { $errors.Add('JLINK + -Probe: JLINK') }
+        $probePlan = @{ Value='JLINK'; Source=$eng.Source }
+    }
+    if ($eng.Value -eq 'OPENOCD' -and $probePlan.Value -eq 'JLINK') { $errors.Add('OPENOCD + JLINK') }
+    Write-PlanValue $p.Engine $eng
+    Write-PlanValue $p.Probe $probePlan
+    $serialConfig = if ($probePlan.Value -eq 'JLINK') { '.jlink_serial' } else { '.stlink_serial' }
+    $serialPlan = Read-PlanValue $Serial $serialConfig $p.Deferred
+    Write-PlanValue $p.Serial $serialPlan
+    $targetPlan = Read-PlanValue $Target '.openocd_target'
+    $devicePlan = Read-PlanValue $Device '.jlink_device'
+    Write-PlanValue $p.Target $targetPlan
+    Write-PlanValue $p.Device $devicePlan
+    $needsTarget = -not ($Info -and -not $ProbeTarget)
+    if ($needsTarget -and $eng.Value -eq 'OPENOCD' -and -not $targetPlan.Value) { $missing.Add('-Target') }
+    if ($needsTarget -and $directJlink -and -not $devicePlan.Value) { $missing.Add('-Device') }
+    $exe = $null
+    if ($eng.Value -eq 'OPENOCD') {
+        $installation = Find-OpenOcdInstallation (Join-Path $ToolDir 'xpack-openocd-0.12.0-3/bin/openocd.exe')
+        if ($installation) { $exe = $installation.Exe }
+    } elseif ($eng.Value -eq 'JLINK') { $exe = Find-JLinkExe }
+    elseif ($eng.Value -in @('CUBE','CUBEPROGRAMMER')) { $exe = Find-CubeProgrammerCli | Select-Object -First 1 }
+    elseif ($eng.Value) {
+        if (Test-Path -LiteralPath $eng.Value -PathType Leaf) { $exe = (Get-Item -LiteralPath $eng.Value).FullName }
+        else { $errors.Add("-Engine: $($eng.Value)") }
+    }
+    if ($eng.Value -or $needsTarget) {
+        Write-PlanValue $p.Tool @{Value=$(if ($exe) {$exe} else {$p.ToolMissing}); Source=$p.Local}
+    }
+    if ($Erase) { Write-Host "   $($p.Erase)" }
+    if (-not $NoFirmware) { Write-Host "   $($p.Flash)" }
+    if ($Backup) {
+        Write-Host "   $($p.Read)"
+        try {
+            $base = if ($Address) { ConvertTo-MemoryNumber $Address } else { [uint64]0x08000000 }
+            Write-PlanValue $p.Range @{Value=('0x{0:X8}' -f $base); Source=$(if ($Address) {'CLI'} else {$p.Default})}
+            if (-not $Size) { $missing.Add('-Size') }
+            else {
+                $length = ConvertTo-MemoryNumber $Size
+                if ($length -eq 0 -or $length -gt 67108864 -or $base -gt 4294967295 -or $length -gt (4294967296 - $base)) { throw '-Address / -Size: range' }
+                Write-PlanValue '-Size' @{Value=$length; Source='CLI'}
+            }
+            if ($Output) {
+                $outPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Output)
+                if ([IO.Path]::GetExtension($outPath) -ine '.hex') { throw '-Output: .hex' }
+                if ((Test-Path -LiteralPath $outPath) -or (Test-Path -LiteralPath "$outPath.sha256")) { throw "-Output: $outPath" }
+            } else { $outPath = "$(Join-Path $CurrentDir 'backups') ($($p.Later))" }
+            Write-PlanValue $p.Output @{Value=$outPath; Source=$(if ($Output) {'CLI'} else {$p.Default})}
+        } catch { $errors.Add($_.Exception.Message) }
+    }
+    foreach ($errorText in $errors) { Write-Host "   $($p.Error): $errorText" }
+    if ($missing.Count) {
+        Write-Host "   $($p.Missing): $($missing -join ', ')"
+        $example = "flash.cmd -DryRun"
+        if ($Info) { $example += ' -Info -ProbeTarget' } elseif ($Backup) { $example += ' -Backup' } elseif ($Erase) { $example += ' -Erase' }
+        foreach ($known in @(@('-Engine', $eng.Value), @('-Target', $targetPlan.Value), @('-Device', $devicePlan.Value), @('-HexFile', $planHex))) {
+            if ($known[1]) { $example += ' ' + $known[0] + ' "' + $known[1] + '"' }
+        }
+        foreach ($parameter in $missing) { $example += " $parameter `<value`>" }
+        Write-Host "   $($p.Example): $example"
+    }
+    if ($missing.Count -or $errors.Count) { return 1 }
+    return 0
+}
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Пути и окружение
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1422,6 +1593,10 @@ if ($ResetConfig -or $Clean) {
     }
     if ($DryRun) { Write-Info (T 'CleanupPreview') } else { Write-Ok (T 'CleanupDone') }
     exit 0
+}
+
+if ($DryRun) {
+    try { exit (Show-DryRunPlan) } catch { Write-Err $_.Exception.Message; exit 1 }
 }
 
 $OpenOcdUrl     = "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-3/xpack-openocd-0.12.0-3-win32-x64.zip"
