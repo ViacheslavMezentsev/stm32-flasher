@@ -2,7 +2,11 @@
 
 ## Текущее состояние
 
-- Подготовка версии 0.2.10, ветка `codex/release-0.2.10`. Релиз ещё не опубликован.
+- Опубликован [v0.2.10](https://github.com/ViacheslavMezentsev/stm32-flasher/releases/tag/v0.2.10), коммит `c2c9eb7`.
+- CI рабочей ветки, main и тега, а также Release завершились успешно.
+  ZIP и `.zip.sha256` прикреплены; RU/EN описание сохранено.
+  Повторное скачивание релизного ZIP для независимой проверки SHA-256 не удалось
+  из-за сетевой ошибки среды. Проверка локальной сборки выполнена отдельно.
 - Для 0.2.10 все 13 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
 - Описания релизов и новый workflow слиты в main (`0c9349b`), CI рабочей ветки и main успешен.
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
@@ -22,7 +26,6 @@
   Предыдущие 11 наборов прошли в PS5.1/7 09.10.2026.
   Исправлены перезапись архива в одну секунду и ссылка на историю в архивном HTML.
   Все 12 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
-  Текущая ветка ещё не опубликована.
   На подтверждённой WeAct BluePill-Plus 128 КиБ
   проверены backup/erase/restore через CubeProgrammer и OpenOCD со ST-Link,
   через SEGGER Commander и CubeProgrammer с J-Link.
@@ -66,10 +69,14 @@
 - [x] Проверить ZIP из release workflow: 14 файлов, совпадение с исходниками и SHA-256;
   справка/версия всех пяти команд в пакете на RU/EN (20 проверок), без MCU.
 - [x] Завершить регрессии PS5.1/7 (13 наборов в каждой оболочке) и проверку ТЗ strict.
-- [ ] Подписанный коммит подготовки выпуска.
-- [ ] Push владельцем, успешный CI, land и успешный CI итогового main.
-- [ ] Вручную опубликовать v0.2.10 с текстом из docs/releases/v0.2.10.md;
+- [x] Подписанный коммит подготовки выпуска (`c2c9eb7`).
+- [x] Push владельцем, успешный CI, land и успешный CI итогового main.
+- [x] Вручную опубликовать v0.2.10 с текстом из docs/releases/v0.2.10.md;
   проверить результат Release workflow и наличие ZIP/SHA-256.
+- [ ] Независимо скачать опубликованные ZIP/SHA-256 и проверить контрольную сумму.
+- [ ] Согласовать следующий этап: защита от параллельных операций. Предлагается
+  начать с блокировки папки вызова и тестов двух процессов без MCU; область
+  блокировки, поведение второго запуска и отдельная защита программатора требуют согласования.
 
 ## План выпуска 0.2.10
 
@@ -96,7 +103,10 @@
 
 ## English
 
-Current: preparing version 0.2.10 on `codex/release-0.2.10`, not yet released.
+Current: v0.2.10 published from c2c9eb7. Branch, main and tag CI and the Release
+workflow succeeded. ZIP and SHA-256 assets are attached; RU/EN notes are preserved.
+Downloading the published ZIP for independent checksum verification failed due
+to an environment network error; the local build was checked separately.
 Release notes and workflow landed on main at 0c9349b with successful branch/main CI.
 Acceptance results landed at 9c87c24. Specification 1.5 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
@@ -112,7 +122,7 @@ PS5.1/7; all 11 suites passed on 2026-10-09, with a clean strict spec check.
 Same-second archive overwrites and archived history links are now fixed.
 All 12 suites passed in PS5.1/7 on 2026-10-09; the strict spec check is clean.
 CI discovers the suite automatically.
-This branch is not pushed and no release is published. CubeProgrammer 2.19.0 and
+CubeProgrammer 2.19.0 and
 OpenOCD 0.12.0 passed ST-Link backup/erase/restore on the confirmed WeAct
 BluePill-Plus, 128 KiB. SEGGER Commander V8.32 and CubeProgrammer 2.19.0 also
 passed memory backup/erase/restore via J-Link V9.60. Reads match the original bytes
@@ -126,8 +136,10 @@ Version, README and RU/EN changelogs are prepared. The workflow-built ZIP has 14
 files matching their sources and a verified SHA-256. All five packaged commands
 passed RU/EN help/version checks (20 checks) without hardware.
 All 13 suites passed in PS5.1/7 for 0.2.10 on 2026-10-09; the strict spec check is clean.
-Next: signed commit, owner push, CI, land, main CI,
-then manual publication and verification of uploaded ZIP/SHA-256 assets.
+Next: independently download and verify the published ZIP/SHA-256, then agree
+concurrent-operation protection. Proposed first scope: calling-directory locking
+and two-process tests without hardware. Lock scope, second-run behavior and
+separate probe protection still need agreement; implementation has not started.
 Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.
 

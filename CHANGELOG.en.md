@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Documentation
+- Record the 0.2.10 release, CI/Release results and pending downloaded-archive verification in TODO; propose concurrent-operation protection as the next step, without code changes.
+
 ## [0.2.10] - 2026-10-09
 
 ### Release Descriptions
