@@ -1,7 +1,7 @@
 param([string]$PowerShellExe = (Get-Process -Id $PID).Path)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$fixture = Join-Path $repo ('.help-test-' + [guid]::NewGuid().ToString('N'))
+$fixture = Join-Path $PSScriptRoot ('.tmp-help-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 try {
     $source = Get-Content -LiteralPath (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
@@ -35,6 +35,6 @@ try {
     if ($before -ne $after) { throw 'Informational commands changed files' }
     Write-Output 'Help/version tests passed.'
 } finally {
-    if ((Split-Path -Parent ([IO.Path]::GetFullPath($fixture))) -ne $repo) { throw 'Invalid fixture path' }
+    if ((Split-Path -Parent ([IO.Path]::GetFullPath($fixture))) -ne $PSScriptRoot) { throw 'Invalid fixture path' }
     Remove-Item -LiteralPath $fixture -Recurse -Force
 }

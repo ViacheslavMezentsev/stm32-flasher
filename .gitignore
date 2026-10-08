@@ -1,0 +1,21 @@
+# Local research and hardware test workspaces (not release content).
+/docs/research/
+/tests/manual/
+/tests/.tmp-*/
+
+# Generated files when a command is accidentally run from the repository root.
+/.tools/
+/.history/
+/backups/
+/.flash_engine
+/.probe_type
+/.stlink_serial
+/.jlink_serial
+/.jlink_device
+/.openocd_target
+/.jlink_flash.jlink
+/.flash_read_*
+/.flash_backup_*
+/flash_log.txt*
+/report.html
+/dist/

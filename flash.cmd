@@ -133,6 +133,11 @@ $LangRu = @{
     InfoBytes          = "байт"
     InfoChecksum       = "SHA-256 (файл, без проверки)"
     InfoNone           = "не найдено"
+    InfoSerialUnknown  = "серийный номер недоступен"
+    InfoProbeSource    = "Источник списка ST-Link"
+    InfoProbeWarning   = "CubeProgrammer сообщил ошибку перечисления; список может быть неполным"
+    JLinkTimeout       = "J-Link: превышено время ожидания ответа утилиты (10 с)."
+    InfoJLinkRetry     = "Список J-Link недоступен. Проверьте USB-подключение и повторите info.cmd."
     EraseName          = "Полное стирание Flash"
     EraseRunning       = "Стирание Flash..."
     EraseSuccess       = "Flash микроконтроллера успешно стёрта"
@@ -189,7 +194,7 @@ $LangRu = @{
     ProbeFamily         = "Тип МК"
     ProbeType           = "Тип отладчика"
     InvalidProbe        = "Неверный тип отладчика. Использую STLINK."
-    InvalidSerial       = "Указанный ST-Link serial не найден. Возвращаюсь к выбору..."
+    InvalidSerial       = "Программатор с серийным номером {0} не найден. Операция отменена без выбора другого устройства."
     RetryProbeSerial    = "OpenOCD не принял serial в текстовом виде, повторяю с байтовым форматом"
     RetryWithoutSerial  = "Сохранённый serial не подошёл, повторяю без serial"
     IntegrityCheck      = "Контроль целостности"
@@ -292,6 +297,11 @@ $LangEn = @{
     InfoBytes          = "bytes"
     InfoChecksum       = "SHA-256 (file, not verified)"
     InfoNone           = "not found"
+    InfoSerialUnknown  = "serial unavailable"
+    InfoProbeSource    = "ST-Link list source"
+    InfoProbeWarning   = "CubeProgrammer reported an enumeration error; the list may be incomplete"
+    JLinkTimeout       = "J-Link: utility response timed out (10 s)."
+    InfoJLinkRetry     = "J-Link list unavailable. Check the USB connection and run info.cmd again."
     EraseName          = "Full Flash erase"
     EraseRunning       = "Erasing Flash..."
     EraseSuccess       = "MCU Flash erased successfully"
@@ -348,7 +358,7 @@ $LangEn = @{
     ProbeFamily         = "MCU"
     ProbeType           = "Probe type"
     InvalidProbe        = "Invalid probe type. Falling back to STLINK."
-    InvalidSerial       = "Specified ST-Link serial was not found. Falling back to selection..."
+    InvalidSerial       = "Probe with serial {0} was not found. Operation cancelled without selecting another device."
     RetryProbeSerial    = "OpenOCD did not accept the plain serial, retrying with byte format"
     RetryWithoutSerial  = "Saved serial did not work, retrying without serial"
     IntegrityCheck      = "Integrity Check"
@@ -1009,7 +1019,7 @@ function Get-JLinkProbes {
         $proc.StandardInput.WriteLine('ShowEmuList USB')
         $proc.StandardInput.WriteLine('q')
         $proc.StandardInput.Close()
-        if (-not $proc.WaitForExit(10000)) { $proc.Kill(); throw (T 'NoDebugger') }
+        if (-not $proc.WaitForExit(10000)) { $proc.Kill(); throw [TimeoutException]::new((T 'JLinkTimeout')) }
         $output = $outTask.GetAwaiter().GetResult()
         [void]$errTask.GetAwaiter().GetResult()
         if ($output -match 'SEGGER J-Link Commander\s+(V\S+)') { $script:DetectedJLinkVersion = $Matches[1] }
@@ -1045,6 +1055,60 @@ function Test-EraseLog($parser, $log) {
     return $log -match $pattern
 }
 
+function Invoke-ProbeInventory($exe, $arguments) {
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = $exe
+    $start.Arguments = $arguments
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $proc = New-Object Diagnostics.Process
+    $proc.StartInfo = $start
+    try {
+        [void]$proc.Start()
+        $stdout = $proc.StandardOutput.ReadToEndAsync()
+        $stderr = $proc.StandardError.ReadToEndAsync()
+        if (-not $proc.WaitForExit(10000)) { $proc.Kill(); return $null }
+        if (-not [Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($stdout, $stderr), 1000)) { return $null }
+        if ($proc.ExitCode -ne 0) { return $null }
+        return ($stdout.Result + "`n" + $stderr.Result)
+    } catch { return $null } finally { $proc.Dispose() }
+}
+
+function ConvertFrom-CubeProbeList($text) {
+    if ($text -notmatch '(?im)^-+ Connected ST-LINK Probes List -+\s*$') { return $null }
+    $entries = @()
+    $seen = @{}
+    # Restrict parsing to probe blocks: UART listings can repeat ST-LINK SN lines.
+    foreach ($block in [regex]::Matches($text, '(?ims)^ST-Link Probe \d+\s*:\s*\r?\n(.*?)(?=^ST-Link Probe |^-{3,}|^={3,}|\z)')) {
+        $body = $block.Groups[1].Value
+        if ($body -notmatch '(?im)^\s*ST-LINK SN\s*:\s*([^\r\n]+)') { return $null }
+        $raw = $Matches[1].Trim()
+        if ($seen[$raw]) { continue }
+        $seen[$raw] = $true
+        $serial = if ($raw -match '^[0-9a-fA-F]{24}$') { $raw } else { '' }
+        $board = 'ST-Link'
+        if ($body -match '(?im)^\s*Board Name[^\S\r\n]*:[^\S\r\n]*([^\r\n]*)') {
+            if ($Matches[1].Trim()) { $board = $Matches[1].Trim() }
+        }
+        $entries += [PSCustomObject]@{ Type = 'STLINK'; Serial = $serial; Family = $board; InstanceId = if ($serial) { '' } else { $raw } }
+    }
+    if (-not $entries.Count) { return $null }
+    return [PSCustomObject]@{ Entries = $entries; Warning = ($text -match '(?i)\berror\b') }
+}
+
+function Get-InfoStLinkInventory($cubePaths) {
+    foreach ($path in $cubePaths) {
+        $helpText = Invoke-ProbeInventory $path '--help'
+        if ($helpText -notmatch '(?i)<stlink-only>') { continue }
+        $listing = Invoke-ProbeInventory $path '-l stlink-only'
+        $parsed = ConvertFrom-CubeProbeList $listing
+        if ($parsed) { return [PSCustomObject]@{ Entries = @($parsed.Entries); Source = $path; Warning = $parsed.Warning } }
+    }
+    return [PSCustomObject]@{ Entries = @(Get-UsbStLinkProbes); Source = 'Windows USB'; Warning = $false }
+}
+
 function Get-UsbStLinkProbes {
     try { $devices = Get-CimInstance Win32_PnPEntity -ErrorAction Stop } catch {
         $listing = (& pnputil.exe /enum-devices /connected /bus USB | Out-String)
@@ -1059,7 +1123,8 @@ function Get-UsbStLinkProbes {
             $usbSerial = $Matches[2]
             if (-not $seen[$usbSerial]) {
                 $seen[$usbSerial] = $true
-                [PSCustomObject]@{ Type = 'STLINK'; Serial = $usbSerial; Family = $item.Name }
+                $serial = if ($usbSerial -match '^[0-9a-fA-F]{24}$') { $usbSerial } else { '' }
+                [PSCustomObject]@{ Type = 'STLINK'; Serial = $serial; Family = $item.Name; InstanceId = $item.PNPDeviceID }
             }
         }
     }
@@ -1152,7 +1217,12 @@ function Get-InfoEnginePath($cubePaths, $jlinkPath) {
 
 function Show-EnvironmentInfo {
     $jLinkEntries = @()
-    try { $jLinkEntries = @(Get-JLinkProbes) } catch { Write-Warn $_.Exception.Message }
+    $jLinkError = $null
+    $jLinkTimedOut = $false
+    try { $jLinkEntries = @(Get-JLinkProbes) } catch {
+        $jLinkError = $_.Exception.Message
+        $jLinkTimedOut = $_.Exception -is [TimeoutException]
+    }
     Write-Step '1' (T 'InfoEnvironment')
     Write-Info "stm32-flasher: $VERSION"
     Write-Info "Windows: $([Environment]::OSVersion.VersionString)"
@@ -1181,11 +1251,19 @@ function Show-EnvironmentInfo {
         if (Test-Path -LiteralPath $path) { Write-Info "${name}: $((Get-Content -LiteralPath $path -Raw -Encoding UTF8).Trim())" }
     }
     Write-Step '4' (T 'InfoUsb')
-    foreach ($reader in @('Get-UsbStLinkProbes')) {
-        try {
-            $entries = @(& $reader)
-            foreach ($entry in $entries) { Write-Info "$($entry.Type) | $($entry.Serial) | $($entry.Family)" }
-        } catch { Write-Warn $_.Exception.Message }
+    try {
+        $inventory = Get-InfoStLinkInventory $cubePaths
+        Write-Info "$(T 'InfoProbeSource'): $($inventory.Source)"
+        if ($inventory.Warning) { Write-Warn (T 'InfoProbeWarning') }
+        foreach ($entry in $inventory.Entries) {
+            $serialLabel = if ($entry.Serial) { $entry.Serial } else { T 'InfoSerialUnknown' }
+            $location = if (-not $entry.Serial -and $entry.InstanceId) { " | USB ID: $($entry.InstanceId)" } else { '' }
+            Write-Info "$($entry.Type) | $serialLabel | $($entry.Family)$location"
+        }
+    } catch { Write-Warn $_.Exception.Message }
+    if ($jLinkError) {
+        Write-Warn $jLinkError
+        if ($jLinkTimedOut) { Write-Info (T 'InfoJLinkRetry') }
     }
     foreach ($entry in $jLinkEntries) { Write-Info "$($entry.Type) | $($entry.Serial) | $($entry.Family)" }
     Write-Step '5' (T 'InfoFirmware')
@@ -1600,6 +1678,12 @@ $StLinkSerialCfgPath = Join-Path $CurrentDir ".stlink_serial"
 $JLinkSerialCfgPath = Join-Path $CurrentDir ".jlink_serial"
 $ProbeTypeCfgPath = Join-Path $CurrentDir ".probe_type"
 $ProbeInfo = $null
+# Keep an explicit serial even when discovery is unavailable: the engine must
+# attempt only this probe, never its default device. See specification 4.2.4.
+if ($Serial) {
+    $SelectedProbeSerial = $Serial
+    Write-Info "$(T 'ProbeSerial'): $Serial"
+}
 if (-not $ProbeSpecified -and (Test-Path -LiteralPath $ProbeTypeCfgPath)) {
     $SavedProbeType = (Get-Content -LiteralPath $ProbeTypeCfgPath -TotalCount 1).Trim()
     if ($SavedProbeType -in @("STLINK", "JLINK")) {
@@ -1614,12 +1698,31 @@ if ($SelectedProbeType -eq "JLINK") {
     }
 }
 if (-not (Test-IsJLinkEngine $SelectedEngine) -and $SelectedProbeType -ne "JLINK") {
+$explicitUsbMatch = $false
+if ($Serial -and -not $DryRun -and -not $FreshProbeSelection) {
+    $serialInventory = $null
+    try { $serialInventory = Get-InfoStLinkInventory @(Find-CubeProgrammerCli) } catch {}
+    if ($serialInventory) {
+        $explicitUsbMatch = @($serialInventory.Entries | Where-Object { $_.Serial -eq $Serial }).Count -gt 0
+        $unknownSerials = @($serialInventory.Entries | Where-Object { -not $_.Serial }).Count -gt 0
+        if (-not $explicitUsbMatch -and -not $unknownSerials -and -not $serialInventory.Warning) {
+            throw ((T 'InvalidSerial') -f $Serial)
+        }
+    }
+}
+if (-not ($DryRun -and $Serial)) {
 try {
-    $stInfoExe = Find-StInfoExe
+    $stInfoExe = if (-not $Serial -or $FreshProbeSelection -or $explicitUsbMatch) { Find-StInfoExe } else { $null }
     if ($stInfoExe) {
         $ProbeInfo = Get-StInfoProbeInfo $stInfoExe
     }
 } catch {}
+}
+
+if ($Serial -and $ProbeInfo -and -not $DryRun) {
+    $explicitMatch = @($ProbeInfo.Entries | Where-Object { $_.Serial -eq $Serial })
+    if ($explicitMatch.Count -eq 0) { throw ((T 'InvalidSerial') -f $Serial) }
+}
 
 if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
     $CandidateSerial = $null
@@ -1634,8 +1737,7 @@ if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
         if ($SelectedProbeInfo) {
             $SelectedProbeSerial = $SelectedProbeInfo.Serial
         } elseif ($Serial) {
-            if ($FreshProbeSelection) { throw (T 'InvalidSerial') }
-            Write-Warn (T "InvalidSerial")
+            throw ((T 'InvalidSerial') -f $Serial)
         }
     }
 
@@ -1724,7 +1826,7 @@ if ($PreflightFailed) {
         }
     }
 
-    if (-not $TargetCfg) {
+    if (-not $TargetCfg -and (-not $Serial -or $SelectedProbeInfo)) {
         Write-Info (T "SearchStLinkInfo")
         try {
             if (-not $ProbeInfo) {

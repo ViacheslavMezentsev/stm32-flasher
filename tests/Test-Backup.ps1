@@ -27,7 +27,7 @@ Assert ((Get-BackupFileName STM32F103C8 'E0042000 = 20036410' '' 65536 $stamp) -
 Assert ((Get-BackupFileName STM32 'DPIDR: 0x2BA01477' '' 1025 $stamp) -ceq 'STM32_20260924_005318_IDunknown_2K.hex') 'Unknown MCU ID / rounding'
 Assert ((Get-BackupFileName STM32 '' '0x409' 1024 $stamp) -match '_ID0x409_1K.hex$') 'ST-Link ID fallback'
 
-$fixture = Join-Path $repo ('.backup-test-' + [guid]::NewGuid().ToString('N'))
+$fixture = Join-Path $PSScriptRoot ('.tmp-backup-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 Push-Location $fixture
 try {
@@ -61,6 +61,7 @@ try {
 function Find-CubeProgrammerCli { (Get-Process -Id $PID).Path }
 function Find-JLinkExe { (Get-Process -Id $PID).Path }
 function Find-StInfoExe { return $null }
+function Invoke-ProbeInventory { return $null }
 function Get-CimInstance { return $null }
 function Get-JLinkProbes { [PSCustomObject]@{ Serial = '123'; Type = 'JLINK'; Family = 'Fixture' } }
 function Get-UsbStLinkProbes { [PSCustomObject]@{ Serial = '456'; Type = 'STLINK'; Family = 'Fixture' } }

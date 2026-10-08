@@ -42,7 +42,7 @@ foreach ($voltageLine in @('Info : Target voltage: 3.234301', 'Info : target vol
     Assert ($parsed.TargetVoltage -eq '3.234301 V') 'OpenOCD voltage parsing'
 }
 
-$fixture = Join-Path $repo ('.maintenance-test-' + [guid]::NewGuid().ToString('N'))
+$fixture = Join-Path $PSScriptRoot ('.tmp-maintenance-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 function Run-Flash([string[]]$arguments) {
     $output = & $PowerShellExe -NoProfile -ExecutionPolicy Bypass -Command ". ([scriptblock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath '$scriptPath')))" @arguments 2>&1
@@ -51,6 +51,12 @@ function Run-Flash([string[]]$arguments) {
 }
 Push-Location $fixture
 try {
+    $source = Get-Content -LiteralPath $scriptPath -Raw -Encoding UTF8
+    $position = $source.IndexOf('$CurrentDir     =')
+    Assert ($position -gt 0) 'Cannot inject discovery mocks'
+    $source = $source.Insert($position, "function Find-StInfoExe { return `$null }`nfunction Get-JLinkProbes { }`n")
+    $scriptPath = Join-Path $fixture 'mock-flash.ps1'
+    Set-Content -LiteralPath $scriptPath -Value $source -Encoding UTF8
     $CurrentDir = $fixture
     $SelectedEngine = ''
     $cubeOne = Join-Path $fixture 'cube-one.exe'
