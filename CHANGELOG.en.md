@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-10-09
+
 ### Release Descriptions
 - Add `docs/releases/v<version>.md`: a short Russian description and collapsed English translation linking to CHANGELOG. The owner publishes the release manually with this text; the workflow runs on `release: published`, validates the version and attaches ZIP/SHA-256 without changing the title or description. Tag pushes no longer publish releases.
 

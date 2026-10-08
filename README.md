@@ -13,7 +13,7 @@
 Поддерживается предварительная проверка SHA-256 для `*.hex` перед прошивкой.
 Поддерживается локальная история последних сессий прошивки в `.history\`.
 
-Версия **0.2.9**. Необязательные команды-обёртки держите рядом с `flash.cmd`:
+Версия **0.2.10**. Необязательные команды-обёртки держите рядом с `flash.cmd`:
 
 Все команды поддерживают `--help` (`-Help`, `-h`) и `--version` (`-Version`): только справка или версия, без выполнения операций. Язык: `-Lang ru` / `-Lang en`.
 
@@ -67,7 +67,7 @@
 
 ## English <a name="english"></a>
 
-Version **0.2.9**. Keep optional command wrappers next to `flash.cmd`:
+Version **0.2.10**. Keep optional command wrappers next to `flash.cmd`:
 
 | Command | Action |
 |---|---|

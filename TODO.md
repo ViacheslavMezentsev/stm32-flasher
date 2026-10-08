@@ -2,7 +2,9 @@
 
 ## Текущее состояние
 
-- Версия 0.2.9, ветка `codex/release-notes`. Результаты приёмки слиты в main (`9c87c24`).
+- Подготовка версии 0.2.10, ветка `codex/release-0.2.10`. Релиз ещё не опубликован.
+- Для 0.2.10 все 13 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
+- Описания релизов и новый workflow слиты в main (`0c9349b`), CI рабочей ветки и main успешен.
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
 - Документация находится в `docs`; ТЗ — черновик ревизии 1.5.
 - CI main и рабочей ветки успешен для `9c87c24`.
@@ -21,7 +23,7 @@
   Исправлены перезапись архива в одну секунду и ссылка на историю в архивном HTML.
   Все 12 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
   Текущая ветка ещё не опубликована.
-  Новый релиз не подготовлен. На подтверждённой WeAct BluePill-Plus 128 КиБ
+  На подтверждённой WeAct BluePill-Plus 128 КиБ
   проверены backup/erase/restore через CubeProgrammer и OpenOCD со ST-Link,
   через SEGGER Commander и CubeProgrammer с J-Link.
   После каждого цикла память побайтно совпала с исходной копией. Плата восстановлена.
@@ -60,7 +62,14 @@
 - [x] Зафиксировать результаты приёмки; push владельцем, CI, land.
 - [x] Подготовить краткую RU/EN заметку `docs/releases/v0.2.10.md` для ручного заполнения описания релиза.
 - [x] Перевести Release на ручную публикацию владельцем и автоматическое прикрепление ZIP/SHA-256 без изменения текста.
-- [ ] Подготовить выпуск 0.2.10 в отдельной ветке: версия, документация, ZIP, справка, SHA-256 и итоговый CI.
+- [x] Поднять версию до 0.2.10; оформить RU/EN CHANGELOG и README.
+- [x] Проверить ZIP из release workflow: 14 файлов, совпадение с исходниками и SHA-256;
+  справка/версия всех пяти команд в пакете на RU/EN (20 проверок), без MCU.
+- [x] Завершить регрессии PS5.1/7 (13 наборов в каждой оболочке) и проверку ТЗ strict.
+- [ ] Подписанный коммит подготовки выпуска.
+- [ ] Push владельцем, успешный CI, land и успешный CI итогового main.
+- [ ] Вручную опубликовать v0.2.10 с текстом из docs/releases/v0.2.10.md;
+  проверить результат Release workflow и наличие ZIP/SHA-256.
 
 ## План выпуска 0.2.10
 
@@ -87,8 +96,9 @@
 
 ## English
 
-Current: version 0.2.9, branch `codex/release-notes`; acceptance results landed on main
-at 9c87c24 with successful branch/main CI. Specification 1.5 is a draft.
+Current: preparing version 0.2.10 on `codex/release-0.2.10`, not yet released.
+Release notes and workflow landed on main at 0c9349b with successful branch/main CI.
+Acceptance results landed at 9c87c24. Specification 1.5 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded
@@ -102,7 +112,7 @@ PS5.1/7; all 11 suites passed on 2026-10-09, with a clean strict spec check.
 Same-second archive overwrites and archived history links are now fixed.
 All 12 suites passed in PS5.1/7 on 2026-10-09; the strict spec check is clean.
 CI discovers the suite automatically.
-This branch is not pushed and no release is prepared. CubeProgrammer 2.19.0 and
+This branch is not pushed and no release is published. CubeProgrammer 2.19.0 and
 OpenOCD 0.12.0 passed ST-Link backup/erase/restore on the confirmed WeAct
 BluePill-Plus, 128 KiB. SEGGER Commander V8.32 and CubeProgrammer 2.19.0 also
 passed memory backup/erase/restore via J-Link V9.60. Reads match the original bytes
@@ -112,7 +122,12 @@ start the application, now running. Option bytes and protection were not changed
 The mixed-probe info menu and cleanup in a separate fixture passed.
 The bilingual docs/releases/v0.2.10.md is prepared for manual use. The owner publishes
 the release; the workflow attaches ZIP/SHA-256 without changing its title or body.
-Next: review the notes, then prepare version 0.2.10, documentation, ZIP, help, SHA-256 and final CI.
+Version, README and RU/EN changelogs are prepared. The workflow-built ZIP has 14
+files matching their sources and a verified SHA-256. All five packaged commands
+passed RU/EN help/version checks (20 checks) without hardware.
+All 13 suites passed in PS5.1/7 for 0.2.10 on 2026-10-09; the strict spec check is clean.
+Next: signed commit, owner push, CI, land, main CI,
+then manual publication and verification of uploaded ZIP/SHA-256 assets.
 Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.
 

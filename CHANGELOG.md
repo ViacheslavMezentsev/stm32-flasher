@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and the project uses semantic versionin
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-10-09
+
 ### Описания релизов
 - Добавлены `docs/releases/v<версия>.md`: краткое описание на русском и свёрнутый английский перевод со ссылками на CHANGELOG. Владелец вручную публикует релиз с этим текстом; workflow запускается по `release: published`, проверяет версию и прикладывает ZIP/SHA-256 без изменения заголовка и описания. Push тега больше не публикует релиз.
 
