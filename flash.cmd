@@ -1021,6 +1021,10 @@ function Get-JLinkProbes {
         $proc.StandardInput.WriteLine('q')
         $proc.StandardInput.Close()
         if (-not $proc.WaitForExit(10000)) { $proc.Kill(); throw [TimeoutException]::new((T 'JLinkTimeout')) }
+        # A descendant can keep redirected handles open after the tool exits.
+        if (-not [Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($outTask, $errTask), 1000)) {
+            throw [TimeoutException]::new((T 'JLinkTimeout'))
+        }
         $output = $outTask.GetAwaiter().GetResult()
         [void]$errTask.GetAwaiter().GetResult()
         if ($output -match 'SEGGER J-Link Commander\s+(V\S+)') { $script:DetectedJLinkVersion = $Matches[1] }

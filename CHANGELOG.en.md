@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Inventory Timeouts
+- Bound J-Link output draining to 1000 ms after waiting up to 10000 ms for the tool: a descendant retaining stdout/stderr can no longer block enumeration indefinitely. This is not a flashing or whole-info timeout.
+- Add TC-22 with real fixture processes: hangs, large stdout/stderr and inherited pipes. No hardware or installed probe tools are used; CI discovers the suite for PS5.1/7 automatically.
+
 ### DryRun
 - Plan before discovery: every command with `-DryRun` avoids external tools, USB/MCU queries, network access, prompts and file changes. Values include their sources; invalid/incomplete plans return 1, complete plans return 0 without claiming hardware success.
 - Validate local Intel HEX records, lengths, checksums, EOF and nonempty data, plus SHA-256 when supplied. MCU memory compatibility is not checked. Specification updated to revision 1.4.

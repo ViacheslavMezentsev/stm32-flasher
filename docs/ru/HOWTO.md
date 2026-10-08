@@ -59,6 +59,18 @@ fast-forward рабочей ветки, `git push --atomic origin main :<branch>
 
 ## Автоматические проверки
 
+Проверить тайм-ауты перечисления без оборудования (TC-22):
+
+```powershell
+pwsh -NoProfile -File tests/Test-InventoryTimeout.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-InventoryTimeout.ps1
+```
+
+Тест компилирует временный EXE штатным Windows PowerShell/.NET Framework;
+дополнительный SDK не требуется. Проверяются зависание процесса и удержание
+stdout/stderr потомком, в том числе по отдельности. Тайм-аут перечисления
+не ограничивает время прошивки и не является лимитом всего `info.cmd`.
+
 Если после push нет заданий, откройте Actions → нужный запуск → Annotations.
 Ошибка `Invalid workflow file` возникает до выдачи Windows runner; повтор тестов
 локально её не проверяет. Для матрицы версий используйте фиксированный `shell: pwsh`,

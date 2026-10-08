@@ -58,6 +58,18 @@ or force-push. Signing failures must not be bypassed.
 
 ## Automated checks
 
+Test inventory timeouts without hardware (TC-22):
+
+```powershell
+pwsh -NoProfile -File tests/Test-InventoryTimeout.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-InventoryTimeout.ps1
+```
+
+The test compiles a temporary EXE using built-in Windows PowerShell/.NET Framework;
+no extra SDK is needed. It covers a hung process and inherited stdout/stderr pipes,
+including each pipe separately. Enumeration timeouts do not limit flashing or the
+total duration of `info.cmd`.
+
 If a push produces no jobs, open Actions, the run, then Annotations. An
 `Invalid workflow file` error happens before a Windows runner is assigned;
 local test runs cannot detect it. Use a literal `shell: pwsh` and pass the matrix
