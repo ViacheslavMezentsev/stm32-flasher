@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### CI
+- Added full PowerShell-process J-Link failure tests for SEGGER and CubeProgrammer in RU/EN: exit code, single explicit-serial attempt, report and history. A mutation control detects retries without serial; no hardware is used.
 - Windows checks run on every branch/tag push, pull request and manual dispatch. All `tests/Test-*.ps1` suites are discovered automatically and run in PowerShell 5.1 and 7, with logs retained for 14 days. Strict specification validation uses a versioned checker copy.
 
 ### Documentation

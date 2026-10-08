@@ -59,6 +59,18 @@ fast-forward рабочей ветки, `git push --atomic origin main :<branch>
 
 ## Автоматические проверки
 
+Отдельно воспроизвести отказ J-Link без платы и установленных движков:
+
+```powershell
+pwsh -NoProfile -File tests/Test-JLinkFailure.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-JLinkFailure.ps1
+```
+
+Временная копия подменяет внешние вызовы; рабочий `flash.cmd` не меняется.
+Включён контроль с намеренно отключённой защитой от повтора без serial.
+
+Полный комплект:
+
 ```powershell
 pwsh -NoProfile -File tests/Invoke-Tests.ps1 -LogDirectory tests/.tmp-ci-logs-pwsh
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Invoke-Tests.ps1 -LogDirectory tests/.tmp-ci-logs-ps51

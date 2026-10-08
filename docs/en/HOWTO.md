@@ -58,6 +58,18 @@ or force-push. Signing failures must not be bypassed.
 
 ## Automated checks
 
+Reproduce J-Link failure without hardware or installed engines:
+
+```powershell
+pwsh -NoProfile -File tests/Test-JLinkFailure.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-JLinkFailure.ps1
+```
+
+A temporary copy mocks external calls; the working flash.cmd is unchanged.
+A mutation control deliberately disables the serial-free retry guard.
+
+Full suite:
+
 ```powershell
 pwsh -NoProfile -File tests/Invoke-Tests.ps1 -LogDirectory tests/.tmp-ci-logs-pwsh
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Invoke-Tests.ps1 -LogDirectory tests/.tmp-ci-logs-ps51
