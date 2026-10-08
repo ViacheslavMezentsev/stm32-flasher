@@ -719,11 +719,21 @@ function Write-HistoryIndex($historyDir, $entries) {
 function Save-HistoryArtifacts($historyDir, $logFile, $htmlReport, $entry) {
     if (-not $historyDir -or -not $entry) { return }
     New-Item -ItemType Directory -Force -Path $historyDir | Out-Null
-    $stamp = $entry.TimestampTag
-    $reportName = "report_$stamp.html"
-    $logName = "flash_$stamp.log"
-    $metaName = "session_$stamp.json"
-    Copy-Item -LiteralPath $htmlReport -Destination (Join-Path $historyDir $reportName) -Force
+    $sequence = 0
+    # Preserve earlier sessions, including incomplete archives from the same second.
+    do {
+        $stamp = if ($sequence -eq 0) { $entry.TimestampTag } else { "$($entry.TimestampTag)_$sequence" }
+        $reportName = "report_$stamp.html"
+        $logName = "flash_$stamp.log"
+        $metaName = "session_$stamp.json"
+        $occupied = (Test-Path -LiteralPath (Join-Path $historyDir $reportName)) -or
+                    (Test-Path -LiteralPath (Join-Path $historyDir $logName)) -or
+                    (Test-Path -LiteralPath (Join-Path $historyDir $metaName))
+        $sequence++
+    } while ($occupied)
+    $archiveHtml = Get-Content -LiteralPath $htmlReport -Raw -Encoding UTF8
+    $archiveHtml = $archiveHtml.Replace("href='.history/index.html'", "href='index.html'")
+    Set-Content -LiteralPath (Join-Path $historyDir $reportName) -Value $archiveHtml -Encoding UTF8
     Copy-Item -LiteralPath $logFile -Destination (Join-Path $historyDir $logName) -Force
     $entry["ReportFile"] = $reportName
     $entry["LogFile"] = $logName

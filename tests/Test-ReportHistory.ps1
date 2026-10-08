@@ -100,7 +100,9 @@ try {
                         Assert ($index.Contains("href='$name'")) "$id index link"
                         Assert (Test-Path -LiteralPath (Join-Path '.history' $name) -PathType Leaf) "$id missing archive"
                     }
-                    Assert ((Get-FileHash report.html).Hash -eq (Get-FileHash (Join-Path '.history' $entry.ReportFile)).Hash) "$id archived report differs"
+                    $archivedHtml = Get-Content (Join-Path '.history' $entry.ReportFile) -Raw -Encoding UTF8
+                    Assert ($archivedHtml.TrimEnd() -ceq $html.Replace("href='.history/index.html'", "href='index.html'").TrimEnd()) "$id archived report differs"
+                    Assert ($archivedHtml.Contains("href='index.html'")) "$id archived history link"
                     Assert ((Get-Content (Join-Path '.history' $entry.LogFile) -Raw).Contains('Fixture <tag> & log')) "$id archived log"
                     Assert ($index.Contains($entry.ResultText) -and $index.Contains($entry.OperationDuration)) "$id index content"
                     Assert ((Test-Path browser.txt) -eq (-not $success)) "$id browser policy"

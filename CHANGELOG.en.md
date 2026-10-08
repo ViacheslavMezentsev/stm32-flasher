@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Reports and History
+- Sequential sessions within one second no longer overwrite archives: occupied names receive `_1`, `_2`, etc., including incomplete older sets. Fix the history index link in new archived reports. Existing reports are not rewritten; this change does not protect concurrent runs.
+- Add history retention regression coverage: preserved sessions, links, ordering and the latest 20 index rows without deleting older archives, PS5.1/7.
 - Add TC-20 process tests for flash/erase/backup with mocked CubeProgrammer, RU/EN, success and failure; flash/erase also cover zero exit codes without success markers. Check HTML, JSON, archived files, index links, timestamps, duration and browser policy. Production code is unchanged; CI discovers the suite for PS5.1/7 automatically.
 
 ### CI Progress

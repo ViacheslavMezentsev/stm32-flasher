@@ -194,12 +194,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-CleanupSafety.ps1
 ```powershell
 pwsh -NoProfile -File tests/Test-ReportHistory.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-ReportHistory.ps1
+pwsh -NoProfile -File tests/Test-HistoryRetention.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-HistoryRetention.ps1
 ```
 
 The test mocks CubeProgrammer, checks RU/EN flash/erase/backup reports and
 intercepts browser opening. No MCU or installed probe tools are used.
 Artifacts are created in a temporary fixture under tests and removed afterwards.
 This does not verify hardware behavior or HTML rendering in a browser.
+
+History: limiting the index to 20 rows does not delete older files.
+An archive suffix `_1`, `_2` indicates an occupied name, not a retried MCU operation.
+New archived reports link to the adjacent `index.html`; old reports are not migrated.
+Run operations sequentially: suffixes do not replace process locking.
 
 ## Preview Without Hardware
 

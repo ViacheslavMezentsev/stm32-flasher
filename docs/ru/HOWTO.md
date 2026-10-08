@@ -197,12 +197,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-CleanupSafety.ps1
 ```powershell
 pwsh -NoProfile -File tests/Test-ReportHistory.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-ReportHistory.ps1
+pwsh -NoProfile -File tests/Test-HistoryRetention.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-HistoryRetention.ps1
 ```
 
 Тест имитирует CubeProgrammer, проверяет отчёты flash/erase/backup на RU/EN
 и перехватывает браузер. MCU и установленные инструменты не используются.
 Артефакты создаются во временном стенде внутри tests и удаляются после прогона.
 Это не аппаратная проверка и не проверка отображения HTML в браузере.
+
+История: последние 20 строк индекса не означают удаление старых файлов.
+Суффикс `_1`, `_2` у архива означает занятое имя, а не повтор операции на MCU.
+Новые архивные отчёты ссылаются на соседний `index.html`; старые не мигрируются.
+Запускайте операции последовательно: суффиксы не заменяют блокировку процессов.
 
 ## Предварительный план без оборудования
 

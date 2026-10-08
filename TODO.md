@@ -2,10 +2,10 @@
 
 ## Текущее состояние
 
-- Версия 0.2.9, ветка `codex/report-history-tests`. Прогресс CI слит в main (`e285f0c`).
+- Версия 0.2.9, ветка `codex/history-retention`. TC-20 слит в main (`8cc95d5`).
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
 - Документация находится в `docs`; ТЗ — черновик ревизии 1.5.
-- CI main успешен: run 37846291694 для `e285f0c`.
+- CI main успешен: run 37849036804 для `8cc95d5`.
 - Реализован ранний планировщик DryRun без утилит, USB/MCU, сети, ввода и записи.
   Базовая проверка Intel HEX согласована и добавлена. CMD сохраняет код ошибки
   PowerShell и кавычки в аргументах с пробелами.
@@ -17,7 +17,9 @@
   DurationSeconds в results.json. Поведение flash.cmd не менялось.
 - TC-20 дополнен 16 процессными сценариями с имитацией CubeProgrammer:
   flash/erase/backup, RU/EN, результат, HTML/JSON, время и политика браузера.
-  Все 11 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
+  Предыдущие 11 наборов прошли в PS5.1/7 09.10.2026.
+  Исправлены перезапись архива в одну секунду и ссылка на историю в архивном HTML.
+  Все 12 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
   Текущая ветка ещё не опубликована.
   Новый релиз не подготовлен; аппаратные операции не выполнялись.
 
@@ -42,8 +44,11 @@
 - [x] Согласовать коммит `codex/ci-test-progress`; push владельцем, CI и land.
 - [x] Дополнить TC-20: отчёты и история разных операций при успехе и ошибках.
 - [x] Согласовать коммит `codex/report-history-tests` и план выпуска 0.2.10.
-- [ ] Зафиксировать `codex/report-history-tests`; затем push владельцем, CI и land.
-- [ ] Проверить накопление истории: несколько сессий, лимит индекса и переходы из архивных отчётов.
+- [x] Зафиксировать `codex/report-history-tests`; push владельцем, CI и land.
+- [x] Проверить накопление истории: несколько сессий, лимит индекса и переходы из архивных отчётов.
+- [x] Согласовать коммит `codex/history-retention`.
+- [ ] Зафиксировать `codex/history-retention`; затем push владельцем, CI и land.
+- [ ] Перед аппаратной приёмкой согласовать подключённые платы и матрицу операций.
 
 ## План выпуска 0.2.10
 
@@ -69,8 +74,8 @@
 
 ## English
 
-Current: version 0.2.9, branch `codex/report-history-tests`; CI progress landed on main
-at e285f0c with successful main CI run 37846291694. Specification 1.5 is a draft.
+Current: version 0.2.9, branch `codex/history-retention`; TC-20 landed on main
+at 8cc95d5 with successful main CI run 37849036804. Specification 1.5 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded
@@ -81,11 +86,13 @@ The runner streams output, writes UTF-8 logs and records DurationSeconds in JSON
 TC-20 adds 16 mocked CubeProgrammer scenarios for flash/erase/backup, RU/EN,
 results, HTML/JSON, timestamps and browser policy. The new suite passed in
 PS5.1/7; all 11 suites passed on 2026-10-09, with a clean strict spec check.
+Same-second archive overwrites and archived history links are now fixed.
+All 12 suites passed in PS5.1/7 on 2026-10-09; the strict spec check is clean.
 CI discovers the suite automatically.
 This branch is not pushed, no release is prepared and no hardware operations ran.
 
-Next: create the agreed signed report/history test commit; the owner pushes, checks CI and lands.
-Then check multiple sessions, the history index limit and archived report navigation.
+Next: create the agreed history-retention commit; the owner pushes, checks CI and lands.
+Then confirm connected boards and the hardware acceptance matrix before any MCU writes.
 Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.
 
