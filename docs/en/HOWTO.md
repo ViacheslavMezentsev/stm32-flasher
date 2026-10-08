@@ -208,6 +208,32 @@ An archive suffix `_1`, `_2` indicates an occupied name, not a retried MCU opera
 New archived reports link to the adjacent `index.html`; old reports are not migrated.
 Run operations sequentially: suffixes do not replace process locking.
 
+## Short Release Description
+
+Keep the text in `docs/releases/v<version>.md`: a short Russian description,
+followed by the same English text inside `<details><summary>English</summary>`.
+Link to the detailed changelog using an absolute URL pinned to the release tag:
+RU uses `CHANGELOG.md`, EN uses `CHANGELOG.en.md`. Future-tag links work after publication.
+
+1. Land release preparation on main and wait for successful CI for that exact commit.
+2. Create a GitHub Release: tag `v<version>` at the verified commit, title
+   `stm32-flasher <version>`, and description from the prepared file.
+   The tag version must match `$VERSION` in `flash.cmd`.
+3. Select Publish release. Saving a draft or simply pushing a tag does not start the build.
+4. Wait for the Release workflow to succeed: it attaches the ZIP and `.zip.sha256`
+   to the already published release. These files may be absent while the build runs.
+
+The workflow does not create releases or change their title or description.
+Check Actions on failure; rerun after resolving an external failure. Matching
+asset names are replaced (`--clobber`); other assets are preserved. For code fixes,
+prepare a new corrected tag instead of moving an already published tag.
+Checking CI before publication remains the owner's manual responsibility.
+This flow requires ordinary, non-immutable releases: immutable releases need
+assets attached before publication and therefore a different workflow.
+
+Reference: [release event](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#release),
+[asset upload](https://cli.github.com/manual/gh_release_upload).
+
 ## Preview Without Hardware
 
 ```powershell

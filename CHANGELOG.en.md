@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Release Descriptions
+- Add `docs/releases/v<version>.md`: a short Russian description and collapsed English translation linking to CHANGELOG. The owner publishes the release manually with this text; the workflow runs on `release: published`, validates the version and attaches ZIP/SHA-256 without changing the title or description. Tag pushes no longer publish releases.
+
 ### Hardware Acceptance
 - Before 0.2.10, tested backup/erase/restore on a 128 KiB WeAct BluePill-Plus: CubeProgrammer 2.19.0 with ST-Link and J-Link, OpenOCD 0.12.0 with ST-Link, SEGGER Commander V8.32 with J-Link V9.60. Readback confirmed full erasure and byte-for-byte restoration. CubeProgrammer/J-Link required a separate reset to start the application, consistent with its documented limitation.
 - Checked J-Link selection in the mixed-probe info menu and cleanup in a separate fixture while preserving firmware and backups. Production code was unchanged during hardware acceptance.

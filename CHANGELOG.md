@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and the project uses semantic versionin
 
 ## [Unreleased]
 
+### Описания релизов
+- Добавлены `docs/releases/v<версия>.md`: краткое описание на русском и свёрнутый английский перевод со ссылками на CHANGELOG. Владелец вручную публикует релиз с этим текстом; workflow запускается по `release: published`, проверяет версию и прикладывает ZIP/SHA-256 без изменения заголовка и описания. Push тега больше не публикует релиз.
+
 ### Аппаратная приёмка
 - Перед 0.2.10 проверены backup/erase/restore на WeAct BluePill-Plus с 128 КиБ: CubeProgrammer 2.19.0 со ST-Link и J-Link, OpenOCD 0.12.0 со ST-Link, SEGGER Commander V8.32 с J-Link V9.60. Повторное чтение подтвердило полное стирание и побайтное восстановление. Для CubeProgrammer/J-Link запуск потребовал отдельного reset, как предусмотрено ограничением этого режима.
 - Проверены выбор J-Link в смешанном меню info и очистка отдельного стенда с сохранением прошивки и backups. Рабочий код в рамках аппаратной приёмки не менялся.

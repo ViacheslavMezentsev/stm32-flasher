@@ -1,31 +1,35 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
   publish:
-    name: Build And Publish Release
+    name: Build And Upload Release Assets
     runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Validate tag and script version
         id: meta
         shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if (-not $env:GITHUB_REF_NAME) {
-            throw 'GITHUB_REF_NAME is not set.'
+          if (-not $env:RELEASE_TAG) {
+            throw 'RELEASE_TAG is not set.'
           }
 
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') {
             throw "Release tag '$tag' must match vMajor.Minor.Patch"
           }
@@ -91,31 +95,16 @@ jobs:
           "archive=$archivePath" >> $env:GITHUB_OUTPUT
           "checksum=$checksumPath" >> $env:GITHUB_OUTPUT
 
-      - name: Extract release notes from changelog
-        id: notes
+      - name: Upload assets to the published release
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_ARCHIVE: ${{ steps.package.outputs.archive }}
+          RELEASE_CHECKSUM: ${{ steps.package.outputs.checksum }}
         run: |
-          $version = '${{ steps.meta.outputs.version }}'
-          $changelogPath = Join-Path $PWD 'CHANGELOG.md'
-          $bodyPath = Join-Path (Join-Path $PWD 'dist') "release-notes-$version.md"
-          $content = Get-Content -LiteralPath $changelogPath -Raw -Encoding UTF8
-
-          $pattern = "(?ms)^## \[$([regex]::Escape($version))\] - .+?(?=^## \[|\z)"
-          $match = [regex]::Match($content, $pattern)
-          if (-not $match.Success) {
-            throw "Could not find changelog section for version $version"
+          gh release upload $env:RELEASE_TAG $env:RELEASE_ARCHIVE $env:RELEASE_CHECKSUM --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release asset upload failed with exit code $LASTEXITCODE"
           }
-
-          $body = $match.Value.Trim()
-          Set-Content -LiteralPath $bodyPath -Encoding UTF8 -Value $body
-          "body=$bodyPath" >> $env:GITHUB_OUTPUT
-
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          name: stm32-flasher ${{ steps.meta.outputs.version }}
-          body_path: ${{ steps.notes.outputs.body }}
-          files: |
-            ${{ steps.package.outputs.archive }}
-            ${{ steps.package.outputs.checksum }}

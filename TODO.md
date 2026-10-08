@@ -2,10 +2,10 @@
 
 ## Текущее состояние
 
-- Версия 0.2.9, ветка `codex/hardware-acceptance`. Исправления истории слиты в main (`dde7a31`).
+- Версия 0.2.9, ветка `codex/release-notes`. Результаты приёмки слиты в main (`9c87c24`).
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
 - Документация находится в `docs`; ТЗ — черновик ревизии 1.5.
-- CI main и рабочей ветки успешен для `dde7a31`.
+- CI main и рабочей ветки успешен для `9c87c24`.
 - Реализован ранний планировщик DryRun без утилит, USB/MCU, сети, ввода и записи.
   Базовая проверка Intel HEX согласована и добавлена. CMD сохраняет код ошибки
   PowerShell и кавычки в аргументах с пробелами.
@@ -57,7 +57,9 @@
 - [x] Переключить эту плату на J-Link, повторно идентифицировать и проверить цикл.
 - [x] Проверить интерактивный выбор в info при нескольких отладчиках и clean на отдельном стенде.
 - [x] Согласовать коммит результатов `codex/hardware-acceptance`.
-- [ ] Зафиксировать результаты приёмки; push владельцем, CI, land.
+- [x] Зафиксировать результаты приёмки; push владельцем, CI, land.
+- [x] Подготовить краткую RU/EN заметку `docs/releases/v0.2.10.md` для ручного заполнения описания релиза.
+- [x] Перевести Release на ручную публикацию владельцем и автоматическое прикрепление ZIP/SHA-256 без изменения текста.
 - [ ] Подготовить выпуск 0.2.10 в отдельной ветке: версия, документация, ZIP, справка, SHA-256 и итоговый CI.
 
 ## План выпуска 0.2.10
@@ -74,7 +76,8 @@
    восстановить и проверить её. Очистку проверять только на отдельном стенде.
 4. Обновить версию до 0.2.10, документацию и CHANGELOG. Проверить ZIP, справку
    всех команд и SHA-256. Владелец выпускает тег после успешного CI итогового
-   коммита в main. Это ручное условие выпуска, не новая автоматизация workflow.
+   коммита в main и вручную публикует релиз. Workflow прикладывает ZIP/SHA-256;
+   успешный CI остаётся ручным условием выпуска.
 
 ## Отложено
 
@@ -84,8 +87,8 @@
 
 ## English
 
-Current: version 0.2.9, branch `codex/hardware-acceptance`; history fixes landed on main
-at dde7a31 with successful branch/main CI. Specification 1.5 is a draft.
+Current: version 0.2.9, branch `codex/release-notes`; acceptance results landed on main
+at 9c87c24 with successful branch/main CI. Specification 1.5 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded
@@ -107,8 +110,9 @@ after each cycle; the board is restored. Cube/J-Link needed a separate reset to
 start the application, now running. Option bytes and protection were not changed.
 
 The mixed-probe info menu and cleanup in a separate fixture passed.
-Next: create the agreed hardware-acceptance results commit; owner pushes, checks CI and lands.
-Then prepare version 0.2.10, documentation, ZIP, help, SHA-256 and final CI in a new branch.
+The bilingual docs/releases/v0.2.10.md is prepared for manual use. The owner publishes
+the release; the workflow attaches ZIP/SHA-256 without changing its title or body.
+Next: review the notes, then prepare version 0.2.10, documentation, ZIP, help, SHA-256 and final CI.
 Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.
 
@@ -122,4 +126,5 @@ Agreed 0.2.10 stabilization plan, without new features:
    then restore and verify even after failure. Test cleanup in a separate fixture.
 4. Bump to 0.2.10, update documentation/changelogs, check ZIP contents, all command
    help and SHA-256. Owner tags only after successful CI for the final main commit.
-   This is a manual release gate, not a workflow change. Recheck any discovered defects.
+   The owner publishes manually; the workflow attaches ZIP/SHA-256. CI remains a
+   manual release gate. Recheck any discovered defects.
