@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Reports and History
+- Add TC-20 process tests for flash/erase/backup with mocked CubeProgrammer, RU/EN, success and failure; flash/erase also cover zero exit codes without success markers. Check HTML, JSON, archived files, index links, timestamps, duration and browser policy. Production code is unchanged; CI discovers the suite for PS5.1/7 automatically.
+
 ### CI Progress
 - Stream stdout/stderr lines to the console while writing UTF-8 logs. Print each suite's PASS/FAIL, duration and exit code; add `DurationSeconds` to `results.json`.
 - Test the runner itself: output and logs are available before suite completion, failures retain their exit codes and later suites still run. `flash.cmd` behavior is unchanged.

@@ -66,6 +66,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Invoke-Tests.ps1 -LogD
 python -X utf8 tests/tools/check_spec.py docs/TECHNICAL_SPECIFICATION.md --strict
 ```
 
+## Отчёты и история без MCU
+
+`Test-ReportHistory.ps1` запускает полный PowerShell-код с подменой внешних
+границ CubeProgrammer. 16 сценариев: flash/erase/backup, RU/EN, успех и ошибка;
+flash/erase также проверяются с кодом 0 без признаков успеха. Проверяются код
+скрипта, JSON операции, длительность и согласованность UTC/local, HTML и
+экранирование лога, архивная копия отчёта, файлы и ссылки индекса. Открытие
+браузера перехвачено: отсутствует при успехе, вызывается один раз при ошибке.
+Backup проверяется с явным размером 16 байт и синтетическими данными.
+
+Набор не проверяет CMD-загрузчик, реальные CLI, USB/MCU, визуальную отрисовку,
+накопление нескольких сессий и лимит индекса. Успешные пути других движков
+пока не входят в эту матрицу. Ошибки J-Link отдельно покрыты Test-JLinkFailure.
+
 ## Ручные проверки CMD
 
 Рабочий каталог: `tests/manual/NN-name/`, где `NN` - две цифры, а имя - lowercase-kebab-case.

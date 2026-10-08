@@ -2,10 +2,10 @@
 
 ## Текущее состояние
 
-- Версия 0.2.9, ветка `codex/ci-test-progress`. TC-17 слит в main (`c99f18f`).
+- Версия 0.2.9, ветка `codex/report-history-tests`. Прогресс CI слит в main (`e285f0c`).
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
 - Документация находится в `docs`; ТЗ — черновик ревизии 1.5.
-- CI main успешен: run 37843174274 для `c99f18f`.
+- CI main успешен: run 37846291694 для `e285f0c`.
 - Реализован ранний планировщик DryRun без утилит, USB/MCU, сети, ввода и записи.
   Базовая проверка Intel HEX согласована и добавлена. CMD сохраняет код ошибки
   PowerShell и кавычки в аргументах с пробелами.
@@ -15,8 +15,10 @@
   рабочий код очистки не потребовал изменений. Symlink файлов и гонки не покрыты.
 - Runner выводит строки в реальном времени, пишет UTF-8 логи и сохраняет
   DurationSeconds в results.json. Поведение flash.cmd не менялось.
-- Все десять наборов прошли локально в PS5.1/7 09.10.2026. Новый Test-TestRunner
-  автоматически подхватывается CI; текущая ветка ещё не опубликована.
+- TC-20 дополнен 16 процессными сценариями с имитацией CubeProgrammer:
+  flash/erase/backup, RU/EN, результат, HTML/JSON, время и политика браузера.
+  Все 11 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
+  Текущая ветка ещё не опубликована.
   Новый релиз не подготовлен; аппаратные операции не выполнялись.
 
 ## Ближайшие шаги
@@ -37,8 +39,27 @@
 - [x] Дополнить TC-17 проверкой junction, DryRun и сохранности пользовательских данных.
 - [x] Зафиксировать `codex/cleanup-safety`; push владельцем, успешный CI и land.
 - [x] Добавить потоковый вывод и длительности наборов в runner с регрессией.
-- [ ] Согласовать коммит `codex/ci-test-progress`; затем push владельцем, CI и land.
-- [ ] Дополнить TC-20: отчёты и история разных операций при успехе и ошибках.
+- [x] Согласовать коммит `codex/ci-test-progress`; push владельцем, CI и land.
+- [x] Дополнить TC-20: отчёты и история разных операций при успехе и ошибках.
+- [x] Согласовать коммит `codex/report-history-tests` и план выпуска 0.2.10.
+- [ ] Зафиксировать `codex/report-history-tests`; затем push владельцем, CI и land.
+- [ ] Проверить накопление истории: несколько сессий, лимит индекса и переходы из архивных отчётов.
+
+## План выпуска 0.2.10
+
+Согласован стабилизирующий выпуск без новых функций. Этапы выполняются
+последовательно; выявленные ошибки требуют исправления и повторной проверки.
+
+1. Зафиксировать проверки TC-20: подписанный коммит, push владельцем, успешный CI, land.
+2. Проверить накопление истории: несколько сессий, одинаковая секунда запуска,
+   лимит индекса и переходы из архивных отчётов. Исправления сопровождать тестами.
+3. Провести аппаратную приёмку ST-Link/J-Link и выбора из нескольких отладчиков,
+   flash/backup/erase. Перед опытом согласовать конкретные платы и операции,
+   сохранить и проверить всю затрагиваемую память; после опыта, включая ошибку,
+   восстановить и проверить её. Очистку проверять только на отдельном стенде.
+4. Обновить версию до 0.2.10, документацию и CHANGELOG. Проверить ZIP, справку
+   всех команд и SHA-256. Владелец выпускает тег после успешного CI итогового
+   коммита в main. Это ручное условие выпуска, не новая автоматизация workflow.
 
 ## Отложено
 
@@ -48,8 +69,8 @@
 
 ## English
 
-Current: version 0.2.9, branch `codex/ci-test-progress`; TC-17 landed on main
-at c99f18f with successful main CI run 37843174274. Specification 1.5 is a draft.
+Current: version 0.2.9, branch `codex/report-history-tests`; CI progress landed on main
+at e285f0c with successful main CI run 37846291694. Specification 1.5 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded
@@ -57,10 +78,25 @@ J-Link output drain after process exit; draining is now limited to 1000 ms.
 TC-17 now covers CMD cleanup, junction rejection and user-data preservation;
 cleanup implementation is unchanged. File symlinks and races remain outside coverage.
 The runner streams output, writes UTF-8 logs and records DurationSeconds in JSON.
-All ten suites passed locally in PS5.1/7 on 2026-10-09. CI discovers the new suite.
+TC-20 adds 16 mocked CubeProgrammer scenarios for flash/erase/backup, RU/EN,
+results, HTML/JSON, timestamps and browser policy. The new suite passed in
+PS5.1/7; all 11 suites passed on 2026-10-09, with a clean strict spec check.
+CI discovers the suite automatically.
 This branch is not pushed, no release is prepared and no hardware operations ran.
 
-Next: agree on the CI-progress commit; the owner pushes, checks CI and lands.
-Then extend TC-20 report/history coverage for successful and failed operations.
+Next: create the agreed signed report/history test commit; the owner pushes, checks CI and lands.
+Then check multiple sessions, the history index limit and archived report navigation.
 Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.
+
+Agreed 0.2.10 stabilization plan, without new features:
+
+1. Commit TC-20 tests; owner pushes, checks CI and lands.
+2. Check multiple history sessions, same-second names, index limit and archived links;
+   accompany fixes with regression tests.
+3. Run hardware acceptance for ST-Link/J-Link, multiple probes and flash/backup/erase.
+   Confirm boards and operations first; back up and verify all affected memory,
+   then restore and verify even after failure. Test cleanup in a separate fixture.
+4. Bump to 0.2.10, update documentation/changelogs, check ZIP contents, all command
+   help and SHA-256. Owner tags only after successful CI for the final main commit.
+   This is a manual release gate, not a workflow change. Recheck any discovered defects.

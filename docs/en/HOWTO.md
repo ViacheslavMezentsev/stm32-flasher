@@ -189,6 +189,18 @@ pwsh -NoProfile -File tests/Test-CleanupSafety.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-CleanupSafety.ps1
 ```
 
+## Check Reports Without Hardware
+
+```powershell
+pwsh -NoProfile -File tests/Test-ReportHistory.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-ReportHistory.ps1
+```
+
+The test mocks CubeProgrammer, checks RU/EN flash/erase/backup reports and
+intercepts browser opening. No MCU or installed probe tools are used.
+Artifacts are created in a temporary fixture under tests and removed afterwards.
+This does not verify hardware behavior or HTML rendering in a browser.
+
 ## Preview Without Hardware
 
 ```powershell

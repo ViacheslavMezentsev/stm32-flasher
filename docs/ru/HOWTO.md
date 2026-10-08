@@ -192,6 +192,18 @@ pwsh -NoProfile -File tests/Test-CleanupSafety.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-CleanupSafety.ps1
 ```
 
+## Проверка отчётов без оборудования
+
+```powershell
+pwsh -NoProfile -File tests/Test-ReportHistory.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-ReportHistory.ps1
+```
+
+Тест имитирует CubeProgrammer, проверяет отчёты flash/erase/backup на RU/EN
+и перехватывает браузер. MCU и установленные инструменты не используются.
+Артефакты создаются во временном стенде внутри tests и удаляются после прогона.
+Это не аппаратная проверка и не проверка отображения HTML в браузере.
+
 ## Предварительный план без оборудования
 
 ```powershell
