@@ -11,14 +11,28 @@ $results = @()
 foreach ($test in $tests) {
     Write-Host "Running $($test.Name) with $PowerShellExe"
     $log = Join-Path $LogDirectory ($test.BaseName + '.log')
-    # Isolate each suite, including scripts that call exit. Native stderr is
-    # captured as diagnostic output; the process exit code determines success.
-    $ErrorActionPreference = 'Continue'
-    & $PowerShellExe -NoProfile -ExecutionPolicy Bypass -File $test.FullName > $log 2>&1
-    $code = $LASTEXITCODE
-    $ErrorActionPreference = 'Stop'
-    Get-Content -LiteralPath $log | ForEach-Object { Write-Host $_ }
-    $results += [pscustomobject]@{ Test = $test.Name; ExitCode = $code; Passed = ($code -eq 0) }
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    $writer = New-Object IO.StreamWriter($log, $false, (New-Object Text.UTF8Encoding($false)))
+    $writer.AutoFlush = $true
+    try {
+        # PS5.1 wraps native stderr as ErrorRecord; exit code determines success.
+        $ErrorActionPreference = 'Continue'
+        & $PowerShellExe -NoProfile -ExecutionPolicy Bypass -File $test.FullName 2>&1 |
+            ForEach-Object {
+                $line = $_.ToString()
+                $writer.WriteLine($line)
+                Write-Host $line
+            } -ErrorAction Stop
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = 'Stop'
+        $watch.Stop()
+        $writer.Dispose()
+    }
+    $seconds = [Math]::Round($watch.Elapsed.TotalSeconds, 3)
+    $status = if ($code -eq 0) { 'PASS' } else { 'FAIL' }
+    Write-Host ("{0}: {1} ({2:F3} s, exit {3})" -f $test.Name, $status, $seconds, $code)
+    $results += [pscustomobject]@{ Test = $test.Name; ExitCode = $code; Passed = ($code -eq 0); DurationSeconds = $seconds }
 }
 $results | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $LogDirectory 'results.json') -Encoding UTF8
 $results | Format-Table -AutoSize | Out-Host

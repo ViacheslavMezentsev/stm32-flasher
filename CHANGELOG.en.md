@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### CI Progress
+- Stream stdout/stderr lines to the console while writing UTF-8 logs. Print each suite's PASS/FAIL, duration and exit code; add `DurationSeconds` to `results.json`.
+- Test the runner itself: output and logs are available before suite completion, failures retain their exit codes and later suites still run. `flash.cmd` behavior is unchanged.
+
 ### Cleanup Safety
 - Add TC-17 through CMD wrappers: ResetConfig/Clean/DryRun, preservation of HEX, SHA-256, backups, CMD files, documents and unknown tools; rejection of junctions at cleanup paths, inside history or at the `.tools` parent. Check contents of a control directory outside the calling directory. Cleanup implementation is unchanged; CI discovers the test for PS5.1/7 automatically.
 

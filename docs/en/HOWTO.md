@@ -95,6 +95,10 @@ python -X utf8 tests/tools/check_spec.py docs/TECHNICAL_SPECIFICATION.md --stric
 ```
 
 Logs and results.json are stored in those directories; GitHub uploads job artifacts.
+The runner streams lines as they arrive and prints PASS/FAIL, elapsed seconds and
+exit code after each suite. JSON includes `DurationSeconds`. A test can remain
+silent while waiting for a timeout. Check the Actions job state before restarting
+solely because output has paused.
 CI does not validate physical SWD, reset or board restoration. Release publishing
 is not yet automatically gated by CI. See [testing](../testing.md), in Russian.
 
