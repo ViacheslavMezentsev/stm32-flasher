@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Hardware Acceptance
+- Before 0.2.10, tested backup/erase/restore on a 128 KiB WeAct BluePill-Plus: CubeProgrammer 2.19.0 with ST-Link and J-Link, OpenOCD 0.12.0 with ST-Link, SEGGER Commander V8.32 with J-Link V9.60. Readback confirmed full erasure and byte-for-byte restoration. CubeProgrammer/J-Link required a separate reset to start the application, consistent with its documented limitation.
+- Checked J-Link selection in the mixed-probe info menu and cleanup in a separate fixture while preserving firmware and backups. Production code was unchanged during hardware acceptance.
+
 ### Reports and History
 - Sequential sessions within one second no longer overwrite archives: occupied names receive `_1`, `_2`, etc., including incomplete older sets. Fix the history index link in new archived reports. Existing reports are not rewritten; this change does not protect concurrent runs.
 - Add history retention regression coverage: preserved sessions, links, ordering and the latest 20 index rows without deleting older archives, PS5.1/7.

@@ -2,10 +2,10 @@
 
 ## Текущее состояние
 
-- Версия 0.2.9, ветка `codex/history-retention`. TC-20 слит в main (`8cc95d5`).
+- Версия 0.2.9, ветка `codex/hardware-acceptance`. Исправления истории слиты в main (`dde7a31`).
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
 - Документация находится в `docs`; ТЗ — черновик ревизии 1.5.
-- CI main успешен: run 37849036804 для `8cc95d5`.
+- CI main и рабочей ветки успешен для `dde7a31`.
 - Реализован ранний планировщик DryRun без утилит, USB/MCU, сети, ввода и записи.
   Базовая проверка Intel HEX согласована и добавлена. CMD сохраняет код ошибки
   PowerShell и кавычки в аргументах с пробелами.
@@ -21,7 +21,12 @@
   Исправлены перезапись архива в одну секунду и ссылка на историю в архивном HTML.
   Все 12 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
   Текущая ветка ещё не опубликована.
-  Новый релиз не подготовлен; аппаратные операции не выполнялись.
+  Новый релиз не подготовлен. На подтверждённой WeAct BluePill-Plus 128 КиБ
+  проверены backup/erase/restore через CubeProgrammer и OpenOCD со ST-Link,
+  через SEGGER Commander и CubeProgrammer с J-Link.
+  После каждого цикла память побайтно совпала с исходной копией. Плата восстановлена.
+  После Cube/J-Link потребовался отдельный reset; программа запущена через SEGGER.
+  Проверены смешанное меню info и очистка отдельного стенда, см. docs/testing.md.
 
 ## Ближайшие шаги
 
@@ -47,8 +52,13 @@
 - [x] Зафиксировать `codex/report-history-tests`; push владельцем, CI и land.
 - [x] Проверить накопление истории: несколько сессий, лимит индекса и переходы из архивных отчётов.
 - [x] Согласовать коммит `codex/history-retention`.
-- [ ] Зафиксировать `codex/history-retention`; затем push владельцем, CI и land.
-- [ ] Перед аппаратной приёмкой согласовать подключённые платы и матрицу операций.
+- [x] Зафиксировать `codex/history-retention`; push владельцем, CI и land.
+- [x] Согласовать WeAct BluePill-Plus и проверить циклы Cube/ST-Link, OpenOCD/ST-Link.
+- [x] Переключить эту плату на J-Link, повторно идентифицировать и проверить цикл.
+- [x] Проверить интерактивный выбор в info при нескольких отладчиках и clean на отдельном стенде.
+- [x] Согласовать коммит результатов `codex/hardware-acceptance`.
+- [ ] Зафиксировать результаты приёмки; push владельцем, CI, land.
+- [ ] Подготовить выпуск 0.2.10 в отдельной ветке: версия, документация, ZIP, справка, SHA-256 и итоговый CI.
 
 ## План выпуска 0.2.10
 
@@ -74,8 +84,8 @@
 
 ## English
 
-Current: version 0.2.9, branch `codex/history-retention`; TC-20 landed on main
-at 8cc95d5 with successful main CI run 37849036804. Specification 1.5 is a draft.
+Current: version 0.2.9, branch `codex/hardware-acceptance`; history fixes landed on main
+at dde7a31 with successful branch/main CI. Specification 1.5 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded
@@ -89,10 +99,16 @@ PS5.1/7; all 11 suites passed on 2026-10-09, with a clean strict spec check.
 Same-second archive overwrites and archived history links are now fixed.
 All 12 suites passed in PS5.1/7 on 2026-10-09; the strict spec check is clean.
 CI discovers the suite automatically.
-This branch is not pushed, no release is prepared and no hardware operations ran.
+This branch is not pushed and no release is prepared. CubeProgrammer 2.19.0 and
+OpenOCD 0.12.0 passed ST-Link backup/erase/restore on the confirmed WeAct
+BluePill-Plus, 128 KiB. SEGGER Commander V8.32 and CubeProgrammer 2.19.0 also
+passed memory backup/erase/restore via J-Link V9.60. Reads match the original bytes
+after each cycle; the board is restored. Cube/J-Link needed a separate reset to
+start the application, now running. Option bytes and protection were not changed.
 
-Next: create the agreed history-retention commit; the owner pushes, checks CI and lands.
-Then confirm connected boards and the hardware acceptance matrix before any MCU writes.
+The mixed-probe info menu and cleanup in a separate fixture passed.
+Next: create the agreed hardware-acceptance results commit; owner pushes, checks CI and lands.
+Then prepare version 0.2.10, documentation, ZIP, help, SHA-256 and final CI in a new branch.
 Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.
 
