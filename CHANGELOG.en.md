@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Cleanup Safety
+- Add TC-17 through CMD wrappers: ResetConfig/Clean/DryRun, preservation of HEX, SHA-256, backups, CMD files, documents and unknown tools; rejection of junctions at cleanup paths, inside history or at the `.tools` parent. Check contents of a control directory outside the calling directory. Cleanup implementation is unchanged; CI discovers the test for PS5.1/7 automatically.
+
 ### Inventory Timeouts
 - Bound J-Link output draining to 1000 ms after waiting up to 10000 ms for the tool: a descendant retaining stdout/stderr can no longer block enumeration indefinitely. This is not a flashing or whole-info timeout.
 - Add TC-22 with real fixture processes: hangs, large stdout/stderr and inherited pipes. No hardware or installed probe tools are used; CI discovers the suite for PS5.1/7 automatically.

@@ -357,7 +357,7 @@ A - анализ; T - тестирование без оборудования; 
 | TC-14 | Cube отсутствует/сбой/нет поддержки ключа | Следующая установка либо Windows, без неподдерживаемого вызова | Test-ProbeInventory |
 | TC-15 | Cube и Windows возвращают Windows ID; error в списке | ID не serial; источник и предупреждение отображаются | Test-ProbeInventory; вывод warning требует отдельного дополнения |
 | TC-16 | J-Link timeout/error/success, RU/EN | Точный текст в USB-разделе, ST-Link и следующий раздел сохранены | Test-ProbeInventory: подмена результата |
-| TC-17 | ResetConfig/Clean/DryRun, неизвестные файлы, ссылки | Удаляется только разрешённое; preview не меняет файлы; ссылки отклоняются | Test-Maintenance; сценарии junction требуют дополнения |
+| TC-17 | ResetConfig/Clean/DryRun, неизвестные файлы, ссылки | Удаляется только разрешённое; preview не меняет файлы; ссылки отклоняются | Test-Maintenance и Test-CleanupSafety: CMD и junction в удаляемом пути, внутри .history и в родительской .tools; отдельный прогон PS5.1/7 PASS 09.10.2026. Файловые symlink и конкурентные изменения не покрыты |
 | TC-18 | DryRun для всех операций и трёх движков | Ноль внешних вызовов, сети и записей, включая временные | Test-DryRun: CMD-процессы, запреты вызовов и снимки файлов, RU/EN; PS5.1/7 PASS 09.10.2026. Локальный поиск установок подменён; произвольный прямой .NET I/O не перехватывается |
 | TC-19 | DryRun с параметрами из CLI, настроек, локальных файлов и умолчаний | Известные значения имеют источник; нет ложных утверждений об оборудовании/прошивке (р.1.1) | Test-DryRun: источники CLI/saved и оговорка отсутствия опроса; остальные метки проверены инспекцией |
 | TC-20 | Отчёт и история для flash/erase/backup при успехе/ошибке | Вид операции, длительность и код корректны; browser не открывается при успехе | Test-Backup; остальные ветви требуют расширения |
@@ -415,8 +415,8 @@ A - анализ; T - тестирование без оборудования; 
 | 4.5.8 | Get-JLinkProbes; JLinkTimeout; InfoJLinkRetry | T; TC-16 |
 | 4.5.9 | Show-EnvironmentInfo | T; TC-16 |
 | 4.5.10 | ветка $Info/$ProbeTarget | I/T; TC-12 |
-| 4.6.1 | ветка $ResetConfig/$Clean; $cleanupNames | T/I; TC-17 |
-| 4.6.2 | проверка $root и ReparsePoint | I/T; TC-17 |
+| 4.6.1 | ветка $ResetConfig/$Clean; $cleanupNames; Test-CleanupSafety | T/I; TC-17 |
+| 4.6.2 | проверка $root и ReparsePoint; Test-CleanupSafety | I/T; TC-17 |
 | 4.7.1 | Show-DryRunPlan до обнаружения | T/I; TC-18 |
 | 4.7.2 | ранний выход без отчётов и сохранения | T/I; TC-18 |
 | 4.7.3 | Read-PlanValue; Write-PlanValue | T/I; TC-19 |

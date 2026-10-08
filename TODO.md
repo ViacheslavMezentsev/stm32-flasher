@@ -2,16 +2,18 @@
 
 ## Текущее состояние
 
-- Версия 0.2.9, ветка `codex/inventory-timeouts`. DryRun слит в main (`6867e44`).
+- Версия 0.2.9, ветка `codex/cleanup-safety`. TC-22 слит в main (`6750d69`).
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
 - Документация находится в `docs`; ТЗ — черновик ревизии 1.5.
-- CI предыдущей ветки успешен: run 37835926980 для `6867e44`.
+- CI предыдущей ветки успешен: run 37839114982 для `6750d69`.
 - Реализован ранний планировщик DryRun без утилит, USB/MCU, сети, ввода и записи.
   Базовая проверка Intel HEX согласована и добавлена. CMD сохраняет код ошибки
   PowerShell и кавычки в аргументах с пробелами.
 - TC-22 выявил зависание чтения stdout/stderr J-Link после выхода процесса;
   добавлен лимит дочитывания 1000 мс. Лимит процесса остаётся 10000 мс.
-- Все восемь наборов прошли локально в PS5.1/7 09.10.2026. Новый Test-InventoryTimeout
+- TC-17 дополнен CMD-тестами junction и сохранности пользовательских данных;
+  рабочий код очистки не потребовал изменений. Symlink файлов и гонки не покрыты.
+- Все девять наборов прошли локально в PS5.1/7 09.10.2026. Новый Test-CleanupSafety
   автоматически подхватывается CI; текущая ветка ещё не опубликована.
   Новый релиз не подготовлен; аппаратные операции не выполнялись.
 
@@ -29,7 +31,10 @@
 - [x] Согласовать фиксацию изменений DryRun.
 - [x] Push ветки DryRun владельцем, успешный CI и land.
 - [x] Проверить зависшие процессы перечисления и пределы ожидания (TC-22).
-- [ ] Проверить и зафиксировать `codex/inventory-timeouts`; затем push владельцем, CI и land.
+- [x] Зафиксировать `codex/inventory-timeouts`; push владельцем, успешный CI и land.
+- [x] Дополнить TC-17 проверкой junction, DryRun и сохранности пользовательских данных.
+- [ ] Согласовать коммит `codex/cleanup-safety`; затем push владельцем, CI и land.
+- [ ] Дополнить TC-20: отчёты и история разных операций при успехе и ошибках.
 
 ## Отложено
 
@@ -39,16 +44,18 @@
 
 ## English
 
-Current: version 0.2.9, branch `codex/inventory-timeouts`; DryRun landed on main
-at 6867e44 after successful CI run 37835926980. Specification 1.5 is a draft.
+Current: version 0.2.9, branch `codex/cleanup-safety`; TC-22 landed on main
+at 6750d69 after successful CI run 37839114982. Specification 1.5 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded
 J-Link output drain after process exit; draining is now limited to 1000 ms.
-All eight suites passed locally in PS5.1/7 on 2026-10-09. CI discovers the new suite.
+TC-17 now covers CMD cleanup, junction rejection and user-data preservation;
+cleanup implementation is unchanged. File symlinks and races remain outside coverage.
+All nine suites passed locally in PS5.1/7 on 2026-10-09. CI discovers the new suite.
 This branch is not pushed, no release is prepared and no hardware operations ran.
 
-Next: review and commit the inventory timeout fix; the owner pushes, checks CI
-and decides on land.
+Next: agree on the cleanup-safety commit; the owner pushes, checks CI and lands.
+Then extend TC-20 report/history coverage for successful and failed operations.
 Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.

@@ -175,6 +175,16 @@ The first call previews deletion, the second removes settings, the last removes
 generated artifacts while preserving backups and firmware inputs. Check the current
 directory first.
 
+`Linked cleanup path/content` means a link was found in a cleanup path. Do not
+delete its target just to proceed. Inspect the directory layout, then rerun DryRun.
+An error does not roll back earlier deletions; do not change links concurrently
+with cleanup. Regression in a temporary fixture without user data:
+
+```powershell
+pwsh -NoProfile -File tests/Test-CleanupSafety.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-CleanupSafety.ps1
+```
+
 ## Preview Without Hardware
 
 ```powershell
