@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Documentation
+- Record the 0.2.11 release, successful CI for all 16 suites in PS5.1/7 and Release in TODO. Independent verification of the downloaded ZIP remains pending due to an environment network error. Propose a tagged-commit CI gate before asset building; workflow behavior is unchanged.
+
 ## [0.2.11] - 2026-10-09
 
 ### Release Checks

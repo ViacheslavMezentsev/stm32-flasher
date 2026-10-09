@@ -2,12 +2,15 @@
 
 ## Текущее состояние
 
-- Подготовка 0.2.11 в `codex/release-0.2.11`: версия, RU/EN CHANGELOG и описание
-  релиза обновлены. Выпуск ещё не опубликован. Все 15 наборов прошли в PS5.1/7,
-  ТЗ strict без замечаний; ZIP содержит 15 файлов, SHA-256 и 24 RU/EN вызова
-  help/version проверены. Дополнительные ручные сценарии подтверждены владельцем.
-  Добавлен Test-Localization и расширен Test-Help на RU/EN; оба прошли в PS5.1/7.
-  Теперь CI обнаружит 16 наборов; полный прогон 16 наборов после дополнения локально не выполнялся.
+- Опубликован [v0.2.11](https://github.com/ViacheslavMezentsev/stm32-flasher/releases/tag/v0.2.11),
+  коммит `2277d45`. CI рабочей ветки, main и тега успешен, включая 16 наборов
+  в Windows PowerShell 5.1 и PowerShell 7. Release завершился успешно;
+  ZIP (97 730 байт) и `.zip.sha256` прикреплены, RU/EN описание сохранено.
+- Локальная сборка 0.2.11 проверена отдельно: 15 файлов, SHA-256 и 24 RU/EN
+  вызова help/version. Дополнительные ручные сценарии подтверждены владельцем.
+  Независимое скачивание опубликованного ZIP 09.10.2026 снова остановилось
+  на сетевой ошибке среды «Требуемый адрес для своего контекста неверен».
+  Метаданные GitHub не заменяют проверку байтов скачанного архива.
 - Блокировка папки слита в main (`5e2c508`), CI ветки и main успешен. По логам владельца подтверждены
   выбор CubeProgrammer/ST-Link, переход на J-Link, отмена на первом меню
   с сохранением настроек и отказ второго setup с кодом 1. MCU не изменялся.
@@ -53,8 +56,15 @@
 ## Ближайшие шаги
 
 - [x] Проверить 0.2.11 в PS5.1/7, ТЗ strict и состав релизного ZIP.
-- [ ] Коммит подготовки 0.2.11; push владельцем, успешный CI, land и CI main.
-- [ ] Владелец публикует v0.2.11 с текстом docs/releases/v0.2.11.md; проверить ZIP/SHA-256.
+- [x] Коммит подготовки 0.2.11 (`2277d45`); push владельцем, успешный CI, land и CI main.
+- [x] Владелец опубликовал v0.2.11; Release успешен, ZIP/SHA-256 присутствуют.
+- [ ] Независимо скачать ZIP/SHA-256 v0.2.11 и проверить контрольную сумму.
+- [ ] Зафиксировать итог выпуска: `codex/release-0.2.11-outcome`, push, CI, land.
+- [ ] Согласовать следующий этап: проверка успешного CI именно коммита тега
+  перед сборкой/загрузкой assets. Ручная публикация и описание остаются у владельца;
+  при отсутствующем, незавершённом или неуспешном CI workflow должен отказать.
+  Это не предотвращает создание страницы релиза; до повторного успешного запуска
+  на ней может не быть assets. Реализация пока не начата.
 - [x] Завершить регрессии блокировки папки в PS5.1/7 (15 наборов) и проверку ТЗ.
 - [x] Коммит блокировки папки слит в main (`5e2c508`).
 - [x] Завершить проверки setup в PS5.1/7 (14 наборов), ТЗ strict.
@@ -129,18 +139,23 @@
 
 ## English
 
-Preparing 0.2.11 on `codex/release-0.2.11`: version, bilingual changelogs and
-release notes updated. Not published. All 15 suites passed in PS5.1/7; the strict
-spec check is clean. ZIP: 15 files, verified SHA-256 and 24 RU/EN help/version calls.
-The additional manual scenarios are confirmed by the owner. Added Test-Localization
-and expanded Test-Help to RU/EN; both passed in PS5.1/7. CI now discovers 16 suites;
-a full 16-suite run was not repeated locally after these additions.
+Published v0.2.11 from 2277d45. Branch, main and tag CI succeeded, including all
+16 suites in Windows PowerShell 5.1 and PowerShell 7. Release succeeded; the ZIP
+(97,730 bytes), SHA-256 sidecar and bilingual description are present.
+The local package was checked separately: 15 files, SHA-256 and 24 RU/EN help/version
+calls. Additional manual scenarios are confirmed. An independent download of the
+published ZIP failed again on 2026-10-09 due to an environment network error;
+GitHub metadata is not a substitute for verifying downloaded bytes.
 Directory locking landed on main at 5e2c508 with successful branch/main CI. Owner logs confirm CubeProgrammer/ST-Link
 selection, switching to J-Link, cancellation at the first menu preserving settings,
 and a second setup rejected with exit 1. No MCU writes. Manual checks of help/info
 while locked, cancellation before saving and reopening after release are now confirmed.
-Next: commit, owner push, successful CI,
-land, main CI and manual release publication.
+Next: commit the release outcome on `codex/release-0.2.11-outcome`, owner push,
+successful CI and land. Proposed next stage, not implemented: require successful CI
+for the exact tagged commit before building/uploading release assets. Missing,
+pending or failed CI should fail closed. The owner still publishes and controls
+the description; this gate cannot prevent creation of the release page, which
+may remain without assets until a successful rerun.
 
 Completed `codex/directory-lock` stage: agreed and implemented directory locking for working
 operations; contenders exit 1, while help/version, DryRun and basic info remain available.
@@ -152,7 +167,7 @@ the no-MCU wizard with confirmation, cancellation and early DryRun. Version was
 2026-10-09, with a clean strict spec check.
 The directory-lock commit is now on main; release preparation is tracked above.
 
-Current: v0.2.10 published from c2c9eb7. Branch, main and tag CI and the Release
+Previous release: v0.2.10 published from c2c9eb7. Branch, main and tag CI and the Release
 workflow succeeded. ZIP and SHA-256 assets are attached; RU/EN notes are preserved.
 Downloading the published ZIP for independent checksum verification failed due
 to an environment network error; the local build was checked separately.
