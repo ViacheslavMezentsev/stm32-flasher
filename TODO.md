@@ -2,14 +2,23 @@
 
 ## Текущее состояние
 
-- Ветка `codex/directory-lock`: согласована и реализована блокировка папки для рабочих
+- Подготовка 0.2.11 в `codex/release-0.2.11`: версия, RU/EN CHANGELOG и описание
+  релиза обновлены. Выпуск ещё не опубликован. Все 15 наборов прошли в PS5.1/7,
+  ТЗ strict без замечаний; ZIP содержит 15 файлов, SHA-256 и 24 RU/EN вызова
+  help/version проверены. Дополнительные ручные сценарии подтверждены владельцем.
+  Добавлен Test-Localization и расширен Test-Help на RU/EN; оба прошли в PS5.1/7.
+  Теперь CI обнаружит 16 наборов; полный прогон 16 наборов после дополнения локально не выполнялся.
+- Блокировка папки слита в main (`5e2c508`), CI ветки и main успешен. По логам владельца подтверждены
+  выбор CubeProgrammer/ST-Link, переход на J-Link, отмена на первом меню
+  с сохранением настроек и отказ второго setup с кодом 1. MCU не изменялся.
+- Этап `codex/directory-lock`: согласована и реализована блокировка папки для рабочих
   операций; второй запуск завершается с кодом 1. Help/version, DryRun и базовый info доступны.
   Добавлен TC-37; все 15 наборов прошли в PS5.1/7 09.10.2026, ТЗ strict без замечаний.
-  Версия пока 0.2.10; аппаратные операции не выполнялись.
+  На этом этапе версия была 0.2.10; аппаратные операции не выполнялись.
 - Setup слит в main (`d34347f`), CI ветки и main успешен; реализован
-  мастер без MCU с подтверждением, отменой и ранним DryRun. Версия пока 0.2.10.
+  мастер без MCU с подтверждением, отменой и ранним DryRun. На этом этапе версия была 0.2.10.
   Добавлены TC-36, тест setup и упаковка обёртки; все 14 наборов прошли в PS5.1/7
-  09.10.2026, ТЗ strict без замечаний. Ожидается ручная проверка мастера владельцем.
+  09.10.2026, ТЗ strict без замечаний. Объём ручной проверки указан в docs/testing.md.
 - Опубликован [v0.2.10](https://github.com/ViacheslavMezentsev/stm32-flasher/releases/tag/v0.2.10), коммит `c2c9eb7`.
 - CI рабочей ветки, main и тега, а также Release завершились успешно.
   ZIP и `.zip.sha256` прикреплены; RU/EN описание сохранено.
@@ -43,10 +52,15 @@
 
 ## Ближайшие шаги
 
+- [x] Проверить 0.2.11 в PS5.1/7, ТЗ strict и состав релизного ZIP.
+- [ ] Коммит подготовки 0.2.11; push владельцем, успешный CI, land и CI main.
+- [ ] Владелец публикует v0.2.11 с текстом docs/releases/v0.2.11.md; проверить ZIP/SHA-256.
 - [x] Завершить регрессии блокировки папки в PS5.1/7 (15 наборов) и проверку ТЗ.
-- [ ] Согласовать коммит `codex/directory-lock`, затем push владельцем, CI и land.
+- [x] Коммит блокировки папки слит в main (`5e2c508`).
 - [x] Завершить проверки setup в PS5.1/7 (14 наборов), ТЗ strict.
-- [ ] Ручная проверка мастера владельцем без прошивки.
+- [x] Ручная проверка выбора, смены движка, отмены на первом меню и отказа второго setup.
+- [x] Дополнить ручную проверку: help/info при блокировке, отмена перед сохранением,
+  повторный запуск после освобождения папки.
 - [x] Коммиты setup слиты в main, CI ветки и main успешен (`d34347f`).
 - [x] Согласовать AGENTS и памятки, проверить состав изменений; убрать реальные serial из новых тестов и публикуемых примеров.
 - [x] Подготовить подписанные коммиты исправлений, CI и документации.
@@ -115,15 +129,28 @@
 
 ## English
 
-Branch `codex/directory-lock`: agreed and implemented directory locking for working
+Preparing 0.2.11 on `codex/release-0.2.11`: version, bilingual changelogs and
+release notes updated. Not published. All 15 suites passed in PS5.1/7; the strict
+spec check is clean. ZIP: 15 files, verified SHA-256 and 24 RU/EN help/version calls.
+The additional manual scenarios are confirmed by the owner. Added Test-Localization
+and expanded Test-Help to RU/EN; both passed in PS5.1/7. CI now discovers 16 suites;
+a full 16-suite run was not repeated locally after these additions.
+Directory locking landed on main at 5e2c508 with successful branch/main CI. Owner logs confirm CubeProgrammer/ST-Link
+selection, switching to J-Link, cancellation at the first menu preserving settings,
+and a second setup rejected with exit 1. No MCU writes. Manual checks of help/info
+while locked, cancellation before saving and reopening after release are now confirmed.
+Next: commit, owner push, successful CI,
+land, main CI and manual release publication.
+
+Completed `codex/directory-lock` stage: agreed and implemented directory locking for working
 operations; contenders exit 1, while help/version, DryRun and basic info remain available.
 Added TC-37; all 15 suites passed in PS5.1/7 on 2026-10-09, with a clean strict
-spec check. Version remains 0.2.10; no hardware operations were performed.
+spec check. Version was 0.2.10 at that stage; no hardware operations were performed.
 Setup landed on main at d34347f with successful branch/main CI; implemented
-the no-MCU wizard with confirmation, cancellation and early DryRun. Version remains
+the no-MCU wizard with confirmation, cancellation and early DryRun. Version was
 0.2.10. Added TC-36, tests and packaging; all 14 suites passed in PS5.1/7 on
 2026-10-09, with a clean strict spec check.
-Next: agree the directory-lock commit, owner push, CI and land.
+The directory-lock commit is now on main; release preparation is tracked above.
 
 Current: v0.2.10 published from c2c9eb7. Branch, main and tag CI and the Release
 workflow succeeded. ZIP and SHA-256 assets are attached; RU/EN notes are preserved.

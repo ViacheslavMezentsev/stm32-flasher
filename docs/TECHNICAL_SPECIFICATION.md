@@ -428,7 +428,7 @@ A - анализ; T - тестирование без оборудования; 
 | 3.2.2 | $NoFirmware, ModeConflict, ранняя справка | I/T; TC-04 |
 | 4.1.1 | CMD scan_reference_args; $helpRequested | T; TC-01 |
 | 4.1.2 | ранняя справка | T; TC-01 |
-| 4.1.3 | словари, $ActiveLang | I/T; TC-01 |
+| 4.1.3 | словари, $ActiveLang | I/T; TC-01; Test-Localization: ключи, непустые значения, индексы подстановок и буквальные вызовы T; качество перевода вручную |
 | 4.2.1 | Resolve-HexPath; поиск HEX | I/T; TC-03 |
 | 4.2.2 | Find-Sha256File; $IntegrityGateOk | I/T; TC-05 |
 | 4.2.3 | $EnginePatterns; $Success | I/T; TC-06 |

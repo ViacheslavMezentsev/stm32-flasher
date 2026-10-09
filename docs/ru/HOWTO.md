@@ -59,6 +59,13 @@ fast-forward рабочей ветки, `git push --atomic origin main :<branch>
 
 ## Автоматические проверки
 
+Локализация без оборудования: `pwsh -NoProfile -File tests/Test-Localization.ps1`.
+Для Windows PowerShell используйте `powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Localization.ps1`.
+Проверяются основные словари,
+индексы подстановок и буквальные ключи T; Test-Help проверяет справку на RU/EN.
+Язык задаётся для каждого вызова (`info.cmd -Lang en`), не сохраняется между ними.
+Переменные PowerShell, например `$repo`, необходимо задавать в каждом окне отдельно.
+
 Проверить тайм-ауты перечисления без оборудования (TC-22):
 
 ```powershell

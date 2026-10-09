@@ -14,7 +14,7 @@
 Поддерживается локальная история последних сессий прошивки в `.history\`.
 Рабочие операции в одной папке защищены от одновременного запуска. Справка, DryRun и обычный info остаются доступны; подробные границы — в [инструкции](docs/user-guide.md).
 
-Версия **0.2.10**. Необязательные команды-обёртки держите рядом с `flash.cmd`:
+Версия **0.2.11**. Необязательные команды-обёртки держите рядом с `flash.cmd`:
 
 Все команды поддерживают `--help` (`-Help`, `-h`) и `--version` (`-Version`): только справка или версия, без выполнения операций. Язык: `-Lang ru` / `-Lang en`.
 
@@ -71,7 +71,7 @@
 
 Working operations in one directory are protected against concurrent runs. Help, DryRun and basic info remain available; scope and limitations are documented in [HOWTO](docs/en/HOWTO.md#concurrent-runs).
 
-Version **0.2.10**. Keep optional command wrappers next to `flash.cmd`:
+Version **0.2.11**. Keep optional command wrappers next to `flash.cmd`:
 
 | Command | Action |
 |---|---|

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-10-09
+
+### Release Checks
+- All 15 suites passed in PowerShell 5.1/7; the strict specification check is clean. Verified 15 local ZIP files, SHA-256 and RU/EN help/version for all six commands.
+- Owner logs confirm switching from CubeProgrammer/ST-Link to J-Link, cancellation before saving, rejection of a second setup, help/info availability while locked and reopening after release. No MCU writes or erasure were performed.
+- Add Test-Localization for RU/EN keys, nonempty translations, placeholder indices and literal T calls; expand help checks for all commands to both languages. CI discovers the suites in PS5.1/7; translation quality still requires human review.
+
 ### Concurrent Runs
 - Flash/erase/backup/setup/forget/ResetConfig and info with ProbeTarget acquire a shared directory lock before hardware access or writes. A second run immediately reports a localized busy message and exits 1. Help/version, DryRun and basic info bypass the lock.
 - A named mutex is released when its process exits, without lock files. Scope is one PC and a normalized path; junction/SUBST/network aliases are not unified. This neither protects one probe across directories nor recovers interrupted operations.

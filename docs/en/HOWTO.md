@@ -3,6 +3,15 @@
 [Русский](../ru/HOWTO.md). PowerShell examples start at the clone root unless noted.
 Examples do not authorize an agent to push or operate hardware.
 
+## Localization checks
+
+Without hardware: `pwsh -NoProfile -File tests/Test-Localization.ps1`.
+For Windows PowerShell, run `powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Localization.ps1`.
+This checks the main dictionaries, placeholder indices and literal T keys;
+Test-Help checks RU/EN help. Set language on each invocation (`info.cmd -Lang en`);
+it is not persisted. PowerShell variables such as `$repo` must be set separately
+in each terminal window.
+
 ## Git workflow without PRs
 
 Inspect existing work first:

@@ -20,13 +20,19 @@ try {
     Push-Location $fixture
     try {
         foreach ($name in @('flash', 'erase', 'backup', 'forget', 'info', 'setup')) {
+          foreach ($lang in @('en', 'ru')) {
             foreach ($key in @('--help', '-Help', '-h', '--version', '-Version')) {
-                $output = & $env:ComSpec /d /c "$name.cmd $key -Lang en" 2>&1 | Out-String
+                $output = & $env:ComSpec /d /c "$name.cmd $key -Lang $lang" 2>&1 | Out-String
                 if ($LASTEXITCODE -ne 0 -or $output -notmatch [regex]::Escape($versionLine) -or $output -match 'HELP_FELL_THROUGH') { throw "$name $key failed: $output" }
                 if ($key -match 'version') {
                     if ($output.Trim() -ne $versionLine) { throw "Unexpected version output: $output" }
                 } elseif ($output -notmatch ([regex]::Escape("$name.cmd [options]"))) { throw "Wrong help: $output" }
+                if ($key -notmatch 'version') {
+                    $cyrillic = $output -match '[\u0400-\u04FF]'
+                    if (($lang -eq 'ru') -ne $cyrillic) { throw "Wrong help language: $name $key $lang" }
+                }
             }
+          }
         }
         $output = & $env:ComSpec /d /c 'erase.cmd -Backup --help --version -Lang ru' 2>&1 | Out-String
         if ($LASTEXITCODE -ne 0 -or $output -notmatch 'erase.cmd \[options\]') { throw "Help must precede operation validation: $output" }
