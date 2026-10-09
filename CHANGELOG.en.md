@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Concurrent Runs
+- Flash/erase/backup/setup/forget/ResetConfig and info with ProbeTarget acquire a shared directory lock before hardware access or writes. A second run immediately reports a localized busy message and exits 1. Help/version, DryRun and basic info bypass the lock.
+- A named mutex is released when its process exits, without lock files. Scope is one PC and a normalized path; junction/SUBST/network aliases are not unified. This neither protects one probe across directories nor recovers interrupted operations.
+- Add TC-37 with two processes and forced owner termination, without MCU access.
+
 ### Setup
 - Add `setup.cmd` (`flash.cmd -Setup`): select engine and probe, optional target/device, confirm or cancel. Automatic probe selection is type-specific; saving clears stale incompatible settings but preserves firmware, logs, history and tools.
 - Help/version and DryRun exit without discovery or writes; the wizard neither connects to an MCU nor downloads tools. Add hardware-free checks and package the new wrapper.

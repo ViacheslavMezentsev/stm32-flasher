@@ -2,7 +2,11 @@
 
 ## Текущее состояние
 
-- Ветка `codex/setup-command`: согласованы имя и сценарий setup.cmd; реализован
+- Ветка `codex/directory-lock`: согласована и реализована блокировка папки для рабочих
+  операций; второй запуск завершается с кодом 1. Help/version, DryRun и базовый info доступны.
+  Добавлен TC-37; все 15 наборов прошли в PS5.1/7 09.10.2026, ТЗ strict без замечаний.
+  Версия пока 0.2.10; аппаратные операции не выполнялись.
+- Setup слит в main (`d34347f`), CI ветки и main успешен; реализован
   мастер без MCU с подтверждением, отменой и ранним DryRun. Версия пока 0.2.10.
   Добавлены TC-36, тест setup и упаковка обёртки; все 14 наборов прошли в PS5.1/7
   09.10.2026, ТЗ strict без замечаний. Ожидается ручная проверка мастера владельцем.
@@ -14,7 +18,7 @@
 - Для 0.2.10 все 13 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
 - Описания релизов и новый workflow слиты в main (`0c9349b`), CI рабочей ветки и main успешен.
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
-- Документация находится в `docs`; ТЗ — черновик ревизии 1.6.
+- Документация находится в `docs`; ТЗ — черновик ревизии 1.7.
 - CI main и рабочей ветки успешен для `9c87c24`.
 - Реализован ранний планировщик DryRun без утилит, USB/MCU, сети, ввода и записи.
   Базовая проверка Intel HEX согласована и добавлена. CMD сохраняет код ошибки
@@ -39,9 +43,11 @@
 
 ## Ближайшие шаги
 
+- [x] Завершить регрессии блокировки папки в PS5.1/7 (15 наборов) и проверку ТЗ.
+- [ ] Согласовать коммит `codex/directory-lock`, затем push владельцем, CI и land.
 - [x] Завершить проверки setup в PS5.1/7 (14 наборов), ТЗ strict.
 - [ ] Ручная проверка мастера владельцем без прошивки.
-- [ ] Согласовать коммит setup; push, CI и land после успешных проверок.
+- [x] Коммиты setup слиты в main, CI ветки и main успешен (`d34347f`).
 - [x] Согласовать AGENTS и памятки, проверить состав изменений; убрать реальные serial из новых тестов и публикуемых примеров.
 - [x] Подготовить подписанные коммиты исправлений, CI и документации.
 - [x] Предыдущая ветка опубликована и слита владельцем в main; локально подтверждён `f4ec9bd`.
@@ -81,9 +87,8 @@
 - [x] Вручную опубликовать v0.2.10 с текстом из docs/releases/v0.2.10.md;
   проверить результат Release workflow и наличие ZIP/SHA-256.
 - [ ] Независимо скачать опубликованные ZIP/SHA-256 и проверить контрольную сумму.
-- [ ] После setup согласовать защиту от параллельных операций. Предлагается
-  начать с блокировки папки вызова и тестов двух процессов без MCU; область
-  блокировки, поведение второго запуска и отдельная защита программатора требуют согласования.
+- [x] Согласована блокировка папки: отказ второго запуска без ожидания, освобождение
+  системой без lock-файла; справка/DryRun/базовый info доступны. Защита программатора отдельно.
 
 ## План выпуска 0.2.10
 
@@ -104,24 +109,28 @@
 
 ## Отложено
 
-- Тайм-ауты записи/стирания, блокировки параллельных операций, профили и новые
+- Тайм-ауты записи/стирания, блокировка программатора из разных папок, профили и новые
   движки требуют отдельного согласования.
 - Связать публикацию релиза с успешным CI; пока release workflow независим.
 
 ## English
 
-Branch `codex/setup-command`: the setup name and scenario are agreed; implemented
+Branch `codex/directory-lock`: agreed and implemented directory locking for working
+operations; contenders exit 1, while help/version, DryRun and basic info remain available.
+Added TC-37; all 15 suites passed in PS5.1/7 on 2026-10-09, with a clean strict
+spec check. Version remains 0.2.10; no hardware operations were performed.
+Setup landed on main at d34347f with successful branch/main CI; implemented
 the no-MCU wizard with confirmation, cancellation and early DryRun. Version remains
 0.2.10. Added TC-36, tests and packaging; all 14 suites passed in PS5.1/7 on
 2026-10-09, with a clean strict spec check.
-Next: owner wizard test without flashing, then commit the remaining test/documentation changes.
+Next: agree the directory-lock commit, owner push, CI and land.
 
 Current: v0.2.10 published from c2c9eb7. Branch, main and tag CI and the Release
 workflow succeeded. ZIP and SHA-256 assets are attached; RU/EN notes are preserved.
 Downloading the published ZIP for independent checksum verification failed due
 to an environment network error; the local build was checked separately.
 Release notes and workflow landed on main at 0c9349b with successful branch/main CI.
-Acceptance results landed at 9c87c24. Specification 1.6 is a draft.
+Acceptance results landed at 9c87c24. Specification 1.7 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded
@@ -149,11 +158,9 @@ Version, README and RU/EN changelogs are prepared. The workflow-built ZIP has 14
 files matching their sources and a verified SHA-256. All five packaged commands
 passed RU/EN help/version checks (20 checks) without hardware.
 All 13 suites passed in PS5.1/7 for 0.2.10 on 2026-10-09; the strict spec check is clean.
-Next: independently download and verify the published ZIP/SHA-256, then agree
-concurrent-operation protection. Proposed first scope: calling-directory locking
-and two-process tests without hardware. Lock scope, second-run behavior and
-separate probe protection still need agreement; implementation has not started.
-Write/erase timeouts, locking, new engines/profiles and CI-gated releases remain
+Independent verification of the downloaded release ZIP/SHA-256 is still pending.
+Directory locking is agreed; tests use two processes without hardware.
+Write/erase timeouts, cross-directory probe locking, new engines/profiles and CI-gated releases remain
 separate follow-ups.
 
 Agreed 0.2.10 stabilization plan, without new features:

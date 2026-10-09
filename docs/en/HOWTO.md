@@ -227,7 +227,32 @@ USB discovery, tools, network access or writes. `--help`/`--version` work as usu
 The wizard is interactive; engine/probe overrides and `-Silent` are rejected.
 Firmware, backups, history, reports and tools are preserved. Cancellation exits 0;
 invalid input/save failure exits 1. Handled write failures roll back settings;
-this does not protect against process termination, power loss or concurrent runs.
+this does not protect against process termination or power loss.
+
+## Concurrent Runs
+
+Flash/erase/backup/setup/forget/ResetConfig and `info -ProbeTarget` hold the directory
+until completion. A second run immediately exits 1 with a busy message before
+changing files or accessing hardware. Another directory is independent.
+`--help`, `--version`, every `-DryRun` and basic `info` remain available;
+basic info may observe settings while they are being saved.
+
+Manual check without MCU access: leave `setup.cmd` at its first menu in one terminal.
+In another terminal in the same directory, run `setup.cmd` (expect exit 1), then
+`setup.cmd --help` (exit 0). Enter `q` in the first terminal; a new setup run should
+open its menu again. Do not run a hardware operation just to test locking.
+
+There is no lock file to remove. A named
+[Windows mutex](https://learn.microsoft.com/en-us/dotnet/api/system.threading.mutex?view=netframework-4.8)
+is released when its process exits. Mutex access errors abort the operation rather
+than bypass protection. Do not terminate active flashing just to release a lock.
+After a crash, check the child tool and MCU: the mutex neither stops descendants
+nor restores interrupted writes or settings.
+
+Scope: one PC and a normalized case-insensitive absolute path. Junction, SUBST and
+network aliases, and access from another PC, are not unified. Older script versions,
+external tools and the same probe used from different directories are not protected.
+Use the same directory path and operate on a shared probe sequentially.
 
 ## Short Release Description
 

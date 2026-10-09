@@ -118,6 +118,9 @@ if ($helpRequested -or $versionRequested) {
 # ══════════════════════════════════════════════════════════════════════════════
 
 $LangRu = @{
+    DirectoryBusy      = "В этой папке уже выполняется операция stm32-flasher. Дождитесь её завершения."
+    DirectoryLockError = "Не удалось заблокировать рабочую папку. Операция отменена."
+    DirectoryAbandoned = "Предыдущий процесс завершился неожиданно. Блокировка освобождена; проверьте результат прерванной операции."
     BackupName         = "Резервное копирование Flash"
     BackupSuccess      = "Резервная копия Flash сохранена"
     BackupError        = "Ошибка резервного копирования"
@@ -282,6 +285,9 @@ $LangRu = @{
 }
 
 $LangEn = @{
+    DirectoryBusy      = "A stm32-flasher operation is already running in this directory. Wait for it to finish."
+    DirectoryLockError = "Unable to lock the working directory. Operation cancelled."
+    DirectoryAbandoned = "The previous process ended unexpectedly. The lock is available; check the interrupted operation's result."
     BackupName         = "Flash backup"
     BackupSuccess      = "Flash backup saved"
     BackupError        = "Flash backup failed"
@@ -1297,6 +1303,29 @@ function Show-EnvironmentInfo {
     }
 }
 
+function Get-DirectoryMutexName($directory) {
+    $path = [IO.Path]::GetFullPath($directory).TrimEnd('\', '/').ToUpperInvariant()
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $hash = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($path))).Replace('-', '') }
+    finally { $sha.Dispose() }
+    return "Global\stm32-flasher-directory-v1-$hash"
+}
+
+function Enter-DirectoryLock($directory) {
+    $mutex = [Threading.Mutex]::new($false, (Get-DirectoryMutexName $directory))
+    try {
+        try { $acquired = $mutex.WaitOne(0) }
+        catch [Threading.AbandonedMutexException] {
+            # WaitOne transfers ownership even when reporting abandonment.
+            $acquired = $true
+            Write-Warn (T 'DirectoryAbandoned')
+        }
+        if ($acquired) { return $mutex }
+        $mutex.Dispose()
+        return $null
+    } catch { $mutex.Dispose(); throw }
+}
+
 function Read-SetupChoice($title, $labels) {
     Write-Host "`n$title"
     for ($i = 0; $i -lt $labels.Count; $i++) { Write-Host "  [$($i + 1)] $($labels[$i])" }
@@ -1726,6 +1755,15 @@ $ToolDir        = Join-Path $CurrentDir ".tools"
 $HistoryDir     = Join-Path $CurrentDir ".history"
 $LogFile        = Join-Path $CurrentDir "flash_log.txt"
 $HtmlReport     = Join-Path $CurrentDir "report.html"
+
+$DirectoryMutex = $null
+# Cover all operation exits, including cleanup, setup cancellation and failures.
+try {
+if (-not $DryRun -and (-not $Info -or $ProbeTarget)) {
+    try { $DirectoryMutex = Enter-DirectoryLock $CurrentDir }
+    catch { Write-Err (T 'DirectoryLockError'); Write-Info $_.Exception.Message; exit 1 }
+    if (-not $DirectoryMutex) { Write-Err (T 'DirectoryBusy'); exit 1 }
+}
 
 if ($Setup) {
     try { exit (Invoke-Setup) } catch { Write-Err $_.Exception.Message; exit 1 }
@@ -2859,3 +2897,9 @@ if (-not $Success) {
     exit 1
 }
 exit 0
+} finally {
+    if ($DirectoryMutex) {
+        try { $DirectoryMutex.ReleaseMutex() }
+        finally { $DirectoryMutex.Dispose() }
+    }
+}
