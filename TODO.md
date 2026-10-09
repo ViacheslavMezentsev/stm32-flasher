@@ -4,7 +4,8 @@
 
 - Ветка `codex/setup-command`: согласованы имя и сценарий setup.cmd; реализован
   мастер без MCU с подтверждением, отменой и ранним DryRun. Версия пока 0.2.10.
-  Добавлены TC-36, тест setup и упаковка обёртки; полные регрессии выполняются.
+  Добавлены TC-36, тест setup и упаковка обёртки; все 14 наборов прошли в PS5.1/7
+  09.10.2026, ТЗ strict без замечаний. Ожидается ручная проверка мастера владельцем.
 - Опубликован [v0.2.10](https://github.com/ViacheslavMezentsev/stm32-flasher/releases/tag/v0.2.10), коммит `c2c9eb7`.
 - CI рабочей ветки, main и тега, а также Release завершились успешно.
   ZIP и `.zip.sha256` прикреплены; RU/EN описание сохранено.
@@ -38,7 +39,8 @@
 
 ## Ближайшие шаги
 
-- [ ] Завершить проверки setup в PS5.1/7, затем ручная проверка владельцем без прошивки.
+- [x] Завершить проверки setup в PS5.1/7 (14 наборов), ТЗ strict.
+- [ ] Ручная проверка мастера владельцем без прошивки.
 - [ ] Согласовать коммит setup; push, CI и land после успешных проверок.
 - [x] Согласовать AGENTS и памятки, проверить состав изменений; убрать реальные serial из новых тестов и публикуемых примеров.
 - [x] Подготовить подписанные коммиты исправлений, CI и документации.
@@ -110,8 +112,9 @@
 
 Branch `codex/setup-command`: the setup name and scenario are agreed; implemented
 the no-MCU wizard with confirmation, cancellation and early DryRun. Version remains
-0.2.10. Added TC-36, tests and packaging; full regressions are in progress.
-Next: finish PS5.1/7 checks, owner wizard test without flashing, then agree a commit.
+0.2.10. Added TC-36, tests and packaging; all 14 suites passed in PS5.1/7 on
+2026-10-09, with a clean strict spec check.
+Next: owner wizard test without flashing, then commit the remaining test/documentation changes.
 
 Current: v0.2.10 published from c2c9eb7. Branch, main and tag CI and the Release
 workflow succeeded. ZIP and SHA-256 assets are attached; RU/EN notes are preserved.
