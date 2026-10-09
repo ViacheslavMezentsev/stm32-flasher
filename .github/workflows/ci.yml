@@ -27,6 +27,7 @@ jobs:
             'forget.cmd',
             'backup.cmd',
             'info.cmd',
+            'setup.cmd',
             'README.md',
             'LICENSE',
             'CHANGELOG.md',

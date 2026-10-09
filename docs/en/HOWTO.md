@@ -208,6 +208,27 @@ An archive suffix `_1`, `_2` indicates an occupied name, not a retried MCU opera
 New archived reports link to the adjacent `index.html`; old reports are not migrated.
 Run operations sequentially: suffixes do not replace process locking.
 
+## Reconfiguration
+
+Run `setup.cmd` from the project directory. Select an engine, probe type/device,
+then optional OpenOCD target or J-Link device. Confirm the summary with `y`.
+`q` or empty menu input cancels; an empty target/device defers detection/prompting
+until an operation. Empty confirmation cancels.
+
+"STLINK | Auto" and "JLINK | Auto" save the type without a serial. Saving replaces
+all six settings, clearing stale serials and unused target/device values.
+Previous values are displayed first; re-enter a target/device to keep it.
+Multiple devices of the selected type require selection at the next operation.
+USB labels are displayed; MCU model and firmware compatibility are not detected or checked.
+OpenOCD can be selected before installation; any download happens during an operation.
+
+`setup.cmd -DryRun` shows saved settings and the wizard plan without prompts,
+USB discovery, tools, network access or writes. `--help`/`--version` work as usual.
+The wizard is interactive; engine/probe overrides and `-Silent` are rejected.
+Firmware, backups, history, reports and tools are preserved. Cancellation exits 0;
+invalid input/save failure exits 1. Handled write failures roll back settings;
+this does not protect against process termination, power loss or concurrent runs.
+
 ## Short Release Description
 
 Keep the text in `docs/releases/v<version>.md`: a short Russian description,

@@ -2,6 +2,9 @@
 
 ## Текущее состояние
 
+- Ветка `codex/setup-command`: согласованы имя и сценарий setup.cmd; реализован
+  мастер без MCU с подтверждением, отменой и ранним DryRun. Версия пока 0.2.10.
+  Добавлены TC-36, тест setup и упаковка обёртки; полные регрессии выполняются.
 - Опубликован [v0.2.10](https://github.com/ViacheslavMezentsev/stm32-flasher/releases/tag/v0.2.10), коммит `c2c9eb7`.
 - CI рабочей ветки, main и тега, а также Release завершились успешно.
   ZIP и `.zip.sha256` прикреплены; RU/EN описание сохранено.
@@ -10,7 +13,7 @@
 - Для 0.2.10 все 13 наборов прошли в PS5.1/7 09.10.2026; ТЗ strict без замечаний.
 - Описания релизов и новый workflow слиты в main (`0c9349b`), CI рабочей ветки и main успешен.
 - Уточнены USB-перечисление ST-Link, тайм-аут J-Link и выбор по явному serial.
-- Документация находится в `docs`; ТЗ — черновик ревизии 1.5.
+- Документация находится в `docs`; ТЗ — черновик ревизии 1.6.
 - CI main и рабочей ветки успешен для `9c87c24`.
 - Реализован ранний планировщик DryRun без утилит, USB/MCU, сети, ввода и записи.
   Базовая проверка Intel HEX согласована и добавлена. CMD сохраняет код ошибки
@@ -35,6 +38,8 @@
 
 ## Ближайшие шаги
 
+- [ ] Завершить проверки setup в PS5.1/7, затем ручная проверка владельцем без прошивки.
+- [ ] Согласовать коммит setup; push, CI и land после успешных проверок.
 - [x] Согласовать AGENTS и памятки, проверить состав изменений; убрать реальные serial из новых тестов и публикуемых примеров.
 - [x] Подготовить подписанные коммиты исправлений, CI и документации.
 - [x] Предыдущая ветка опубликована и слита владельцем в main; локально подтверждён `f4ec9bd`.
@@ -74,7 +79,7 @@
 - [x] Вручную опубликовать v0.2.10 с текстом из docs/releases/v0.2.10.md;
   проверить результат Release workflow и наличие ZIP/SHA-256.
 - [ ] Независимо скачать опубликованные ZIP/SHA-256 и проверить контрольную сумму.
-- [ ] Согласовать следующий этап: защита от параллельных операций. Предлагается
+- [ ] После setup согласовать защиту от параллельных операций. Предлагается
   начать с блокировки папки вызова и тестов двух процессов без MCU; область
   блокировки, поведение второго запуска и отдельная защита программатора требуют согласования.
 
@@ -103,12 +108,17 @@
 
 ## English
 
+Branch `codex/setup-command`: the setup name and scenario are agreed; implemented
+the no-MCU wizard with confirmation, cancellation and early DryRun. Version remains
+0.2.10. Added TC-36, tests and packaging; full regressions are in progress.
+Next: finish PS5.1/7 checks, owner wizard test without flashing, then agree a commit.
+
 Current: v0.2.10 published from c2c9eb7. Branch, main and tag CI and the Release
 workflow succeeded. ZIP and SHA-256 assets are attached; RU/EN notes are preserved.
 Downloading the published ZIP for independent checksum verification failed due
 to an environment network error; the local build was checked separately.
 Release notes and workflow landed on main at 0c9349b with successful branch/main CI.
-Acceptance results landed at 9c87c24. Specification 1.5 is a draft.
+Acceptance results landed at 9c87c24. Specification 1.6 is a draft.
 Early DryRun planning avoids tools, USB/MCU, network access, prompts and writes.
 Basic Intel HEX validation was agreed and implemented; MCU compatibility is not checked.
 CMD preserves quoted paths and nonzero exit codes. TC-22 reproduced an unbounded

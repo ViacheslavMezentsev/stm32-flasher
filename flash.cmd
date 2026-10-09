@@ -46,6 +46,7 @@ param(
     [switch]$Clean,
     [switch]$Backup,
     [switch]$Info,
+    [switch]$Setup,
     [switch]$ProbeTarget,
     [string]$Output = "",
     [string]$Address = "",
@@ -87,6 +88,10 @@ if ($helpRequested -or $versionRequested) {
             $command = 'info.cmd'; $example = 'info.cmd -ProbeTarget'
             $options = '-ProbeTarget'
             $description = if ($ru) { 'Обзор ПК, инструментов, настроек, USB и HEX. -ProbeTarget подключается к MCU.' } else { 'Show PC, tools, settings, USB and HEX files. -ProbeTarget connects to the MCU.' }
+        } elseif ($Setup) {
+            $command = 'setup.cmd'; $example = 'setup.cmd'
+            $options = '-DryRun'
+            $description = if ($ru) { 'Интерактивная настройка движка и программатора без подключения к MCU. Сохранение после подтверждения; -DryRun выводит план без опроса оборудования.' } else { 'Configure engine and probe interactively without connecting to the MCU. Confirm before saving; -DryRun prints a plan without hardware discovery.' }
         } elseif ($Clean -or $ResetConfig) {
             $command = 'forget.cmd'; $example = 'forget.cmd -DryRun'
             $options = '-DryRun'
@@ -95,7 +100,7 @@ if ($helpRequested -or $versionRequested) {
         Write-Output $description
         Write-Output "`n$command [options]"
         Write-Output "  $options"
-        if (-not ($Clean -or $ResetConfig)) {
+        if (-not ($Clean -or $ResetConfig -or $Setup)) {
             Write-Output '  -Engine <CUBEPROGRAMMER|OPENOCD|JLINK|exe>  -Probe <STLINK|JLINK>'
             Write-Output '  -Serial <serial>  -Device <J-Link MCU>  -Target <OpenOCD cfg>'
             Write-Output '  -DryRun  -Silent'
@@ -490,9 +495,10 @@ if ($Lang -eq 'en') {
     if ($PSUICulture -match '^ru') { $ActiveLang = $LangRu } else { $ActiveLang = $LangEn }
 }
 
-$NoFirmware = $Erase -or $Backup -or $Info
+$NoFirmware = $Erase -or $Backup -or $Info -or $Setup
 $FreshProbeSelection = $Erase -or $Backup -or ($Info -and $ProbeTarget)
-if ((@($Erase, $Backup, $Info, $ResetConfig, $Clean | Where-Object { $_ }).Count -gt 1) -or
+if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean | Where-Object { $_ }).Count -gt 1) -or
+    ($Setup -and ($Engine -or $Device -or $Target -or $Probe -or $Serial -or $Silent)) -or
     ($ProbeTarget -and -not $Info) -or (($Output -or $Size -or $Address) -and -not $Backup) -or
     ($NoFirmware -and ($HexFile -or $Sha256 -or ($Input -and $Input -notin @('ru','en')))) -or
     (($ResetConfig -or $Clean) -and ($Erase -or $HexFile -or $Sha256 -or $Engine -or $Device -or $Target -or $Probe -or $Serial)) -or
@@ -1291,6 +1297,148 @@ function Show-EnvironmentInfo {
     }
 }
 
+function Read-SetupChoice($title, $labels) {
+    Write-Host "`n$title"
+    for ($i = 0; $i -lt $labels.Count; $i++) { Write-Host "  [$($i + 1)] $($labels[$i])" }
+    $answer = Read-Host '[1..N / q]'
+    if ($answer -eq 'q' -or [string]::IsNullOrWhiteSpace($answer)) { throw [OperationCanceledException]::new() }
+    $number = 0
+    if (-not [int]::TryParse($answer, [ref]$number) -or $number -lt 1 -or $number -gt $labels.Count) {
+        throw (T 'ErrBadChoice')
+    }
+    return ($number - 1)
+}
+
+function Save-SetupSettings($values) {
+    # Preserve exact original bytes for rollback on a handled write failure.
+    $original = @{}
+    foreach ($name in $values.Keys) {
+        $path = Join-Path $CurrentDir $name
+        $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        if ($item -and ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint))) {
+            throw "Invalid setting file: $name"
+        }
+        if ($item) { $original[$name] = [IO.File]::ReadAllBytes($path) }
+        else { $original[$name] = $null }
+    }
+    $touched = @()
+    try {
+        foreach ($name in ($values.Keys | Sort-Object)) {
+            $path = Join-Path $CurrentDir $name
+            $touched += $name
+            if ($values[$name]) {
+                [IO.File]::WriteAllText($path, ($values[$name] + "`r`n"), (New-Object Text.UTF8Encoding($true)))
+            } elseif (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
+        }
+    } catch {
+        $failure = $_
+        foreach ($name in $touched) {
+            $path = Join-Path $CurrentDir $name
+            if ($null -ne $original[$name]) { [IO.File]::WriteAllBytes($path, [byte[]]$original[$name]) }
+            elseif (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
+        }
+        throw $failure
+    }
+}
+
+function Select-UnpinnedProbe($type) {
+    $entries = if ($type -eq 'JLINK') { @(Get-JLinkProbes) } else {
+        $inventory = Get-InfoStLinkInventory @(Find-CubeProgrammerCli)
+        if ($inventory.Warning -or @($inventory.Entries | Where-Object { -not $_.Serial }).Count) {
+            throw (T 'NoDebugger')
+        }
+        @($inventory.Entries)
+    }
+    if (@($entries).Count -gt 1) { return (Select-ConnectedProbe @($entries)).Serial }
+    return ''
+}
+
+function Invoke-Setup {
+    $ru = $ActiveLang -eq $LangRu
+    $text = if ($ru) { @{
+        Title = 'Настройка запуска'; Auto = 'Авто'; Engine = 'Выберите движок'
+        Probe = 'Выберите программатор'; Current = 'Текущие настройки (отсутствующие значения: Авто)'
+        Plan = 'DRY RUN: показать настройки; выбрать движок и программатор; уточнить target/device; подтвердить сохранение. Без опроса USB/MCU, утилит, сети, ввода и записи.'
+        Cancel = 'Настройка отменена; файлы не изменены.'; Save = 'Сохранить? [y / Enter: отмена]'
+        Done = 'Настройки сохранены. Операции с MCU не выполнялись.'; Summary = 'Новая конфигурация'
+        Device = 'Device J-Link (например STM32F103CB; Enter: спросить перед операцией)'
+        Target = 'Target OpenOCD (например target/stm32f1x.cfg; Enter: определить перед операцией)'
+        Hint = 'q или пустой ответ в меню: отмена. Модель MCU не определяется и не проверяется.'
+    } } else { @{
+        Title = 'Launch setup'; Auto = 'Auto'; Engine = 'Select engine'
+        Probe = 'Select probe'; Current = 'Current settings (missing values: Auto)'
+        Plan = 'DRY RUN: show settings; select engine and probe; specify target/device; confirm saving. No USB/MCU discovery, tools, network, input or writes.'
+        Cancel = 'Setup cancelled; files unchanged.'; Save = 'Save? [y / Enter: cancel]'
+        Done = 'Settings saved. No MCU operations performed.'; Summary = 'New configuration'
+        Device = 'J-Link device (e.g. STM32F103CB; Enter: ask before operation)'
+        Target = 'OpenOCD target (e.g. target/stm32f1x.cfg; Enter: detect before operation)'
+        Hint = 'q or empty menu input: cancel. MCU model is not detected or validated.'
+    } }
+    $values = [ordered]@{ '.flash_engine' = ''; '.probe_type' = ''; '.stlink_serial' = ''; '.jlink_serial' = ''; '.jlink_device' = ''; '.openocd_target' = '' }
+    Write-Step '1' $text.Title
+    Write-Info $text.Current
+    foreach ($name in $values.Keys) {
+        $path = Join-Path $CurrentDir $name
+        $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        if ($item -and ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint))) { throw "Invalid setting file: $name" }
+        $value = if ($item) { ([string](Get-Content -LiteralPath $path -Raw -Encoding UTF8)).Trim() } else { $text.Auto }
+        Write-Info "${name}: $value"
+    }
+    if ($DryRun) { Write-Info $text.Plan; return 0 }
+    Write-Info $text.Hint
+    try {
+        $cubePaths = @(Find-CubeProgrammerCli)
+        $engines = @(@{ Label = $text.Auto; Value = '' }, @{ Label = (T 'EngineOpenOCD'); Value = 'OPENOCD' })
+        foreach ($path in $cubePaths) { $engines += @{ Label = "CubeProgrammer | $path"; Value = $path } }
+        if (Find-JLinkExe) { $engines += @{ Label = 'SEGGER J-Link'; Value = 'JLINK' } }
+        $index = Read-SetupChoice $text.Engine @($engines | ForEach-Object { $_.Label })
+        $engine = $engines[$index].Value
+        $values['.flash_engine'] = $engine
+        $types = if ($engine -eq 'OPENOCD') { @('STLINK') } elseif ($engine -eq 'JLINK') { @('JLINK') } else { @('STLINK', 'JLINK') }
+        $probes = @()
+        foreach ($type in $types) {
+            $probes += @{ Label = "$type | $($text.Auto)"; Type = $type; Serial = '' }
+            try {
+                if ($type -eq 'STLINK') {
+                    $inventory = Get-InfoStLinkInventory $cubePaths
+                    if ($inventory.Warning) { Write-Warn (T 'InfoProbeWarning') }
+                    $entries = @($inventory.Entries)
+                } else { $entries = @(Get-JLinkProbes) }
+                foreach ($entry in $entries) {
+                    if (-not $entry.Serial) { Write-Warn (T 'InfoSerialUnknown'); continue }
+                    $probes += @{ Label = "$type | $($entry.Serial) | $($entry.Family)"; Type = $type; Serial = $entry.Serial }
+                }
+            } catch { Write-Warn $_.Exception.Message }
+        }
+        $index = Read-SetupChoice $text.Probe @($probes | ForEach-Object { $_.Label })
+        $chosen = $probes[$index]
+        $values['.probe_type'] = $chosen.Type
+        if ($chosen.Type -eq 'STLINK') { $values['.stlink_serial'] = $chosen.Serial }
+        else { $values['.jlink_serial'] = $chosen.Serial }
+        if ($engine -eq 'JLINK' -or (-not $engine -and $chosen.Type -eq 'JLINK')) {
+            $value = Read-Host $text.Device
+            if ($value -eq 'q') { throw [OperationCanceledException]::new() }
+            if ($value -and $value -notmatch '^[A-Za-z0-9_.-]+$') { throw (T 'ErrBadChoice') }
+            $values['.jlink_device'] = $value
+        }
+        if ($engine -eq 'OPENOCD' -or (-not $engine -and $chosen.Type -eq 'STLINK')) {
+            $value = Read-Host $text.Target
+            if ($value -eq 'q') { throw [OperationCanceledException]::new() }
+            if ($value -and $value -notmatch '^target/[A-Za-z0-9_.-]+\.cfg$') { throw (T 'InvalidTarget') }
+            $values['.openocd_target'] = $value
+        }
+        Write-Host "`n$($text.Summary)"
+        foreach ($name in $values.Keys) {
+            $value = if ($values[$name]) { $values[$name] } else { $text.Auto }
+            Write-Info "${name}: $value"
+        }
+        if ((Read-Host $text.Save) -notin @('y', 'yes', 'д', 'да')) { throw [OperationCanceledException]::new() }
+        Save-SetupSettings $values
+        Write-Ok $text.Done
+        return 0
+    } catch [OperationCanceledException] { Write-Info $text.Cancel; return 0 }
+}
+
 function ConvertTo-MemoryNumber([string]$value) {
     if ($value -match '^0[xX][0-9a-fA-F]+$') { return [Convert]::ToUInt64($value.Substring(2), 16) }
     if ($value -match '^\d+$') { return [Convert]::ToUInt64($value, 10) }
@@ -1579,6 +1727,10 @@ $HistoryDir     = Join-Path $CurrentDir ".history"
 $LogFile        = Join-Path $CurrentDir "flash_log.txt"
 $HtmlReport     = Join-Path $CurrentDir "report.html"
 
+if ($Setup) {
+    try { exit (Invoke-Setup) } catch { Write-Err $_.Exception.Message; exit 1 }
+}
+
 if ($ResetConfig -or $Clean) {
     $cleanupNames = @('.flash_engine', '.probe_type', '.stlink_serial', '.jlink_serial', '.jlink_device', '.openocd_target')
     if ($Clean) {
@@ -1631,6 +1783,18 @@ $SelectedProbeSerial = ""
 $SelectedProbeInfo = $null
 $SelectedProbeType = "STLINK"
 $ProbeSpecified = [bool]$Probe
+$SavedProbePreference = $false
+if (-not $ProbeSpecified -and -not $FreshProbeSelection) {
+    $savedTypePath = Join-Path $CurrentDir '.probe_type'
+    if (Test-Path -LiteralPath $savedTypePath -PathType Leaf) {
+        $savedType = (Get-Content -LiteralPath $savedTypePath -Raw -Encoding UTF8).Trim()
+        if ($savedType -in @('STLINK', 'JLINK')) {
+            $SelectedProbeType = $savedType
+            $ProbeSpecified = $true
+            $SavedProbePreference = $true
+        }
+    }
+}
 if ($Probe) {
     switch -Regex ($Probe.Trim()) {
         '^(?i:STLINK|ST-LINK|SWD)$' { $SelectedProbeType = "STLINK"; break }
@@ -1838,12 +2002,13 @@ if (-not $SelectedEngine) {
     $FoundJLink = Find-JLinkExe
 
     $Opts = @()
-    $Opts += @{ Label = "$(T 'EngineOpenOCD')"; Value = "OPENOCD" }
+    if (-not $ProbeSpecified -or $SelectedProbeType -eq 'STLINK') { $Opts += @{ Label = "$(T 'EngineOpenOCD')"; Value = "OPENOCD" } }
     foreach ($cli in $FoundCli) { $Opts += @{ Label = "$(T 'EngineCubeProg') ($cli)"; Value = $cli } }
-    if ($FoundJLink -and (-not $NoFirmware -or $SelectedProbeType -eq 'JLINK')) { $Opts += @{ Label = "$(T 'EngineJLink') ($FoundJLink)"; Value = "JLINK" } }
+    if ($FoundJLink -and (-not $ProbeSpecified -or $SelectedProbeType -eq 'JLINK')) { $Opts += @{ Label = "$(T 'EngineJLink') ($FoundJLink)"; Value = "JLINK" } }
 
+    if (-not $Opts.Count) { throw (T 'InvalidEngine') }
     if ($Opts.Count -eq 1) {
-        $SelectedEngine = "OPENOCD"
+        $SelectedEngine = $Opts[0].Value
     } elseif ($AutoFlash) {
         $PreferredCubeProg = $Opts | Where-Object { $_.Value -ne "OPENOCD" } | Select-Object -First 1
         if ($PreferredCubeProg) { $SelectedEngine = $PreferredCubeProg.Value } else { $SelectedEngine = "OPENOCD" }
@@ -1867,6 +2032,12 @@ $StLinkSerialCfgPath = Join-Path $CurrentDir ".stlink_serial"
 $JLinkSerialCfgPath = Join-Path $CurrentDir ".jlink_serial"
 $ProbeTypeCfgPath = Join-Path $CurrentDir ".probe_type"
 $ProbeInfo = $null
+if ($SavedProbePreference -and -not $Serial -and -not $FreshProbeSelection) {
+    $savedSerialPath = if ($SelectedProbeType -eq 'JLINK') { $JLinkSerialCfgPath } else { $StLinkSerialCfgPath }
+    if (-not (Test-Path -LiteralPath $savedSerialPath) -or -not (Get-Content -LiteralPath $savedSerialPath -Raw -Encoding UTF8).Trim()) {
+        $Serial = Select-UnpinnedProbe $SelectedProbeType
+    }
+}
 # Keep an explicit serial even when discovery is unavailable: the engine must
 # attempt only this probe, never its default device. See specification 4.2.4.
 if ($Serial) {

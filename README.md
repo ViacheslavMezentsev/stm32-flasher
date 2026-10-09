@@ -24,6 +24,7 @@
 | `erase.cmd` | Полное стирание Flash |
 | `backup.cmd` | Резервная копия в Intel HEX + SHA-256 в `backups` |
 | `info.cmd` | Обзор ПК, инструментов, USB-программаторов и сохранённых настроек |
+| `setup.cmd` | Перенастройка движка и программатора с подтверждением, без операций с MCU |
 | `forget.cmd` | Удаление настроек, логов, отчётов и скачанных инструментов; копии сохраняются |
 
 Несколько программаторов при backup/erase выбираются через меню. `info.cmd -ProbeTarget` подключается к выбранному MCU. `forget.cmd -DryRun` показывает список удаления; `flash.cmd -ResetConfig` сбрасывает только настройки.
@@ -71,6 +72,7 @@ Version **0.2.10**. Keep optional command wrappers next to `flash.cmd`:
 
 | Command | Action |
 |---|---|
+| `setup.cmd` | Reconfigure engine and probe with confirmation, without MCU operations |
 | `erase.cmd` | Full Flash erase |
 | `backup.cmd` | Intel HEX + SHA-256 backup in `backups` |
 | `info.cmd` | PC, tools, USB probes and saved settings overview |

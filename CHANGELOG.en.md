@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Setup
+- Add `setup.cmd` (`flash.cmd -Setup`): select engine and probe, optional target/device, confirm or cancel. Automatic probe selection is type-specific; saving clears stale incompatible settings but preserves firmware, logs, history and tools.
+- Help/version and DryRun exit without discovery or writes; the wizard neither connects to an MCU nor downloads tools. Add hardware-free checks and package the new wrapper.
+- Honor the saved probe type during automatic engine selection. With a saved type and no serial, multiple devices require a menu rather than selecting the first J-Link.
+
 ### Documentation
 - Record the 0.2.10 release, CI/Release results and pending downloaded-archive verification in TODO; propose concurrent-operation protection as the next step, without code changes.
 
