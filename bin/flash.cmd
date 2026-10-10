@@ -123,6 +123,10 @@ if ($helpRequested -or $versionRequested) {
 $LangRu = @{
     DirectoryBusy      = "В этой папке уже выполняется операция stm32-flasher. Дождитесь её завершения."
     DirectoryLockError = "Не удалось заблокировать рабочую папку. Операция отменена."
+    ConfigSource = "Источник настроек"
+    ConfigMigration = "Старые настройки: перенос в .flash.json при рабочем запуске или сохранении setup."
+    ConfigError = "Ошибка конфигурации. Операция отменена; автоматический выбор вместо повреждённых настроек запрещён."
+    ConfigSaveWarning = "Не удалось сохранить настройки после операции. Проверьте .flash.json; результат операции указан в отчёте."
     DirectoryAbandoned = "Предыдущий процесс завершился неожиданно. Блокировка освобождена; проверьте результат прерванной операции."
     BackupName         = "Резервное копирование Flash"
     BackupSuccess      = "Резервная копия Flash сохранена"
@@ -290,6 +294,10 @@ $LangRu = @{
 $LangEn = @{
     DirectoryBusy      = "A stm32-flasher operation is already running in this directory. Wait for it to finish."
     DirectoryLockError = "Unable to lock the working directory. Operation cancelled."
+    ConfigSource = "Configuration source"
+    ConfigMigration = "Legacy settings: migrate to .flash.json on an operational run or setup save."
+    ConfigError = "Configuration error. Operation cancelled; no automatic fallback from invalid settings."
+    ConfigSaveWarning = "Unable to save settings after the operation. Check .flash.json; see the report for the operation result."
     DirectoryAbandoned = "The previous process ended unexpectedly. The lock is available; check the interrupted operation's result."
     BackupName         = "Flash backup"
     BackupSuccess      = "Flash backup saved"
@@ -1057,9 +1065,111 @@ function Get-JLinkProbes {
     } finally { $proc.Dispose() }
 }
 
+function Get-LaunchSettingMap {
+    [ordered]@{ '.flash_engine'='engine'; '.probe_type'='probe'; '.stlink_serial'='stlinkSerial'; '.jlink_serial'='jlinkSerial'; '.jlink_device'='jlinkDevice'; '.openocd_target'='openocdTarget' }
+}
+
+function Assert-ConfigFile($path) {
+    try { $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop }
+    catch [System.Management.Automation.ItemNotFoundException] { return }
+    if ($item -and ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint))) {
+        throw "Invalid configuration file: $path"
+    }
+}
+
+function ConvertFrom-LaunchJson([string]$text) {
+    if (-not $text.TrimStart().StartsWith('{')) { throw 'Expected a JSON object' }
+    # ConvertFrom-Json accepts duplicate keys and (in PS7) comments; reject ambiguous input.
+    $seen = New-Object 'Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($token in [regex]::Matches($text, '"(?:\\.|[^"\\])*"')) {
+        if ($text.Substring($token.Index + $token.Length) -match '^\s*:') {
+            $key = ConvertFrom-Json ('[' + $token.Value + ']')
+            if (-not $seen.Add([string]$key)) { throw "Duplicate configuration field: $key" }
+        }
+    }
+    $syntax = [regex]::Replace($text, '"(?:\\.|[^"\\])*"', '""')
+    if ($syntax -match '//|/\*|,\s*[}\]]') { throw 'JSON comments and trailing commas are not supported' }
+    $data = ConvertFrom-Json -InputObject $text -ErrorAction Stop
+    if ($null -eq $data -or $data -isnot [pscustomobject]) { throw 'Expected a JSON object' }
+    $map = Get-LaunchSettingMap
+    $keys = @('schemaVersion') + @($map.Values)
+    foreach ($property in $data.PSObject.Properties) {
+        if ($property.Name -cnotin $keys) { throw "Unknown configuration field: $($property.Name)" }
+    }
+    if (($data.schemaVersion -isnot [int] -and $data.schemaVersion -isnot [long]) -or $data.schemaVersion -ne 1) { throw 'Unsupported schemaVersion (expected 1)' }
+    $values = [ordered]@{}
+    foreach ($name in $map.Keys) {
+        $key = $map[$name]
+        $value = $data.$key
+        if ($null -ne $value -and $value -isnot [string]) { throw "Expected string or null: $key" }
+        if ($value -and ($value -match '[\x00-\x1f"\r\n]' -or $value -ne $value.Trim())) { throw "Invalid configuration value: $key" }
+        $values[$name] = $value
+    }
+    if ($data.probe -and $data.probe -cnotin @('STLINK','JLINK')) { throw 'Invalid probe' }
+    if ($data.engine -and $data.engine -cnotin @('OPENOCD','JLINK','CUBEPROGRAMMER','CUBE') -and
+        $data.engine -notmatch '^(?:[A-Za-z]:[\\/]|\\\\[^\\/]+[\\/][^\\/]+[\\/]).+\.exe$') { throw 'Invalid engine' }
+    foreach ($key in @('stlinkSerial','jlinkSerial','jlinkDevice')) {
+        if ($data.$key -and $data.$key -notmatch '^[A-Za-z0-9_.-]+$') { throw "Invalid configuration value: $key" }
+    }
+    if ($data.openocdTarget -and $data.openocdTarget -notmatch '^target/[A-Za-z0-9_.-]+\.cfg$') { throw 'Invalid openocdTarget' }
+    return $values
+}
+
+function Read-LaunchConfiguration {
+    $path = Join-Path $CurrentDir '.flash.json'
+    Assert-ConfigFile $path
+    if (Test-Path -LiteralPath $path) {
+        $values = ConvertFrom-LaunchJson ([IO.File]::ReadAllText($path, [Text.Encoding]::UTF8))
+        return @{ Values=$values; Source='.flash.json'; LegacyFiles=@() }
+    }
+    $values = [ordered]@{}; $legacy = @()
+    foreach ($name in (Get-LaunchSettingMap).Keys) {
+        $file = Join-Path $CurrentDir $name
+        Assert-ConfigFile $file
+        $values[$name] = $null
+        if (Test-Path -LiteralPath $file) {
+            $values[$name] = ([IO.File]::ReadAllText($file, [Text.Encoding]::UTF8)).Trim()
+            $legacy += $file
+        }
+    }
+    return @{ Values=$values; Source=$(if ($legacy.Count) { 'legacy' } else { 'none' }); LegacyFiles=$legacy }
+}
+
+function Get-LaunchSetting($path) {
+    (Read-LaunchConfiguration).Values[(Split-Path -Leaf $path)]
+}
+
+function Write-LaunchConfiguration($values) {
+    $path = Join-Path $CurrentDir '.flash.json'
+    $current = Read-LaunchConfiguration
+    $document = [ordered]@{ schemaVersion=1 }
+    $map = Get-LaunchSettingMap
+    foreach ($name in $map.Keys) { $document[$map[$name]] = if ($values[$name]) { [string]$values[$name] } else { $null } }
+    $json = ConvertTo-Json -InputObject $document
+    $null = ConvertFrom-LaunchJson $json
+    $temporary = Join-Path $CurrentDir ('.flash_config_' + [guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        [IO.File]::WriteAllText($temporary, $json + "`r`n", (New-Object Text.UTF8Encoding($false)))
+        $null = ConvertFrom-LaunchJson ([IO.File]::ReadAllText($temporary, [Text.Encoding]::UTF8))
+        Assert-ConfigFile $path
+        if (Test-Path -LiteralPath $path) { [IO.File]::Replace($temporary, $path, [System.Management.Automation.Language.NullString]::Value) }
+        else { [IO.File]::Move($temporary, $path) }
+        # Only remove legacy settings after the complete JSON has been published and read back.
+        $null = Read-LaunchConfiguration
+        foreach ($file in $current.LegacyFiles) {
+            Assert-ConfigFile $file
+            Remove-Item -LiteralPath $file -Force -ErrorAction Stop
+        }
+    } finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force -ErrorAction Stop }
+    }
+}
+
 function Save-LaunchSetting($path, $value) {
     if (-not $DryRun -and -not $Info) {
-        Set-Content -LiteralPath $path -Value $value -Encoding UTF8 -ErrorAction SilentlyContinue
+        $values = (Read-LaunchConfiguration).Values
+        $values[(Split-Path -Leaf $path)] = $value
+        Write-LaunchConfiguration $values
     }
 }
 
@@ -1224,9 +1334,8 @@ function Find-OpenOcdInstallation($managedExe) {
 function Get-InfoEnginePath($cubePaths, $jlinkPath) {
     $choice = $SelectedEngine
     $savedPath = Join-Path $CurrentDir '.flash_engine'
-    if (-not $choice -and (Test-Path -LiteralPath $savedPath)) {
-        $saved = (Get-Content -LiteralPath $savedPath -TotalCount 1 -Encoding UTF8).Trim()
-        if ($saved -in @('OPENOCD', 'JLINK', 'CUBEPROGRAMMER', 'CUBE') -or (Test-Path -LiteralPath $saved -PathType Leaf)) { $choice = $saved }
+    if (-not $choice) {
+        $choice = Get-LaunchSetting $savedPath
     }
     if (-not $choice) {
         $hexCount = @(Get-ChildItem -LiteralPath $CurrentDir -File -Filter '*.hex').Count
@@ -1276,9 +1385,11 @@ function Show-EnvironmentInfo {
     }
     if ($activeTool) { Write-Info (T 'InfoActiveTool') } else { Write-Info (T 'InfoToolPending') }
     Write-Step '3' (T 'InfoSaved')
-    foreach ($name in @('.flash_engine', '.probe_type', '.stlink_serial', '.jlink_serial', '.jlink_device', '.openocd_target')) {
-        $path = Join-Path $CurrentDir $name
-        if (Test-Path -LiteralPath $path) { Write-Info "${name}: $((Get-Content -LiteralPath $path -Raw -Encoding UTF8).Trim())" }
+    $configuration = Read-LaunchConfiguration
+    Write-Info "$(T 'ConfigSource'): $($configuration.Source)"
+    foreach ($name in (Get-LaunchSettingMap).Keys) {
+        $value = $configuration.Values[$name]
+        if ($value) { Write-Info "$((Get-LaunchSettingMap)[$name]): $value" }
     }
     Write-Step '4' (T 'InfoUsb')
     try {
@@ -1342,35 +1453,7 @@ function Read-SetupChoice($title, $labels) {
 }
 
 function Save-SetupSettings($values) {
-    # Preserve exact original bytes for rollback on a handled write failure.
-    $original = @{}
-    foreach ($name in $values.Keys) {
-        $path = Join-Path $CurrentDir $name
-        $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
-        if ($item -and ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint))) {
-            throw "Invalid setting file: $name"
-        }
-        if ($item) { $original[$name] = [IO.File]::ReadAllBytes($path) }
-        else { $original[$name] = $null }
-    }
-    $touched = @()
-    try {
-        foreach ($name in ($values.Keys | Sort-Object)) {
-            $path = Join-Path $CurrentDir $name
-            $touched += $name
-            if ($values[$name]) {
-                [IO.File]::WriteAllText($path, ($values[$name] + "`r`n"), (New-Object Text.UTF8Encoding($true)))
-            } elseif (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
-        }
-    } catch {
-        $failure = $_
-        foreach ($name in $touched) {
-            $path = Join-Path $CurrentDir $name
-            if ($null -ne $original[$name]) { [IO.File]::WriteAllBytes($path, [byte[]]$original[$name]) }
-            elseif (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
-        }
-        throw $failure
-    }
+    Write-LaunchConfiguration $values
 }
 
 function Select-UnpinnedProbe($type) {
@@ -1410,11 +1493,9 @@ function Invoke-Setup {
     Write-Step '1' $text.Title
     Write-Info $text.Current
     foreach ($name in $values.Keys) {
-        $path = Join-Path $CurrentDir $name
-        $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
-        if ($item -and ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint))) { throw "Invalid setting file: $name" }
-        $value = if ($item) { ([string](Get-Content -LiteralPath $path -Raw -Encoding UTF8)).Trim() } else { $text.Auto }
-        Write-Info "${name}: $value"
+        $value = Get-LaunchSetting $name
+        if (-not $value) { $value = $text.Auto }
+        Write-Info "$((Get-LaunchSettingMap)[$name]): $value"
     }
     if ($DryRun) { Write-Info $text.Plan; return 0 }
     Write-Info $text.Hint
@@ -1462,7 +1543,7 @@ function Invoke-Setup {
         Write-Host "`n$($text.Summary)"
         foreach ($name in $values.Keys) {
             $value = if ($values[$name]) { $values[$name] } else { $text.Auto }
-            Write-Info "${name}: $value"
+            Write-Info "$((Get-LaunchSettingMap)[$name]): $value"
         }
         if ((Read-Host $text.Save) -notin @('y', 'yes', 'д', 'да')) { throw [OperationCanceledException]::new() }
         Save-SetupSettings $values
@@ -1631,10 +1712,10 @@ function Show-DryRunPlan {
     } }
     function Read-PlanValue($value, $config, $fallback = '') {
         if ($value) { return @{ Value=$value; Source='CLI' } }
-        $path = if ($config) { Join-Path $CurrentDir $config }
-        if ($path -and (Test-Path -LiteralPath $path -PathType Leaf)) {
-            $saved = ([string](Get-Content -LiteralPath $path -Raw -Encoding UTF8)).Trim()
-            if ($saved) { return @{ Value=$saved; Source="$($p.Saved): $config" } }
+        if ($config) {
+            $configuration = Read-LaunchConfiguration
+            $saved = $configuration.Values[$config]
+            if ($saved) { return @{ Value=$saved; Source="$($p.Saved): $($configuration.Source) / $config" } }
         }
         return @{ Value=$fallback; Source=$p.Default }
     }
@@ -1768,15 +1849,25 @@ if (-not $DryRun -and (-not $Info -or $ProbeTarget)) {
     if (-not $DirectoryMutex) { Write-Err (T 'DirectoryBusy'); exit 1 }
 }
 
+if (-not $ResetConfig -and -not $Clean) {
+    try {
+        $configuration = Read-LaunchConfiguration
+        if ($configuration.Source -eq 'legacy') {
+            Write-Info (T 'ConfigMigration')
+            if (-not $DryRun -and -not $Info -and -not $Setup) { Write-LaunchConfiguration $configuration.Values }
+        }
+    } catch { Write-Err (T 'ConfigError'); Write-Info $_.Exception.Message; exit 1 }
+}
+
 if ($Setup) {
     try { exit (Invoke-Setup) } catch { Write-Err $_.Exception.Message; exit 1 }
 }
 
 if ($ResetConfig -or $Clean) {
-    $cleanupNames = @('.flash_engine', '.probe_type', '.stlink_serial', '.jlink_serial', '.jlink_device', '.openocd_target')
+    $cleanupNames = @('.flash.json', '.flash_engine', '.probe_type', '.stlink_serial', '.jlink_serial', '.jlink_device', '.openocd_target')
     if ($Clean) {
         $cleanupNames += @('.jlink_flash.jlink', 'flash_log.txt', 'flash_log.txt.stdout', 'flash_log.txt.stderr', 'report.html', '.history', '.tools/stlink', '.tools/stlink.zip', '.tools/openocd.zip', '.tools/xpack-openocd-0.12.0-3')
-        $cleanupNames += @(Get-ChildItem -LiteralPath $CurrentDir -Force -File | Where-Object { $_.Name -match '^\.flash_(backup|read)_[0-9a-f]{32}\.(bin|hex|sha256|stdout|stderr)$' } | Select-Object -ExpandProperty Name)
+        $cleanupNames += @(Get-ChildItem -LiteralPath $CurrentDir -Force -File | Where-Object { $_.Name -match '^\.flash_((backup|read)_[0-9a-f]{32}\.(bin|hex|sha256|stdout|stderr)|config_[0-9a-f]{32}\.tmp)$' } | Select-Object -ExpandProperty Name)
     }
     $root = [IO.Path]::GetFullPath($CurrentDir).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
     foreach ($name in $cleanupNames) {
@@ -1827,8 +1918,8 @@ $ProbeSpecified = [bool]$Probe
 $SavedProbePreference = $false
 if (-not $ProbeSpecified -and -not $FreshProbeSelection) {
     $savedTypePath = Join-Path $CurrentDir '.probe_type'
-    if (Test-Path -LiteralPath $savedTypePath -PathType Leaf) {
-        $savedType = (Get-Content -LiteralPath $savedTypePath -Raw -Encoding UTF8).Trim()
+    if (Get-LaunchSetting $savedTypePath) {
+        $savedType = Get-LaunchSetting $savedTypePath
         if ($savedType -in @('STLINK', 'JLINK')) {
             $SelectedProbeType = $savedType
             $ProbeSpecified = $true
@@ -2023,11 +2114,8 @@ if ($FreshProbeSelection -and -not $DryRun) {
 $EngineCfgPath = Join-Path $CurrentDir ".flash_engine"
 # $SelectedEngine may already be set from CLI parameter
 
-if (-not $SelectedEngine -and (Test-Path -LiteralPath $EngineCfgPath)) {
-    $SavedEngine = (Get-Content -LiteralPath $EngineCfgPath -TotalCount 1).Trim()
-    if ($SavedEngine -eq "OPENOCD" -or $SavedEngine -eq "JLINK" -or $SavedEngine -eq "CUBEPROGRAMMER" -or $SavedEngine -eq "CUBE" -or (Test-Path -LiteralPath $SavedEngine)) {
-        $SelectedEngine = $SavedEngine
-    }
+if (-not $SelectedEngine) {
+    $SelectedEngine = Get-LaunchSetting $EngineCfgPath
 }
 if ($FreshProbeSelection -and -not $DryRun -and -not $Engine) {
     if (($SelectedProbeType -eq 'JLINK' -and $SelectedEngine -eq 'OPENOCD') -or
@@ -2075,7 +2163,7 @@ $ProbeTypeCfgPath = Join-Path $CurrentDir ".probe_type"
 $ProbeInfo = $null
 if ($SavedProbePreference -and -not $Serial -and -not $FreshProbeSelection) {
     $savedSerialPath = if ($SelectedProbeType -eq 'JLINK') { $JLinkSerialCfgPath } else { $StLinkSerialCfgPath }
-    if (-not (Test-Path -LiteralPath $savedSerialPath) -or -not (Get-Content -LiteralPath $savedSerialPath -Raw -Encoding UTF8).Trim()) {
+    if (-not (Get-LaunchSetting $savedSerialPath)) {
         $Serial = Select-UnpinnedProbe $SelectedProbeType
     }
 }
@@ -2085,8 +2173,8 @@ if ($Serial) {
     $SelectedProbeSerial = $Serial
     Write-Info "$(T 'ProbeSerial'): $Serial"
 }
-if (-not $ProbeSpecified -and (Test-Path -LiteralPath $ProbeTypeCfgPath)) {
-    $SavedProbeType = (Get-Content -LiteralPath $ProbeTypeCfgPath -TotalCount 1).Trim()
+if (-not $ProbeSpecified -and (Get-LaunchSetting $ProbeTypeCfgPath)) {
+    $SavedProbeType = Get-LaunchSetting $ProbeTypeCfgPath
     if ($SavedProbeType -in @("STLINK", "JLINK")) {
         $SelectedProbeType = $SavedProbeType
     }
@@ -2094,8 +2182,8 @@ if (-not $ProbeSpecified -and (Test-Path -LiteralPath $ProbeTypeCfgPath)) {
 if ($SelectedProbeType -eq "JLINK") {
     if ($Serial) {
         $SelectedProbeSerial = $Serial
-    } elseif (Test-Path -LiteralPath $JLinkSerialCfgPath) {
-        $SelectedProbeSerial = (Get-Content -LiteralPath $JLinkSerialCfgPath -TotalCount 1).Trim()
+    } elseif (Get-LaunchSetting $JLinkSerialCfgPath) {
+        $SelectedProbeSerial = Get-LaunchSetting $JLinkSerialCfgPath
     }
 }
 if (-not (Test-IsJLinkEngine $SelectedEngine) -and $SelectedProbeType -ne "JLINK") {
@@ -2129,8 +2217,8 @@ if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
     $CandidateSerial = $null
     if ($Serial) {
         $CandidateSerial = $Serial
-    } elseif (-not $FreshProbeSelection -and (Test-Path -LiteralPath $StLinkSerialCfgPath)) {
-        $CandidateSerial = (Get-Content -LiteralPath $StLinkSerialCfgPath -TotalCount 1).Trim()
+    } elseif (-not $FreshProbeSelection -and (Get-LaunchSetting $StLinkSerialCfgPath)) {
+        $CandidateSerial = Get-LaunchSetting $StLinkSerialCfgPath
     }
 
     if ($CandidateSerial) {
@@ -2168,8 +2256,8 @@ if ($ProbeInfo -and $ProbeInfo.Count -gt 0) {
 
 if (-not $ProbeSpecified -and $SelectedProbeType -eq "STLINK" -and -not $SelectedProbeSerial -and (Find-JLinkExe)) {
     $SelectedProbeType = "JLINK"
-    if (Test-Path -LiteralPath $JLinkSerialCfgPath) {
-        $SelectedProbeSerial = (Get-Content -LiteralPath $JLinkSerialCfgPath -TotalCount 1).Trim()
+    if (Get-LaunchSetting $JLinkSerialCfgPath) {
+        $SelectedProbeSerial = Get-LaunchSetting $JLinkSerialCfgPath
     }
     Write-Info "$(T 'SelectedProbe'): J-Link"
 }
@@ -2217,7 +2305,7 @@ if ($PreflightFailed) {
     # Поиск TargetCfg
     $TargetCfg = ""
     $SavedTargetCfg = Join-Path $CurrentDir ".openocd_target"
-    if (-not $FreshProbeSelection -and (Test-Path -LiteralPath $SavedTargetCfg)) { $TargetCfg = (Get-Content -LiteralPath $SavedTargetCfg -TotalCount 1).Trim() }
+    if (-not $FreshProbeSelection) { $TargetCfg = Get-LaunchSetting $SavedTargetCfg }
     if ($Target) { $TargetCfg = $Target }
     if ($TargetCfg) {
         $TargetCfgPath = Join-Path $OpenOcdScripts ($TargetCfg -replace '/','\')
@@ -2305,8 +2393,8 @@ if ($PreflightFailed) {
     $JLinkDeviceCfgPath = Join-Path $CurrentDir ".jlink_device"
     if ($Device) {
         $SelectedJLinkDevice = $Device.Trim()
-    } elseif (Test-Path -LiteralPath $JLinkDeviceCfgPath) {
-        $SelectedJLinkDevice = (Get-Content -LiteralPath $JLinkDeviceCfgPath -TotalCount 1).Trim()
+    } elseif (Get-LaunchSetting $JLinkDeviceCfgPath) {
+        $SelectedJLinkDevice = Get-LaunchSetting $JLinkDeviceCfgPath
     }
     if (-not $SelectedJLinkDevice) {
         Write-Host "   [?] $(T 'PromptJLinkDevice'): " -ForegroundColor Yellow -NoNewline
@@ -2322,8 +2410,8 @@ if ($PreflightFailed) {
     $JLinkSerialCfgPath = Join-Path $CurrentDir ".jlink_serial"
     if ($Serial) {
         $SelectedJLinkSerial = $Serial
-    } elseif (Test-Path -LiteralPath $JLinkSerialCfgPath) {
-        $SelectedJLinkSerial = (Get-Content -LiteralPath $JLinkSerialCfgPath -TotalCount 1).Trim()
+    } elseif (Get-LaunchSetting $JLinkSerialCfgPath) {
+        $SelectedJLinkSerial = Get-LaunchSetting $JLinkSerialCfgPath
     }
 
     Write-Host "   $(T 'EngineJLinkName')" -ForegroundColor Cyan
@@ -2656,7 +2744,8 @@ if (-not $DryRun -and -not $Serial -and ((Test-IsJLinkEngine $SelectedEngine) -o
         $detectedJLinkSerial = $Matches[1]
     }
     if ($detectedJLinkSerial) {
-        try { Set-Content -LiteralPath (Join-Path $CurrentDir ".jlink_serial") -Value $detectedJLinkSerial -Encoding UTF8 -ErrorAction SilentlyContinue } catch {}
+        try { Save-LaunchSetting (Join-Path $CurrentDir '.jlink_serial') $detectedJLinkSerial }
+        catch { Write-Warn (T 'ConfigSaveWarning'); Write-Warn $_.Exception.Message }
     }
 }
 

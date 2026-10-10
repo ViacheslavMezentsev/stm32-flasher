@@ -19,7 +19,16 @@ Test-Help checks RU/EN help. Set language on each invocation (`info.cmd -Lang en
 it is not persisted. PowerShell variables such as `$repo` must be set separately
 in each terminal window.
 
+## Unified configuration
+
+See [the .flash.json format and legacy migration](../reference/launch-configuration.md#english).
+Preview with `info.cmd` or `setup.cmd -DryRun`; neither migrates settings.
+`setup.cmd` saves JSON only after confirmation. Fix invalid JSON before proceeding;
+an intentional reset is `flash.cmd -ResetConfig`. Preview deletion with
+`flash.cmd -ResetConfig -DryRun`.
+
 ## Git workflow without PRs
+
 
 Inspect existing work first:
 

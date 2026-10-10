@@ -7,7 +7,7 @@ $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseInput((Get-Content -LiteralPath $scriptPath -Raw -Encoding UTF8), [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }
 function Assert($condition, $message) { if (-not $condition) { throw $message } }
-foreach ($name in @('ConvertFrom-JLinkProbeList', 'Select-ConnectedProbe', 'Test-EraseLog', 'Get-LogMatchValue', 'Get-Stm32Family', 'Invoke-EngineLogParser', 'Get-InfoEnginePath')) {
+foreach ($name in @('Get-LaunchSettingMap','Assert-ConfigFile','ConvertFrom-LaunchJson','Read-LaunchConfiguration','Get-LaunchSetting','ConvertFrom-JLinkProbeList', 'Select-ConnectedProbe', 'Test-EraseLog', 'Get-LogMatchValue', 'Get-Stm32Family', 'Invoke-EngineLogParser', 'Get-InfoEnginePath')) {
     $node = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
     . ([scriptblock]::Create($node.Extent.Text))
 }

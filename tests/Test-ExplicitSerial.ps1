@@ -1,6 +1,12 @@
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $source = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
+$tokens = $null; $errors = $null
+$configAst = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
+foreach ($name in @('Get-LaunchSettingMap','Assert-ConfigFile','ConvertFrom-LaunchJson','Read-LaunchConfiguration','Get-LaunchSetting')) {
+    $node = $configAst.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
+    . ([scriptblock]::Create($node.Extent.Text))
+}
 $start = $source.IndexOf('$StLinkSerialCfgPath =')
 $end = $source.IndexOf('$LogStd =', $start)
 if ($start -lt 0 -or $end -lt 0) { throw 'Selection block not found' }

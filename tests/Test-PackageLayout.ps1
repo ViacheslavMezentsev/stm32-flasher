@@ -7,7 +7,7 @@ function Assert($ok, $message) { if (-not $ok) { throw $message } }
 try {
     New-Item -ItemType Directory $root | Out-Null
     Copy-Item -LiteralPath (Join-Path $repo 'bin') -Destination $root -Recurse
-    foreach ($name in @('README.md','LICENSE','CHANGELOG.md','CHANGELOG.en.md','docs/TECHNICAL_SPECIFICATION.md','docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md','docs/reference/stlink-inventory.md','docs/user-guide.md','docs/testing.md')) {
+    foreach ($name in @('README.md','LICENSE','CHANGELOG.md','CHANGELOG.en.md','docs/TECHNICAL_SPECIFICATION.md','docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md','docs/reference/stlink-inventory.md','docs/reference/launch-configuration.md','docs/user-guide.md','docs/testing.md')) {
         $destination = Join-Path $root $name
         New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
         Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $destination

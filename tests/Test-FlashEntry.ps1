@@ -106,6 +106,8 @@ try {
             Assert (-not (Test-Path (Join-Path $root 'calls.txt'))) "$case called engine"
         } else {
             Assert ((Test-Path (Join-Path $root 'calls.txt'))) "$case did not call real stub EXE"
+            Assert (Test-Path (Join-Path $work '.flash.json')) "$case missing unified configuration"
+            Assert (@(Get-ChildItem -LiteralPath $work -Force -File | Where-Object Name -in @('.flash_engine','.probe_type','.stlink_serial','.jlink_serial','.jlink_device','.openocd_target')).Count -eq 0) "$case recreated legacy settings"
             Assert (@(Get-Content (Join-Path $root 'calls.txt')).Count -eq 1) "$case duplicate engine call"
             Assert (Test-Path (Join-Path $work 'report.html')) "$case missing report"
             $json = @(Get-ChildItem (Join-Path $work '.history') -Filter '*.json' -Recurse | Where-Object Name -ne 'index.json')

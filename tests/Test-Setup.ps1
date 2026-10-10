@@ -65,18 +65,23 @@ try {
         }
         Assert ((Snapshot) -eq $before) 'Invalid input changed files'
         Run-Setup @('3','3','y') | Out-Null
-        Assert ((Get-Content .stlink_serial -Raw).Trim() -eq '222222222222222222222222') 'Wrong ST-Link'
-        Assert ((Get-Content .probe_type -Raw).Trim() -eq 'STLINK') 'Wrong type'
+        $config = Get-Content .flash.json -Raw | ConvertFrom-Json
+        Assert ($config.stlinkSerial -eq '222222222222222222222222') 'Wrong ST-Link'
+        Assert ($config.probe -eq 'STLINK') 'Wrong type'
         Assert (-not (Test-Path .jlink_serial)) 'Stale J-Link serial retained'
         Assert (-not (Test-Path .jlink_device)) 'Stale J-Link device retained'
         Run-Setup @('4','1','STM32F103CB','y') '-Lang ru' | Out-Null
         Assert (-not (Test-Path .stlink_serial)) 'Stale ST-Link serial retained'
         Assert (-not (Test-Path .jlink_serial)) 'Auto must not pin a serial'
-        Assert ((Get-Content .flash_engine -Raw).Trim() -eq 'JLINK') 'Wrong engine'
-        Assert ((Get-Content .jlink_device -Raw).Trim() -eq 'STM32F103CB') 'Wrong device'
+        $config = Get-Content .flash.json -Raw | ConvertFrom-Json
+        Assert ($config.engine -eq 'JLINK') 'Wrong engine'
+        Assert ($config.jlinkDevice -eq 'STM32F103CB') 'Wrong device'
+        Assert ($null -eq $config.stlinkSerial -and $null -eq $config.jlinkSerial) 'Stale JSON serial retained'
         Run-Setup @('1','1','','y') | Out-Null
         Assert (-not (Test-Path .flash_engine)) 'Auto engine must remove override'
         Assert (-not (Test-Path .openocd_target)) 'Blank target must defer detection'
+        $config = Get-Content .flash.json -Raw | ConvertFrom-Json
+        Assert ($null -eq $config.engine -and $null -eq $config.openocdTarget) 'Auto settings not cleared in JSON'
         foreach ($name in @('firmware.hex','report.html','flash_log.txt')) {
             Assert ((Get-Content $name -Raw).Trim() -eq 'sentinel') "User artifact changed: $name"
         }
@@ -84,7 +89,7 @@ try {
         $tokens = $null; $errors = $null
         $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
         Assert (-not $errors.Count) 'Parse error'
-        foreach ($name in @('Save-SetupSettings','Select-UnpinnedProbe','Select-ConnectedProbe')) {
+        foreach ($name in @('Get-LaunchSettingMap','Assert-ConfigFile','ConvertFrom-LaunchJson','Read-LaunchConfiguration','Get-LaunchSetting','Write-LaunchConfiguration','Save-SetupSettings','Select-UnpinnedProbe','Select-ConnectedProbe')) {
             $node = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
             . ([scriptblock]::Create($node.Extent.Text))
         }
@@ -108,7 +113,7 @@ try {
         Assert ($initStart -gt 0 -and $engineEnd -gt $engineStart) 'Missing engine selection blocks'
         $Probe = ''; $Engine = ''; $FreshProbeSelection = $false; $DryRun = $false; $AutoFlash = $true; $NoFirmware = $false
         foreach ($type in @('STLINK','JLINK')) {
-            Set-Content -LiteralPath .probe_type -Value $type
+            Write-LaunchConfiguration @{ '.probe_type'=$type }
             $SelectedEngine = ''
             . ([scriptblock]::Create($source.Substring($initStart, $initEnd - $initStart)))
             Assert ($ProbeSpecified -and $SelectedProbeType -eq $type) 'Saved type must precede engine selection'
@@ -117,17 +122,11 @@ try {
             Assert ($SelectedEngine -eq $expected) 'Automatic engine must match saved probe type'
         }
         $before = Snapshot
-        $script:failedOnce = $false
-        function Remove-Item {
-            param($LiteralPath, [switch]$Force)
-            if (-not $script:failedOnce) { $script:failedOnce = $true; throw 'WRITE_FAILURE' }
-            Microsoft.PowerShell.Management\Remove-Item -LiteralPath $LiteralPath -Force:$Force
-        }
+        $locked = [IO.File]::Open((Join-Path $fixture '.flash.json'), [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
         $failed = $false
-        try { Save-SetupSettings @{'.flash_engine'='OPENOCD'; '.probe_type'='' } } catch { $failed = $true }
+        try { Save-SetupSettings @{'.flash_engine'='OPENOCD'; '.probe_type'='' } } catch { $failed = $true } finally { $locked.Dispose() }
         Assert $failed 'Injected write failure not propagated'
         Assert ((Snapshot) -eq $before) 'Rollback did not restore exact bytes'
-        Remove-Item Function:\Remove-Item
         Write-Output 'Setup tests passed without hardware.'
     } finally { Pop-Location }
 } finally {

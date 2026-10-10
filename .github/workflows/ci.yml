@@ -35,6 +35,7 @@ jobs:
             'docs/TECHNICAL_SPECIFICATION.md',
             'docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md',
             'docs/reference/stlink-inventory.md',
+            'docs/reference/launch-configuration.md',
             'docs/user-guide.md',
             'docs/testing.md'
           )

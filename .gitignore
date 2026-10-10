@@ -8,6 +8,8 @@
 /.history/
 /backups/
 /.flash_engine
+/.flash.json
+/.flash_config_*.tmp
 /.probe_type
 /.stlink_serial
 /.jlink_serial

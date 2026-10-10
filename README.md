@@ -55,12 +55,7 @@
 | Файл | Назначение |
 |---|---|
 | `.tools\` | OpenOCD (скачивается один раз) |
-| `.flash_engine` | Сохранённый выбор движка |
-| `.openocd_target` | Сохранённый таргет-конфиг OpenOCD |
-| `.probe_type` | Сохранённый тип отладчика (`STLINK` / `JLINK`) |
-| `.stlink_serial` | Сохранённый выбор конкретного ST-Link |
-| `.jlink_device` | Сохранённое имя устройства J-Link, например `STM32G431CB` |
-| `.jlink_serial` | Сохранённый serial J-Link, если он был явно указан или найден в логе |
+| `.flash.json` | Движок, тип/serial программатора, device/target; [формат и миграция](docs/reference/launch-configuration.md) |
 | `*.hex.sha256` / `*.sha256` | Опциональная контрольная сумма SHA-256 для `*.hex` |
 | `flash_log.txt` | Лог последней прошивки |
 | `report.html` | HTML-отчёт последней прошивки |
@@ -119,12 +114,7 @@ Supports a local flash-session history in `.history\`.
 | File | Purpose |
 |---|---|
 | `.tools\` | OpenOCD (downloaded once) |
-| `.flash_engine` | Saved engine choice |
-| `.openocd_target` | Saved OpenOCD target config |
-| `.probe_type` | Saved probe type (`STLINK` / `JLINK`) |
-| `.stlink_serial` | Saved ST-Link selection |
-| `.jlink_device` | Saved J-Link device name, for example `STM32G431CB` |
-| `.jlink_serial` | Saved J-Link serial, if explicitly provided or detected in the log |
+| `.flash.json` | Engine, probe type/serial, device/target; [format and migration](docs/reference/launch-configuration.md#english) |
 | `*.hex.sha256` / `*.sha256` | Optional SHA-256 checksum for `*.hex` |
 | `flash_log.txt` | Last flash log |
 | `report.html` | Last flash HTML report |

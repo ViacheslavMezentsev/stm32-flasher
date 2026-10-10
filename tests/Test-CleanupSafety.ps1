@@ -50,14 +50,14 @@ function Remove-Junctions {
     }
     $links.Clear()
 }
-$settings = @('.flash_engine','.probe_type','.stlink_serial','.jlink_serial','.jlink_device','.openocd_target')
+$settings = @('.flash.json','.flash_engine','.probe_type','.stlink_serial','.jlink_serial','.jlink_device','.openocd_target')
 $artifacts = @('flash_log.txt','flash_log.txt.stdout','flash_log.txt.stderr','report.html','.jlink_flash.jlink',
     '.history/session/report.html','.tools/stlink/bin/st-info.exe','.tools/stlink.zip','.tools/openocd.zip',
     '.tools/xpack-openocd-0.12.0-3/bin/openocd.exe','.flash_read_11111111111111111111111111111111.bin',
-    '.flash_backup_22222222222222222222222222222222.hex')
+    '.flash_backup_22222222222222222222222222222222.hex','.flash_config_33333333333333333333333333333333.tmp')
 $preserved = @('firmware.hex','firmware.hex.sha256','image.bin','notes.md','backups/before.hex',
     'backups/before.hex.sha256','.tools/user-tool/keep.txt','.flash_read_invalid.bin',
-    '.flash_read_11111111111111111111111111111111.txt','flash.cmd','forget.cmd')
+    '.flash_read_11111111111111111111111111111111.txt','.flash_config_notes.tmp','flash.cmd','forget.cmd')
 function Seed {
     foreach ($name in ($settings + $artifacts + ($preserved | Where-Object { $_ -notin @('flash.cmd','forget.cmd') }))) { Write-Fixture $name }
 }
