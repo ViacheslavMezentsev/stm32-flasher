@@ -35,13 +35,13 @@ function Invoke-ReadTool { throw 'UNEXPECTED_MCU' }
 function Invoke-Download { throw 'UNEXPECTED_NETWORK' }
 '@
 try {
-    $source = Get-Content -LiteralPath (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+    $source = Get-Content -LiteralPath (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
     $position = $source.IndexOf('$CurrentDir     =')
     Assert ($position -gt 0) 'Missing injection point'
     $modified = $source.Insert($position, $mocks + "`r`n")
     $modified = $modified -replace '(?m)^(pwsh|powershell) -NoProfile', ('"' + $PowerShellExe + '" -NoProfile')
     [IO.File]::WriteAllText((Join-Path $fixture 'flash.cmd'), $modified, (New-Object Text.UTF8Encoding($false)))
-    Copy-Item -LiteralPath (Join-Path $repo 'setup.cmd') -Destination $fixture
+    Copy-Item -LiteralPath (Join-Path $repo 'bin/setup.cmd') -Destination $fixture
     foreach ($name in @('.flash_engine','.probe_type','.stlink_serial','.jlink_serial','.jlink_device','.openocd_target','firmware.hex','report.html','flash_log.txt','cube.exe')) {
         Set-Content -LiteralPath (Join-Path $fixture $name) -Value 'sentinel'
     }

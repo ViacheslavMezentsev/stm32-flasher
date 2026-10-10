@@ -123,7 +123,10 @@ is not yet automatically gated by CI. See [testing](../testing.md), in Russian.
 ```powershell
 New-Item -ItemType Directory -Force tests/manual/01-probe-inventory
 Set-Location tests/manual/01-probe-inventory
-$tool = (Resolve-Path ../../..).Path
+$tool = (Resolve-Path ../../../bin).Path
+# Invoke from here or copy the commands beside firmware:
+# Copy-Item "$tool/*.cmd" $firmwareDirectory
+# The invocation directory owns settings and history.
 & "$tool/info.cmd" --help
 & "$tool/flash.cmd" --version
 & "$tool/info.cmd"

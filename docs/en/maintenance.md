@@ -25,7 +25,9 @@ commands. Keep push separate from land, which follows successful CI.
 
 ## Layout and documentation
 
-Root: commands, README, changelogs, LICENSE, AGENTS, TODO and Git configuration.
+Root: README, changelogs, LICENSE, AGENTS, TODO and Git configuration.
+`bin` holds standalone `flash.cmd` and thin CMD wrappers. The release ZIP keeps
+commands at its root; copy them into the firmware directory for use.
 `docs/ru` and `docs/en` hold contributor notes. Maintain these notes, README and
 changelogs together in both languages. The specification and existing user/testing
 guides remain Russian; local research does not require translation.

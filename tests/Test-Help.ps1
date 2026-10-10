@@ -4,7 +4,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 $fixture = Join-Path $PSScriptRoot ('.tmp-help-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
 try {
-    $source = Get-Content -LiteralPath (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+    $source = Get-Content -LiteralPath (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
     if ($source -notmatch '\$VERSION\s*=\s*"([^"]+)"') { throw 'Missing script version' }
     $versionLine = 'stm32-flasher ' + $Matches[1]
     # Any fall-through fails before tool discovery, file changes or hardware access.
@@ -12,7 +12,7 @@ try {
     $source = $source -replace '(?m)^(pwsh|powershell) -NoProfile', ('"' + $PowerShellExe + '" -NoProfile')
     [IO.File]::WriteAllText((Join-Path $fixture 'flash.cmd'), $source, (New-Object Text.UTF8Encoding($false)))
     foreach ($name in @('erase', 'backup', 'forget', 'info', 'setup')) {
-        Copy-Item -LiteralPath (Join-Path $repo "$name.cmd") -Destination $fixture
+        Copy-Item -LiteralPath (Join-Path $repo "bin/$name.cmd") -Destination $fixture
     }
     Set-Content -LiteralPath (Join-Path $fixture '.flash_engine') -Value 'sentinel'
     Set-Content -LiteralPath (Join-Path $fixture 'firmware.hex') -Value 'sentinel'

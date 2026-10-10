@@ -1,7 +1,7 @@
 param([string]$PowerShellExe = (Get-Process -Id $PID).Path)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$source = Get-Content (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+$source = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
 function Assert($condition, $message) { if (-not $condition) { throw $message } }
 $fixture = Join-Path $PSScriptRoot ('.tmp-report-history-' + [guid]::NewGuid().ToString('N'))
 

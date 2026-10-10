@@ -22,12 +22,12 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
-            'flash.cmd',
-            'erase.cmd',
-            'forget.cmd',
-            'backup.cmd',
-            'info.cmd',
-            'setup.cmd',
+            'bin/flash.cmd',
+            'bin/erase.cmd',
+            'bin/forget.cmd',
+            'bin/backup.cmd',
+            'bin/info.cmd',
+            'bin/setup.cmd',
             'README.md',
             'LICENSE',
             'CHANGELOG.md',
@@ -49,7 +49,7 @@ jobs:
         run: |
           $errors = $null
           $tokens = $null
-          $files = @(Get-Item flash.cmd) + @(Get-ChildItem tests -Filter '*.ps1' -File)
+          $files = @(Get-Item bin/flash.cmd) + @(Get-ChildItem tests -Filter '*.ps1' -File)
           foreach ($file in $files) {
             [System.Management.Automation.Language.Parser]::ParseInput(
               (Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8),
@@ -64,7 +64,7 @@ jobs:
       - name: Validate script version format
         shell: pwsh
         run: |
-          $content = Get-Content -LiteralPath 'flash.cmd' -Raw -Encoding UTF8
+          $content = Get-Content -LiteralPath 'bin/flash.cmd' -Raw -Encoding UTF8
           if ($content -notmatch '\$VERSION\s*=\s*"(\d+)\.(\d+)\.(\d+)"') {
             throw 'Version string not found or not in Major.Minor.Patch format.'
           }

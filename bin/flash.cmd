@@ -2368,8 +2368,8 @@ if ($PreflightFailed) {
     # Ключи: -c (подключение), -w (прошивка), -v (верификация), -rst (сброс)
     $ConnectionPort = if ($SelectedProbeType -eq "JLINK") { "JLINK" } else { "SWD" }
     $ConnectionArgs = if ($SelectedProbeSerial) { "port=$ConnectionPort sn=$SelectedProbeSerial" } else { "port=$ConnectionPort" }
-    $ExeArgs = @("-c", $ConnectionArgs, "-w", $TargetHex, "-v")
-    $RetryArgsWithoutSerial = @("-c", "port=$ConnectionPort", "-w", $TargetHex, "-v")
+    $ExeArgs = @("-c", $ConnectionArgs, "-w", "`"$TargetHex`"", "-v")
+    $RetryArgsWithoutSerial = @("-c", "port=$ConnectionPort", "-w", "`"$TargetHex`"", "-v")
     if ($Erase) {
         $ExeArgs = @('-c', $ConnectionArgs, '-e', 'all')
         $RetryArgsWithoutSerial = @('-c', "port=$ConnectionPort", '-e', 'all')

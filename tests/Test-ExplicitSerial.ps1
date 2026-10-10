@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$source = Get-Content (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+$source = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
 $start = $source.IndexOf('$StLinkSerialCfgPath =')
 $end = $source.IndexOf('$LogStd =', $start)
 if ($start -lt 0 -or $end -lt 0) { throw 'Selection block not found' }

@@ -2,7 +2,7 @@ param([string]$PowerShellExe = (Get-Process -Id $PID).Path)
 # TC-18, TC-19, TC-26..TC-31, TC-34, TC-35: real CMD entry, mocked external boundaries.
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$source = Get-Content (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+$source = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
 function Assert($ok, $message) { if (-not $ok) { throw $message } }
 $fixture = Join-Path $PSScriptRoot ('.tmp-dryrun-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture | Out-Null
@@ -42,7 +42,7 @@ function Run-Preview($arguments, $expected = 0, $wrapper = 'flash') {
 }
 try {
     [IO.File]::WriteAllText((Join-Path $fixture 'flash.cmd'), $source, (New-Object Text.UTF8Encoding($false)))
-    foreach ($wrapper in @('erase','backup','info','forget')) { Copy-Item (Join-Path $repo "$wrapper.cmd") $fixture }
+    foreach ($wrapper in @('erase','backup','info','forget')) { Copy-Item (Join-Path $repo "bin/$wrapper.cmd") $fixture }
     Set-Content (Join-Path $fixture 'firmware.hex') ":020000040800F2`n:0400000001020304F2`n:00000001FF" -Encoding ASCII
     Push-Location $fixture
     try {

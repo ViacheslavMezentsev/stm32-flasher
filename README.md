@@ -32,10 +32,12 @@
 
 ### Быстрый старт
 
-1. Положите `flash.cmd` рядом с файлом `*.hex`
+1. Скопируйте `flash.cmd` из `bin` репозитория (или корня релизного ZIP) рядом с `*.hex`; нужные обёртки скопируйте туда же
 2. Подключите ST-Link или J-Link к компьютеру и плате
 3. Двойной клик по `flash.cmd`
 4. Если `*.hex` один, прошивка начнётся сразу
+
+`bin` нужен только для хранения исходников. При запуске команд по полному пути настройки, HEX, отчёты и история по-прежнему относятся к папке вызова.
 
 ### Требования
 
@@ -96,10 +98,12 @@ Supports a local flash-session history in `.history\`.
 
 ### Quick start
 
-1. Place `flash.cmd` next to your `*.hex` file
+1. Copy `flash.cmd` from the repository's `bin` (or release ZIP root) next to your `*.hex`; copy any needed wrappers beside it
 2. Connect ST-Link or J-Link to PC and board
 3. Double-click `flash.cmd`
 4. If there is only one `*.hex`, flashing starts immediately
+
+`bin` is only a source layout. When invoking commands by full path, settings, HEX files, reports and history still belong to the working directory.
 
 ### Requirements
 

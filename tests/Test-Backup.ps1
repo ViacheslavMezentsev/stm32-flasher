@@ -1,7 +1,7 @@
 param([string]$PowerShellExe = (Get-Process -Id $PID).Path)
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-$source = Get-Content (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+$source = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }

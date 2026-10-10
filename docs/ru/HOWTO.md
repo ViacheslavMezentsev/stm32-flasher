@@ -123,7 +123,10 @@ CI не проверяет физический SWD, reset или восстан
 ```powershell
 New-Item -ItemType Directory -Force tests/manual/01-probe-inventory
 Set-Location tests/manual/01-probe-inventory
-$tool = (Resolve-Path ../../..).Path
+$tool = (Resolve-Path ../../../bin).Path
+# Команды можно вызывать отсюда или скопировать к прошивке:
+# Copy-Item "$tool/*.cmd" $firmwareDirectory
+# Рабочая папка, настройки и история определяются местом вызова.
 & "$tool/info.cmd" --help
 & "$tool/flash.cmd" --version
 & "$tool/info.cmd"

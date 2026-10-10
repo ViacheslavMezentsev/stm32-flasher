@@ -86,7 +86,7 @@ try {
         $start.UseShellExecute = $false
         $start.CreateNoWindow = $true
         $start.EnvironmentVariables['TC_ROOT'] = $root
-        $start.EnvironmentVariables['TC_SOURCE'] = Join-Path $repo 'flash.cmd'
+        $start.EnvironmentVariables['TC_SOURCE'] = Join-Path $repo 'bin/flash.cmd'
         $start.EnvironmentVariables['TC_EXE'] = $fakeExe
         $start.EnvironmentVariables['TC_KIND'] = $kind
         $start.EnvironmentVariables['TC_MODE'] = $mode

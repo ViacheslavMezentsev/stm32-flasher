@@ -92,7 +92,7 @@ try {
     foreach ($name in @('sentinel.hex','sentinel.hex.sha256','report.html')) { Set-Content (Join-Path $outside $name) "outside:$name" -Encoding ASCII }
     New-Item -ItemType Directory -Path (Join-Path $outside 'stlink') | Out-Null
     Set-Content (Join-Path $outside 'stlink/keep.txt') 'outside-tool'
-    $source = Get-Content (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+    $source = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
     $guards = @'
 function Stop-Forbidden { [Console]::Error.WriteLine('FORBIDDEN CLEANUP SIDE EFFECT'); exit 97 }
 foreach ($name in @('Get-CimInstance','Get-WmiObject','Get-JLinkProbes','Get-StInfoProbeInfo',
@@ -105,7 +105,7 @@ foreach ($name in @('Get-CimInstance','Get-WmiObject','Get-JLinkProbes','Get-StI
     $source = $source.Insert($position, $guards + "`n").Replace('$OpenOcdUrl     =', 'Stop-Forbidden; $OpenOcdUrl     =')
     $source = $source -replace '(?m)^(pwsh|powershell) -NoProfile', ('"' + $PowerShellExe + '" -NoProfile')
     [IO.File]::WriteAllText((Join-Path $work 'flash.cmd'), $source, (New-Object Text.UTF8Encoding($false)))
-    Copy-Item (Join-Path $repo 'forget.cmd') $work
+    Copy-Item (Join-Path $repo 'bin/forget.cmd') $work
     Seed
     $hashes = @{}
     foreach ($name in $preserved) { $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $work $name)).Hash }

@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$source = Get-Content (Join-Path (Split-Path -Parent $PSScriptRoot) 'flash.cmd') -Raw -Encoding UTF8
+$source = Get-Content (Join-Path (Split-Path -Parent $PSScriptRoot) 'bin/flash.cmd') -Raw -Encoding UTF8
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }

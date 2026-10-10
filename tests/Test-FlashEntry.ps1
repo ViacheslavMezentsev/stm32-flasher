@@ -61,16 +61,24 @@ try {
     Copy-Item $exe (Join-Path $root 'openocd.exe')
     New-Item -ItemType Directory (Join-Path $root 'scripts/target') -Force | Out-Null
     Set-Content (Join-Path $root 'scripts/target/stm32f1x.cfg') '# fixture'
-    $source = Get-Content (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+    $source = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
     $position = $source.IndexOf('$CurrentDir     =')
     Assert ($position -gt 0) 'Missing mock boundary'
     $source = $source.Insert($position, $mocks + "`n")
     $source = $source -replace '(?m)^(pwsh|powershell) -NoProfile', ('"' + $PowerShellExe + '" -NoProfile')
-    [IO.File]::WriteAllText((Join-Path $root 'flash.cmd'), $source, (New-Object Text.UTF8Encoding($false)))
+    $bin = Join-Path $root 'tool bin'
+    New-Item -ItemType Directory $bin | Out-Null
+    [IO.File]::WriteAllText((Join-Path $bin 'flash.cmd'), $source, (New-Object Text.UTF8Encoding($false)))
     $env:FLASH_ENTRY_ROOT = $root
+    foreach ($layout in @('external', 'copied')) {
     foreach ($case in @('fresh', 'saved', 'jlink', 'openocd', 'relative', 'absolute', 'positional', 'nohex', 'multiple', 'error', 'jlink-error', 'openocd-error', 'missing-marker', 'checksum-bad')) {
-        $work = Join-Path $root $case
+        $work = Join-Path $root "$layout $case"
         New-Item -ItemType Directory $work | Out-Null
+        $entry = Join-Path $bin 'flash.cmd'
+        if ($layout -eq 'copied') {
+            Copy-Item -LiteralPath $entry -Destination $work
+            $entry = Join-Path $work 'flash.cmd'
+        }
         $hex = Join-Path $work 'firmware.hex'
         if ($case -ne 'nohex') { Set-Content $hex ":0400000001020304F2`r`n:00000001FF" -Encoding ASCII }
         if ($case -eq 'multiple') { Copy-Item $hex (Join-Path $work 'second.hex') }
@@ -87,7 +95,7 @@ try {
         $arguments = switch ($case) { relative { '-HexFile .\firmware.hex' }; absolute { '-HexFile "' + $hex + '"' }; positional { '.\firmware.hex' }; default { '' } }
         Push-Location $work
         try {
-            $output = & $env:ComSpec /d /c "`"$root\flash.cmd`" $arguments" 2>&1 | Out-String
+            $output = & $env:ComSpec /d /c "`"$entry`" $arguments" 2>&1 | Out-String
             $code = $LASTEXITCODE
         } finally { Pop-Location }
         $success = $case -notin @('nohex','multiple','error','jlink-error','openocd-error','missing-marker','checksum-bad')
@@ -106,7 +114,9 @@ try {
             Assert ($session.Success -eq $success) "$case incorrect success"
             Assert ((Test-Path (Join-Path $root 'browser.txt')) -eq (-not $success)) "$case browser policy"
         }
-        Write-Host "$case PASS (real CMD and stub EXE)"
+        Assert (@(Get-ChildItem -LiteralPath $bin -Force).Count -eq 1) "$layout $case wrote artifacts beside external script"
+        Write-Host "$layout $case PASS (real CMD and stub EXE)"
+    }
     }
 } finally {
     $env:FLASH_ENTRY_ROOT = $oldRoot; $env:FLASH_ENTRY_MODE = $oldMode; $env:FLASH_ENTRY_ANSWER = $oldAnswer

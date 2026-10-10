@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+- Move CMD files into the repository's `bin`. Release ZIP commands remain at the root for copying beside firmware; runtime data stays in the working directory.
+- Update CI and packaging paths. Test-FlashEntry covers both CMD layouts with stub executables; Test-PackageLayout executes the release workflow packaging block and checks SHA-256, unchanged CMD files and portable RU/EN help entry points.
+- All 18 suites and the strict specification check passed locally in PS5.1/7. No hardware operations were performed; GitHub CI is pending the push.
+
+### Fixed
+- Quote the HEX path passed to CubeProgrammer, including fallback arguments, so directories containing spaces do not split it. The new CMD test reproduced the defect before the fix.
+
 ## [0.2.12] - 2026-10-10
 
 ### Fixed

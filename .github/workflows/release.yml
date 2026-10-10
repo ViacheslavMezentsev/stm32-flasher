@@ -35,7 +35,7 @@ jobs:
           }
 
           $tagVersion = $Matches[1]
-          $content = Get-Content -LiteralPath 'flash.cmd' -Raw -Encoding UTF8
+          $content = Get-Content -LiteralPath 'bin/flash.cmd' -Raw -Encoding UTF8
           if ($content -notmatch '\$VERSION\s*=\s*"(\d+\.\d+\.\d+)"') {
             throw 'Unable to read $VERSION from flash.cmd'
           }
@@ -80,7 +80,8 @@ jobs:
 
           foreach ($file in $files) {
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent (Join-Path $packageRoot $file)) | Out-Null
-            Copy-Item -LiteralPath $file -Destination (Join-Path $packageRoot $file)
+            $source = if ($file.EndsWith('.cmd')) { Join-Path 'bin' $file } else { $file }
+            Copy-Item -LiteralPath $source -Destination (Join-Path $packageRoot $file)
           }
 
           if (Test-Path -LiteralPath $archivePath) {

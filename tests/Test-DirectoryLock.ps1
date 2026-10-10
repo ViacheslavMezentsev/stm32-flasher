@@ -78,7 +78,7 @@ function Read-Host {
 '@
 try {
     New-Item -ItemType Directory -Path $work,$other | Out-Null
-    $source = Get-Content -LiteralPath (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8
+    $source = Get-Content -LiteralPath (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors)
     Assert (-not $errors.Count) 'Script parse error'
@@ -92,7 +92,7 @@ try {
     $modified = $modified -replace '(?m)^(pwsh|powershell) -NoProfile', ('"' + $PowerShellExe + '" -NoProfile')
     foreach ($dir in @($work,$other)) {
         [IO.File]::WriteAllText((Join-Path $dir 'flash.cmd'), $modified, (New-Object Text.UTF8Encoding($false)))
-        foreach ($name in @('erase','backup','info','forget','setup')) { Copy-Item -LiteralPath (Join-Path $repo "$name.cmd") -Destination $dir }
+        foreach ($name in @('erase','backup','info','forget','setup')) { Copy-Item -LiteralPath (Join-Path $repo "bin/$name.cmd") -Destination $dir }
         Set-Content -LiteralPath (Join-Path $dir '.flash_engine') -Value 'OPENOCD'
     }
     Set-Content -LiteralPath (Join-Path $work 'firmware.hex') -Value ":0400000001020304F2`r`n:00000001FF" -Encoding ASCII

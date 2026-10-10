@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $tokens = $null; $errors = $null
-$ast = [Management.Automation.Language.Parser]::ParseInput((Get-Content (Join-Path $repo 'flash.cmd') -Raw -Encoding UTF8), [ref]$tokens, [ref]$errors)
+$ast = [Management.Automation.Language.Parser]::ParseInput((Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8), [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }
 foreach ($name in @('Invoke-ProbeInventory', 'ConvertFrom-CubeProbeList', 'Get-InfoStLinkInventory', 'Get-UsbStLinkProbes')) {
     $node = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
