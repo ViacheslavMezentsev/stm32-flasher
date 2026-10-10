@@ -26,13 +26,13 @@
 | `backup.cmd` | Резервная копия в Intel HEX + SHA-256 в `backups` |
 | `info.cmd` | Обзор ПК, инструментов, USB-программаторов и сохранённых настроек |
 | `setup.cmd` | Перенастройка движка и программатора с подтверждением, без операций с MCU |
-| `verify.cmd` | Сравнение диапазонов HEX с памятью MCU без записи и стирания |
+| `check.cmd` | Сравнение диапазонов HEX с памятью MCU без записи и стирания |
 | `forget.cmd` | Удаление настроек, логов, отчётов и скачанных инструментов; копии сохраняются |
 
 Несколько программаторов при backup/erase выбираются через меню. `info.cmd -ProbeTarget` подключается к выбранному MCU. `forget.cmd -DryRun` показывает список удаления; `flash.cmd -ResetConfig` сбрасывает только настройки.
 
-`verify.cmd` может остановить ядро; автоматически не сбрасывает и не запускает его.
-Используйте полное имя `verify.cmd`: `verify` в CMD является другой встроенной командой.
+`check.cmd` может остановить ядро; автоматически не сбрасывает и не запускает его.
+В CMD можно вызвать `check`, в PowerShell — `./check.cmd`.
 
 ### Быстрый старт
 
@@ -81,12 +81,12 @@ Version **0.2.12**. Keep optional command wrappers next to `flash.cmd`:
 | `backup.cmd` | Intel HEX + SHA-256 backup in `backups` |
 | `info.cmd` | PC, tools, USB probes and saved settings overview |
 | `forget.cmd` | Remove settings, logs, reports and downloaded tools; preserve backups |
-| `verify.cmd` | Compare HEX ranges with MCU memory without programming or erasing |
+| `check.cmd` | Compare HEX ranges with MCU memory without programming or erasing |
 
 Backup/erase prompt when multiple probes are connected. `info.cmd -ProbeTarget` connects to the selected MCU. `forget.cmd -DryRun` previews cleanup; `flash.cmd -ResetConfig` resets settings only.
 
-`verify.cmd` may halt the core; it does not automatically reset or resume it.
-Use the full name `verify.cmd`: bare `verify` is a different built-in CMD command.
+`check.cmd` may halt the core; it does not automatically reset or resume it.
+Use `check` in CMD or `./check.cmd` in PowerShell.
 
 All commands accept `--help` (`-Help`, `-h`) and `--version` (`-Version`): information only, without executing operations. Language: `-Lang ru` / `-Lang en`.
 

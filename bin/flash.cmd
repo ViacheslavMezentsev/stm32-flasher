@@ -82,7 +82,7 @@ if ($helpRequested -or $versionRequested) {
         $options = '-HexFile <file.hex>  -Sha256 <hash>'
         $description = if ($ru) { 'Прошивка и проверка STM32.' } else { 'Program and verify STM32 Flash.' }
         if ($requestedCommand) {
-            $command = 'verify.cmd'; $example = 'verify.cmd -HexFile firmware.hex'
+            $command = 'check.cmd'; $example = 'check.cmd -HexFile firmware.hex'
             $description = if ($ru) { 'Сравнение диапазонов HEX с памятью MCU без записи и стирания. Ядро может быть остановлено; автоматического сброса и запуска нет.' } else { 'Compare HEX ranges with MCU memory without programming or erasing. The core may be halted; no automatic reset or resume.' }
         } elseif ($Erase) {
             $command = 'erase.cmd'; $example = 'erase.cmd -Probe JLINK'
@@ -108,7 +108,7 @@ if ($helpRequested -or $versionRequested) {
         Write-Output $description
         Write-Output "`n$command [options]"
         Write-Output "  $options"
-        if ($command -eq 'flash.cmd') { Write-Output '  -Command <verify>' }
+        if ($command -eq 'flash.cmd') { Write-Output '  -Command <check>' }
         if (-not ($Clean -or $ResetConfig -or $Setup)) {
             Write-Output '  -Engine <CUBEPROGRAMMER|OPENOCD|JLINK|exe>  -Probe <STLINK|JLINK>'
             Write-Output '  -Serial <serial>  -Device <J-Link MCU>  -Target <OpenOCD cfg>'
@@ -132,9 +132,9 @@ $LangRu = @{
     VerifyError        = "Проверка памяти MCU не пройдена"
     VerifyEffects      = "Только чтение и сравнение. Ядро может быть остановлено; сброс и запуск не выполняются."
     VerifyMismatch     = "Несовпадение памяти по адресу 0x{0:X8}"
-    VerifyTarget       = "Для verify через OpenOCD нужен доступный сохранённый target или явный -Target. Автоопределение MCU не выполняется."
+    VerifyTarget       = "Для check через OpenOCD нужен доступный сохранённый target или явный -Target. Автоопределение MCU не выполняется."
     VerifyOptions      = "Некорректный движок или тип программатора. Проверка отменена."
-    CommandInvalid     = "Неподдерживаемая команда. Сейчас доступна: verify."
+    CommandInvalid     = "Неподдерживаемая команда. Сейчас доступна: check."
     DirectoryBusy      = "В этой папке уже выполняется операция stm32-flasher. Дождитесь её завершения."
     DirectoryLockError = "Не удалось заблокировать рабочую папку. Операция отменена."
     ConfigSource = "Источник настроек"
@@ -311,9 +311,9 @@ $LangEn = @{
     VerifyError        = "MCU memory verification failed"
     VerifyEffects      = "Read and compare only. The core may be halted; no reset or resume is performed."
     VerifyMismatch     = "Memory mismatch at address 0x{0:X8}"
-    VerifyTarget       = "OpenOCD verify requires an available saved target or explicit -Target. MCU autodetection is not performed."
+    VerifyTarget       = "OpenOCD check requires an available saved target or explicit -Target. MCU autodetection is not performed."
     VerifyOptions      = "Invalid engine or probe type. Verification cancelled."
-    CommandInvalid     = "Unsupported command. Currently available: verify."
+    CommandInvalid     = "Unsupported command. Currently available: check."
     DirectoryBusy      = "A stm32-flasher operation is already running in this directory. Wait for it to finish."
     DirectoryLockError = "Unable to lock the working directory. Operation cancelled."
     ConfigSource = "Configuration source"
@@ -534,8 +534,8 @@ if ($Lang -eq 'en') {
     if ($PSUICulture -match '^ru') { $ActiveLang = $LangRu } else { $ActiveLang = $LangEn }
 }
 
-if ($Command -and $Command -ine 'verify') { Write-Host (T 'CommandInvalid'); exit 1 }
-$Verify = $Command -ieq 'verify'
+if ($Command -and $Command -ine 'check') { Write-Host (T 'CommandInvalid'); exit 1 }
+$Verify = $Command -ieq 'check'
 $NoFirmware = $Erase -or $Backup -or $Info -or $Setup
 $FreshProbeSelection = $Erase -or $Backup -or ($Info -and $ProbeTarget)
 if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean, $Verify | Where-Object { $_ }).Count -gt 1) -or
@@ -1793,7 +1793,7 @@ function Show-DryRunPlan {
     }
     Write-Host $p.Title
     Write-Host $p.Limits
-    $operation = if ($Verify) { 'verify' } elseif ($Info) { 'info' } elseif ($Backup) { 'backup' } elseif ($Erase) { 'erase' } else { 'flash' }
+    $operation = if ($Verify) { 'check' } elseif ($Info) { 'info' } elseif ($Backup) { 'backup' } elseif ($Erase) { 'erase' } else { 'flash' }
     Write-Host "   Operation: $operation [CLI/default]"
     $missing = New-Object 'System.Collections.Generic.List[string]'
     $errors = New-Object 'System.Collections.Generic.List[string]'
@@ -1889,7 +1889,7 @@ function Show-DryRunPlan {
     if ($missing.Count) {
         Write-Host "   $($p.Missing): $($missing -join ', ')"
         $example = "flash.cmd -DryRun"
-        if ($Verify) { $example += ' -Command verify' }
+        if ($Verify) { $example += ' -Command check' }
         if ($Info) { $example += ' -Info -ProbeTarget' } elseif ($Backup) { $example += ' -Backup' } elseif ($Erase) { $example += ' -Erase' }
         foreach ($known in @(@('-Engine', $eng.Value), @('-Target', $targetPlan.Value), @('-Device', $devicePlan.Value), @('-HexFile', $planHex))) {
             if ($known[1]) { $example += ' ' + $known[0] + ' "' + $known[1] + '"' }
@@ -3118,7 +3118,7 @@ $HistoryEntry = [ordered]@{
     TimestampLocal = $NowLocal.ToString('yyyy-MM-dd HH:mm:ss zzz')
     TimestampUtc = $NowUtc.ToString('o')
     Success = $Success
-    Operation = if ($Verify) { 'verify' } elseif ($Erase) { 'erase' } elseif ($Backup) { 'backup' } else { 'flash' }
+    Operation = if ($Verify) { 'check' } elseif ($Erase) { 'erase' } elseif ($Backup) { 'backup' } else { 'flash' }
     BackupFile = $BackupOutput
     BackupRange = $BackupRangeLabel
     ResultText = if ($Success) { T 'SuccessMsg' } else { T 'ErrorMsg' }

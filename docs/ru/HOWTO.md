@@ -13,10 +13,10 @@
 
 ## Сравнение с памятью MCU
 
-В папке прошивки: `verify.cmd -DryRun`, затем `verify.cmd` для чтения и сравнения.
-Эквивалент: `flash.cmd -Command verify -HexFile firmware.hex`.
-В PowerShell используйте `./verify.cmd`. В CMD не сокращайте до `verify`:
-это встроенная команда проверки дисковых записей, не нашего инструмента.
+В папке прошивки: `check.cmd -DryRun`, затем `check.cmd` для чтения и сравнения.
+Эквивалент: `flash.cmd -Command check -HexFile firmware.hex`.
+В PowerShell используйте `./check.cmd`, в CMD можно просто `check`.
+Название не пересекается со встроенным `verify` в CMD.
 При нескольких HEX укажите `-HexFile`; настройки движка/программатора берутся
 из `.flash.json`, явные ключи имеют приоритет. OpenOCD требует сохранённый
 target либо `-Target target/stm32f1x.cfg`; J-Link — device.

@@ -102,7 +102,7 @@ try {
     $source=$source -replace '(?m)^(pwsh|powershell) -NoProfile', ('"'+$PowerShellExe+'" -NoProfile')
     $bin=Join-Path $root 'tool bin'; New-Item -ItemType Directory $bin | Out-Null
     [IO.File]::WriteAllText((Join-Path $bin 'flash.cmd'),$source,(New-Object Text.UTF8Encoding($false)))
-    Copy-Item (Join-Path $repo 'bin/verify.cmd') $bin
+    Copy-Item (Join-Path $repo 'bin/check.cmd') $bin
     $env:FLASH_VERIFY_ROOT=$root
     foreach ($engine in @('CUBEPROGRAMMER','CUBE-JLINK','OPENOCD','JLINK')) {
       foreach ($case in @('ok','mismatch','late-mismatch','short','missing-file','missing-marker','error','stale','multiple','explicit','dry','badhex','badhash','hash-mismatch','badpath','badprobe','unsupported','conflict')) {
@@ -123,11 +123,11 @@ try {
         $before=(Get-FileHash $config).Hash
         $extra=switch ($case) {
             'dry' {'-DryRun'}; 'conflict' {'-Erase'}; 'badpath' {'-HexFile missing.hex'}
-            'badprobe' {'-Probe invalid'}; 'unsupported' {'-Command invalid'}
+            'badprobe' {'-Probe invalid'}; 'unsupported' {'-Command verify'}
             'explicit' {'-Serial 99999999'}; default {''}
         }
         $lang=if ($case -in @('ok','mismatch','dry')) {'ru'} else {'en'}
-        $entry = Join-Path $bin $(if ($case -eq 'unsupported') {'flash.cmd'} else {'verify.cmd'})
+        $entry = Join-Path $bin $(if ($case -eq 'unsupported') {'flash.cmd'} else {'check.cmd'})
         Push-Location $work
         try {
             # PS5.1 wraps native stderr; the child exit code is the assertion target.
@@ -155,7 +155,7 @@ try {
             $sessions=@(Get-ChildItem (Join-Path $work '.history') -Recurse -Filter '*.json' | Where-Object Name -ne 'index.json')
             Assert ($sessions.Count -eq 1) 'Missing history'
             $session=Get-Content $sessions[0].FullName -Raw -Encoding UTF8 | ConvertFrom-Json
-            Assert ($session.Operation -eq 'verify' -and $session.Success -eq $success) 'Wrong history status'
+            Assert ($session.Operation -eq 'check' -and $session.Success -eq $success) 'Wrong history status'
             Assert ((Test-Path (Join-Path $root 'browser.txt')) -eq (-not $success)) 'Browser policy'
             if ($case -eq 'mismatch') { Assert ((Get-Content (Join-Path $work 'flash_log.txt') -Raw -Encoding UTF8) -match '0x08000000') 'Missing mismatch address' }
             if ($case -eq 'late-mismatch') { Assert ((Get-Content (Join-Path $work 'flash_log.txt') -Raw -Encoding UTF8) -match '0x08000008') 'Missing second range mismatch address' }

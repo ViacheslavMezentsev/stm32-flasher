@@ -27,7 +27,7 @@ try {
     Assert ((Get-Content "$archive.sha256" -Raw) -eq "$expectedHash *stm32-flasher-0.0.0.zip") 'Package checksum mismatch'
     $unpacked = Join-Path $root 'unpacked'
     Expand-Archive -LiteralPath $archive -DestinationPath $unpacked
-    $commands = @('flash','erase','backup','info','forget','setup','verify')
+    $commands = @('flash','erase','backup','info','forget','setup','check')
     Assert (@(Get-ChildItem $unpacked -Filter '*.cmd' -File).Count -eq $commands.Count) 'Missing root commands in ZIP'
     Assert (-not (Test-Path (Join-Path $unpacked 'bin'))) 'ZIP must not require a bin directory'
     foreach ($name in $commands) {
