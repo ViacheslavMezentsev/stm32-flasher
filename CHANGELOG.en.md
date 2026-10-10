@@ -5,7 +5,8 @@
 ### Changed
 - Consolidate settings in `.flash.json`, schema version 1. Operational runs or confirmed setup migrate legacy files; JSON takes precedence. Writes use a temporary file and atomic replacement, followed by legacy cleanup after JSON validation.
 - Info/DryRun never migrate; help/version never read settings. Invalid JSON fails before discovery; explicit ResetConfig/forget clears both formats. Add migration, write/deletion failure, RU/EN and argument-priority tests; include the format guide in release ZIPs.
-- Following JSON integration, all 19 suites passed locally in PS5.1/7; the strict specification check is clean. No hardware operations were performed; this stage awaits CI after push.
+- Following JSON integration, all 19 suites passed locally in PS5.1/7 without an MCU; the strict specification check is clean. CI results for this stage are not yet confirmed.
+- The owner confirmed JSON migration and successful programming with verification through CubeProgrammer/ST-Link (3.406 s), based on console output and the generated settings file. A subsequent info run confirmed JSON loading and the saved engine and probe selection.
 - Move CMD files into the repository's `bin`. Release ZIP commands remain at the root for copying beside firmware; runtime data stays in the working directory.
 - Update CI and packaging paths. Test-FlashEntry covers both CMD layouts with stub executables; Test-PackageLayout executes the release workflow packaging block and checks SHA-256, unchanged CMD files and portable RU/EN help entry points.
 - All 18 suites and the strict specification check passed locally in PS5.1/7. No hardware operations were performed; GitHub CI is pending the push.
