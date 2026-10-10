@@ -27,12 +27,16 @@
 | `info.cmd` | Обзор ПК, инструментов, USB-программаторов и сохранённых настроек |
 | `setup.cmd` | Перенастройка движка и программатора с подтверждением, без операций с MCU |
 | `check.cmd` | Сравнение диапазонов HEX с памятью MCU без записи и стирания |
+| `halt.cmd` / `go.cmd` / `reset.cmd` | Остановить ядро / продолжить без сброса / сбросить MCU и запустить |
 | `forget.cmd` | Удаление настроек, логов, отчётов и скачанных инструментов; копии сохраняются |
 
 Несколько программаторов при backup/erase выбираются через меню. `info.cmd -ProbeTarget` подключается к выбранному MCU. `forget.cmd -DryRun` показывает список удаления; `flash.cmd -ResetConfig` сбрасывает только настройки.
 
 `check.cmd` может остановить ядро; автоматически не сбрасывает и не запускает его.
 В CMD можно вызвать `check`, в PowerShell — `./check.cmd`.
+Управление ядром не требует HEX: OpenOCD/ST-Link и SEGGER/J-Link поддерживают
+все три команды; CubeProgrammer/ST-Link — только halt/reset. Неподдерживаемое
+сочетание отклоняется без смены движка. Аппаратные проверки новых команд ещё не выполнены.
 
 ### Быстрый старт
 
@@ -82,11 +86,15 @@ Version **0.2.12**. Keep optional command wrappers next to `flash.cmd`:
 | `info.cmd` | PC, tools, USB probes and saved settings overview |
 | `forget.cmd` | Remove settings, logs, reports and downloaded tools; preserve backups |
 | `check.cmd` | Compare HEX ranges with MCU memory without programming or erasing |
+| `halt.cmd` / `go.cmd` / `reset.cmd` | Halt / resume without reset / reset MCU and run |
 
 Backup/erase prompt when multiple probes are connected. `info.cmd -ProbeTarget` connects to the selected MCU. `forget.cmd -DryRun` previews cleanup; `flash.cmd -ResetConfig` resets settings only.
 
 `check.cmd` may halt the core; it does not automatically reset or resume it.
 Use `check` in CMD or `./check.cmd` in PowerShell.
+Core control needs no HEX: OpenOCD/ST-Link and SEGGER/J-Link support all three
+commands; CubeProgrammer/ST-Link supports halt/reset only. Unsupported combinations
+fail without switching engines. Hardware validation of the new commands is pending.
 
 All commands accept `--help` (`-Help`, `-h`) and `--version` (`-Version`): information only, without executing operations. Language: `-Lang ru` / `-Lang en`.
 

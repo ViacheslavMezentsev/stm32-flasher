@@ -84,6 +84,10 @@ if ($helpRequested -or $versionRequested) {
         if ($requestedCommand) {
             $command = 'check.cmd'; $example = 'check.cmd -HexFile firmware.hex'
             $description = if ($ru) { 'Сравнение диапазонов HEX с памятью MCU без записи и стирания. Ядро может быть остановлено; автоматического сброса и запуска нет.' } else { 'Compare HEX ranges with MCU memory without programming or erasing. The core may be halted; no automatic reset or resume.' }
+            if ($requestedCommand -in @('halt','go','reset')) {
+                $command = "$($requestedCommand.ToLowerInvariant()).cmd"; $example = "$command -DryRun"; $options = '-DryRun'
+                $description = if ($ru) { 'Управление ядром: halt останавливает, go продолжает без сброса, reset сбрасывает и запускает. Без HEX, записи Flash и очистки настроек. CubeProgrammer: только halt/reset со ST-Link.' } else { 'Core control: halt stops, go resumes without reset, reset resets and runs. No HEX, Flash programming or configuration cleanup. CubeProgrammer: halt/reset with ST-Link only.' }
+            }
         } elseif ($Erase) {
             $command = 'erase.cmd'; $example = 'erase.cmd -Probe JLINK'
             $options = '-Engine <engine>  -Probe <STLINK|JLINK>  -Serial <serial>'
@@ -108,7 +112,7 @@ if ($helpRequested -or $versionRequested) {
         Write-Output $description
         Write-Output "`n$command [options]"
         Write-Output "  $options"
-        if ($command -eq 'flash.cmd') { Write-Output '  -Command <check>' }
+        if ($command -eq 'flash.cmd') { Write-Output '  -Command <check|halt|go|reset>' }
         if (-not ($Clean -or $ResetConfig -or $Setup)) {
             Write-Output '  -Engine <CUBEPROGRAMMER|OPENOCD|JLINK|exe>  -Probe <STLINK|JLINK>'
             Write-Output '  -Serial <serial>  -Device <J-Link MCU>  -Target <OpenOCD cfg>'
@@ -134,7 +138,16 @@ $LangRu = @{
     VerifyMismatch     = "Несовпадение памяти по адресу 0x{0:X8}"
     VerifyTarget       = "Для check через OpenOCD нужен доступный сохранённый target или явный -Target. Автоопределение MCU не выполняется."
     VerifyOptions      = "Некорректный движок или тип программатора. Проверка отменена."
-    CommandInvalid     = "Неподдерживаемая команда. Сейчас доступна: check."
+    CommandInvalid     = "Неподдерживаемая команда. Доступны: check, halt, go, reset."
+    CoreHalt           = "Остановка ядра"
+    CoreGo             = "Продолжение выполнения без сброса"
+    CoreReset          = "Сброс MCU и запуск"
+    CoreSuccess        = "Команда {0} выполнена; ожидаемое состояние ядра подтверждено движком"
+    CoreError          = "Команда управления ядром не подтверждена"
+    CoreEffects        = "Flash не записывается. Меняется состояние ядра; периферия и watchdog могут продолжать работать."
+    CoreUnsupported    = "Сочетание команды, движка и программатора не поддерживается. CubeProgrammer: только halt/reset со ST-Link. Движок автоматически не заменяется."
+    CoreTarget         = "Для управления через OpenOCD нужен доступный сохранённый target или явный -Target. Автоопределение MCU не выполняется."
+    CoreOptions        = "Некорректный движок или тип программатора. Управление отменено."
     DirectoryBusy      = "В этой папке уже выполняется операция stm32-flasher. Дождитесь её завершения."
     DirectoryLockError = "Не удалось заблокировать рабочую папку. Операция отменена."
     ConfigSource = "Источник настроек"
@@ -313,7 +326,16 @@ $LangEn = @{
     VerifyMismatch     = "Memory mismatch at address 0x{0:X8}"
     VerifyTarget       = "OpenOCD check requires an available saved target or explicit -Target. MCU autodetection is not performed."
     VerifyOptions      = "Invalid engine or probe type. Verification cancelled."
-    CommandInvalid     = "Unsupported command. Currently available: check."
+    CommandInvalid     = "Unsupported command. Available: check, halt, go, reset."
+    CoreHalt           = "Halt core"
+    CoreGo             = "Resume execution without reset"
+    CoreReset          = "Reset MCU and run"
+    CoreSuccess        = "Command {0} completed; expected core state confirmed by the tool"
+    CoreError          = "Core control command was not confirmed"
+    CoreEffects        = "No Flash programming. Core state changes; peripherals and watchdog may keep running."
+    CoreUnsupported    = "Unsupported command, engine and probe combination. CubeProgrammer: halt/reset with ST-Link only. No automatic engine replacement."
+    CoreTarget         = "OpenOCD core control requires an available saved target or explicit -Target. MCU autodetection is not performed."
+    CoreOptions        = "Invalid engine or probe type. Core control cancelled."
     DirectoryBusy      = "A stm32-flasher operation is already running in this directory. Wait for it to finish."
     DirectoryLockError = "Unable to lock the working directory. Operation cancelled."
     ConfigSource = "Configuration source"
@@ -534,11 +556,13 @@ if ($Lang -eq 'en') {
     if ($PSUICulture -match '^ru') { $ActiveLang = $LangRu } else { $ActiveLang = $LangEn }
 }
 
-if ($Command -and $Command -ine 'check') { Write-Host (T 'CommandInvalid'); exit 1 }
+if ($Command -and $Command -notin @('check','halt','go','reset')) { Write-Host (T 'CommandInvalid'); exit 1 }
 $Verify = $Command -ieq 'check'
-$NoFirmware = $Erase -or $Backup -or $Info -or $Setup
+$CoreControl = $Command -in @('halt','go','reset')
+if ($CoreControl) { $Command = $Command.ToLowerInvariant() }
+$NoFirmware = $Erase -or $Backup -or $Info -or $Setup -or $CoreControl
 $FreshProbeSelection = $Erase -or $Backup -or ($Info -and $ProbeTarget)
-if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean, $Verify | Where-Object { $_ }).Count -gt 1) -or
+if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean, $Verify, $CoreControl | Where-Object { $_ }).Count -gt 1) -or
     ($Setup -and ($Engine -or $Device -or $Target -or $Probe -or $Serial -or $Silent)) -or
     ($ProbeTarget -and -not $Info) -or (($Output -or $Size -or $Address) -and -not $Backup) -or
     ($NoFirmware -and ($HexFile -or $Sha256 -or ($Input -and $Input -notin @('ru','en')))) -or
@@ -557,6 +581,17 @@ if ($Verify) {
     $ActiveLang['InvalidTarget'] = T 'VerifyTarget'
     $ActiveLang['InvalidProbe'] = T 'VerifyOptions'
     $ActiveLang['InvalidEngine'] = T 'VerifyOptions'
+}
+if ($CoreControl) {
+    $CoreLabel = switch ($Command) { 'halt' { T 'CoreHalt' }; 'go' { T 'CoreGo' }; 'reset' { T 'CoreReset' } }
+    $ActiveLang['Flashing'] = $CoreLabel
+    $ActiveLang['OkSuccess'] = (T 'CoreSuccess') -f $Command
+    $ActiveLang['SuccessMsg'] = (T 'CoreSuccess') -f $Command
+    $ActiveLang['ErrorMsg'] = T 'CoreError'
+    $ActiveLang['HtmlTitle'] = $CoreLabel
+    $ActiveLang['InvalidTarget'] = T 'CoreTarget'
+    $ActiveLang['InvalidProbe'] = T 'CoreOptions'
+    $ActiveLang['InvalidEngine'] = T 'CoreOptions'
 }
 if ($Erase) {
     $ActiveLang['Flashing'] = T 'EraseRunning'
@@ -1624,6 +1659,27 @@ function Write-IntelHex([string]$binaryPath, [string]$hexPath, [uint64]$baseAddr
     } finally { $writer.Dispose() }
 }
 
+function Test-CoreControlSupport($engine, $probeType, $operation) {
+    if ($engine -eq 'OPENOCD') { return $probeType -eq 'STLINK' }
+    if (Test-IsJLinkEngine $engine) { return $probeType -eq 'JLINK' }
+    return $probeType -eq 'STLINK' -and $operation -in @('halt','reset')
+}
+
+function Test-CoreControlLog($engine, $operation, [string]$log) {
+    if ($log -match '(?im)\b(error|failed|failure|cannot|unable|unknown command)\b') { return $false }
+    $expected = if ($operation -eq 'halt') { 'halted' } else { 'running' }
+    $pattern = switch ($engine) {
+        'OPENOCD' { '(?im)^\s*FLASH_CORE_STATE\s+(halted|running|reset|unknown)\s*$' }
+        'JLINK' { '(?im)^\s*J-Link>\s*IsHalted\s*\r?\n\s*CPU is (halted|not halted)\.?\s*$' }
+        default { '(?im)^\s*Core is (halted|running|locked up|reset|kept under reset)\.?\s*$' }
+    }
+    $states = [regex]::Matches($log, $pattern)
+    if (-not $states.Count) { return $false }
+    $state = $states[$states.Count - 1].Groups[1].Value
+    if ($state -ieq 'not halted') { $state = 'running' }
+    return $state -ieq $expected
+}
+
 function Invoke-ReadTool($exe, $arguments) {
     $prefix = Join-Path $CurrentDir ('.flash_read_' + [guid]::NewGuid().ToString('N'))
     try {
@@ -1793,7 +1849,7 @@ function Show-DryRunPlan {
     }
     Write-Host $p.Title
     Write-Host $p.Limits
-    $operation = if ($Verify) { 'check' } elseif ($Info) { 'info' } elseif ($Backup) { 'backup' } elseif ($Erase) { 'erase' } else { 'flash' }
+    $operation = if ($CoreControl) { $Command } elseif ($Verify) { 'check' } elseif ($Info) { 'info' } elseif ($Backup) { 'backup' } elseif ($Erase) { 'erase' } else { 'flash' }
     Write-Host "   Operation: $operation [CLI/default]"
     $missing = New-Object 'System.Collections.Generic.List[string]'
     $errors = New-Object 'System.Collections.Generic.List[string]'
@@ -1838,6 +1894,7 @@ function Show-DryRunPlan {
         $probePlan = @{ Value='JLINK'; Source=$eng.Source }
     }
     if ($eng.Value -eq 'OPENOCD' -and $probePlan.Value -eq 'JLINK') { $errors.Add('OPENOCD + JLINK') }
+    if ($CoreControl -and -not (Test-CoreControlSupport $eng.Value $probePlan.Value $Command)) { $errors.Add((T 'CoreUnsupported')) }
     Write-PlanValue $p.Engine $eng
     Write-PlanValue $p.Probe $probePlan
     $serialConfig = if ($probePlan.Value -eq 'JLINK') { '.jlink_serial' } else { '.stlink_serial' }
@@ -1865,6 +1922,7 @@ function Show-DryRunPlan {
     }
     if ($Erase) { Write-Host "   $($p.Erase)" }
     if ($Verify) { Write-Host "   $(T 'VerifyEffects')" }
+    elseif ($CoreControl) { Write-Host "   $CoreLabel"; Write-Host "   $(T 'CoreEffects')" }
     elseif (-not $NoFirmware) { Write-Host "   $($p.Flash)" }
     if ($Backup) {
         Write-Host "   $($p.Read)"
@@ -1890,6 +1948,7 @@ function Show-DryRunPlan {
         Write-Host "   $($p.Missing): $($missing -join ', ')"
         $example = "flash.cmd -DryRun"
         if ($Verify) { $example += ' -Command check' }
+        if ($CoreControl) { $example += " -Command $Command" }
         if ($Info) { $example += ' -Info -ProbeTarget' } elseif ($Backup) { $example += ' -Backup' } elseif ($Erase) { $example += ' -Erase' }
         foreach ($known in @(@('-Engine', $eng.Value), @('-Target', $targetPlan.Value), @('-Device', $devicePlan.Value), @('-HexFile', $planHex))) {
             if ($known[1]) { $example += ' ' + $known[0] + ' "' + $known[1] + '"' }
@@ -2034,7 +2093,7 @@ $AutoFlash = $false
 
 if ($NoFirmware) {
     $AutoFlash = $true
-    $operationLabel = if ($Backup) { T 'BackupName' } elseif ($Info) { T 'InfoTarget' } else { T 'EraseName' }
+    $operationLabel = if ($CoreControl) { $CoreLabel } elseif ($Backup) { T 'BackupName' } elseif ($Info) { T 'InfoTarget' } else { T 'EraseName' }
     Write-Step "1" $operationLabel
 } else {
 if ($HexFile) {
@@ -2226,7 +2285,7 @@ if (-not $SelectedEngine) {
         for ($k=0; $k -lt $Opts.Count; $k++) { Write-Host "     [$($k+1)] $($Opts[$k].Label)" }
         $ans = Read-Host "   $(T 'PromptChooseEng')"
         $parsedEngineChoice = 0
-        if ($Verify -and (-not [int]::TryParse($ans, [ref]$parsedEngineChoice) -or $parsedEngineChoice -lt 1 -or $parsedEngineChoice -gt $Opts.Count)) { throw (T 'ErrBadChoice') }
+        if (($Verify -or $CoreControl) -and (-not [int]::TryParse($ans, [ref]$parsedEngineChoice) -or $parsedEngineChoice -lt 1 -or $parsedEngineChoice -gt $Opts.Count)) { throw (T 'ErrBadChoice') }
         if (-not [int]::TryParse($ans, [ref]$parsedEngineChoice)) { $parsedEngineChoice = 1 }
         $idx = $parsedEngineChoice - 1
         if ($idx -ge 0 -and $idx -lt $Opts.Count) { $SelectedEngine = $Opts[$idx].Value } else { $SelectedEngine = "OPENOCD" }
@@ -2235,6 +2294,7 @@ if (-not $SelectedEngine) {
 }
 if ($Engine) { Save-LaunchSetting $EngineCfgPath $SelectedEngine }
 if ($NoFirmware -and $SelectedEngine -eq 'OPENOCD' -and $SelectedProbeType -eq 'JLINK') {
+    if ($CoreControl) { throw (T 'CoreUnsupported') }
     throw 'OpenOCD currently supports ST-Link only. Use -Engine JLINK or CUBEPROGRAMMER.'
 }
 
@@ -2242,19 +2302,20 @@ $StLinkSerialCfgPath = Join-Path $CurrentDir ".stlink_serial"
 $JLinkSerialCfgPath = Join-Path $CurrentDir ".jlink_serial"
 $ProbeTypeCfgPath = Join-Path $CurrentDir ".probe_type"
 $ProbeInfo = $null
-if ($Verify) {
+if ($Verify -or $CoreControl) {
     if (Test-IsJLinkEngine $SelectedEngine) {
         if ($ProbeSpecified -and $SelectedProbeType -ne 'JLINK') { throw (T 'ModeConflict') }
         $SelectedProbeType = 'JLINK'
     }
     if ($SelectedEngine -eq 'OPENOCD' -and $SelectedProbeType -ne 'STLINK') { throw (T 'ModeConflict') }
+    if ($CoreControl -and -not (Test-CoreControlSupport $SelectedEngine $SelectedProbeType $Command)) { throw (T 'CoreUnsupported') }
     $ProbeSpecified = $true
     if (-not $Serial) {
         $Serial = Get-LaunchSetting $(if ($SelectedProbeType -eq 'JLINK') { $JLinkSerialCfgPath } else { $StLinkSerialCfgPath })
         if (-not $Serial) { $Serial = Select-UnpinnedProbe $SelectedProbeType }
     }
 }
-if (-not $Verify -and $SavedProbePreference -and -not $Serial -and -not $FreshProbeSelection) {
+if (-not $Verify -and -not $CoreControl -and $SavedProbePreference -and -not $Serial -and -not $FreshProbeSelection) {
     $savedSerialPath = if ($SelectedProbeType -eq 'JLINK') { $JLinkSerialCfgPath } else { $StLinkSerialCfgPath }
     if (-not (Get-LaunchSetting $savedSerialPath)) {
         $Serial = Select-UnpinnedProbe $SelectedProbeType
@@ -2265,7 +2326,7 @@ if (-not $Verify -and $SavedProbePreference -and -not $Serial -and -not $FreshPr
 if ($Serial) {
     $SelectedProbeSerial = $Serial
     Write-Info "$(T 'ProbeSerial'): $Serial"
-    if ($Verify -and $SelectedProbeType -eq 'STLINK') { Save-LaunchSetting $StLinkSerialCfgPath $Serial }
+    if (($Verify -or $CoreControl) -and $SelectedProbeType -eq 'STLINK') { Save-LaunchSetting $StLinkSerialCfgPath $Serial }
 }
 if (-not $ProbeSpecified -and (Get-LaunchSetting $ProbeTypeCfgPath)) {
     $SavedProbeType = Get-LaunchSetting $ProbeTypeCfgPath
@@ -2280,7 +2341,7 @@ if ($SelectedProbeType -eq "JLINK") {
         $SelectedProbeSerial = Get-LaunchSetting $JLinkSerialCfgPath
     }
 }
-if (-not $Verify -and -not (Test-IsJLinkEngine $SelectedEngine) -and $SelectedProbeType -ne "JLINK") {
+if (-not $Verify -and -not $CoreControl -and -not (Test-IsJLinkEngine $SelectedEngine) -and $SelectedProbeType -ne "JLINK") {
 $explicitUsbMatch = $false
 if ($Serial -and -not $DryRun -and -not $FreshProbeSelection) {
     $serialInventory = $null
@@ -2409,8 +2470,8 @@ if ($PreflightFailed) {
         }
     }
 
-    if ($Verify -and -not $TargetCfg) { throw (T 'InvalidTarget') }
-    if (-not $Verify -and -not $TargetCfg -and (-not $Serial -or $SelectedProbeInfo)) {
+    if (($Verify -or $CoreControl) -and -not $TargetCfg) { throw (T 'InvalidTarget') }
+    if (-not $Verify -and -not $CoreControl -and -not $TargetCfg -and (-not $Serial -or $SelectedProbeInfo)) {
         Write-Info (T "SearchStLinkInfo")
         try {
             if (-not $ProbeInfo) {
@@ -2470,7 +2531,7 @@ if ($PreflightFailed) {
     if ($Erase) {
         $TclCmd = '"init; reset init; set banks [flash list]; if {[llength $banks] == 0} {error {No flash banks}}; set banknum 0; foreach bank $banks {flash erase_sector $banknum 0 last; incr banknum}; echo {FLASH_ERASE_COMPLETE}; shutdown"'
     }
-    if ($Verify) { $TclCmd = '"init; shutdown"' }
+    if ($Verify -or $CoreControl) { $TclCmd = '"init; shutdown"' }
     $ExeArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg")
     if ($SelectedProbeSerial) {
         $ExeArgs += @("-c", "`"$(Get-OpenOcdSerialCommand $SelectedProbeSerial plain)`"")
@@ -2492,6 +2553,7 @@ if ($PreflightFailed) {
     } elseif (Get-LaunchSetting $JLinkDeviceCfgPath) {
         $SelectedJLinkDevice = Get-LaunchSetting $JLinkDeviceCfgPath
     }
+    if ($CoreControl -and -not $SelectedJLinkDevice) { throw (T 'InvalidJLinkDevice') }
     if (-not $SelectedJLinkDevice) {
         Write-Host "   [?] $(T 'PromptJLinkDevice'): " -ForegroundColor Yellow -NoNewline
         $SelectedJLinkDevice = (Read-Host).Trim()
@@ -2529,7 +2591,7 @@ if ($PreflightFailed) {
         "q"
     )
     if ($Erase) { $scriptLines = @('EoE 1', 'r', 'h', 'erase', 'q') }
-    if ($Backup -or $Info -or $Verify) { $scriptLines = @('EoE 1', 'connect', 'q') }
+    if ($Backup -or $Info -or $Verify -or $CoreControl) { $scriptLines = @('EoE 1', 'connect', 'q') }
     if (-not $DryRun) { Set-Content -LiteralPath $JLinkScript -Value ($scriptLines -join "`r`n") -Encoding ASCII }
 
     $ExePath = $JLinkExe
@@ -2558,7 +2620,7 @@ if ($PreflightFailed) {
         $ExeArgs = @('-c', $ConnectionArgs, '-e', 'all')
         $RetryArgsWithoutSerial = @('-c', "port=$ConnectionPort", '-e', 'all')
     }
-    if ($Verify) { $ExeArgs = @('-c', $ConnectionArgs); $RetryArgsWithoutSerial = @() }
+    if ($Verify -or $CoreControl) { $ExeArgs = @('-c', $ConnectionArgs); $RetryArgsWithoutSerial = @() }
     if ($SelectedProbeType -ne "JLINK" -and -not $NoFirmware -and -not $Verify) {
         $ExeArgs += "-rst"
         $RetryArgsWithoutSerial += "-rst"
@@ -2570,6 +2632,42 @@ $ReadOperationHandled = $false
 $BackupOutput = ''
 $BackupRangeLabel = ''
 $VerifyPassed = $false
+$CorePassed = $false
+if ($CoreControl -and -not $PreflightFailed) {
+    $ReadOperationHandled = $true
+    Write-Info $CoreLabel
+    Write-Info (T 'CoreEffects')
+    $coreTimer = [Diagnostics.Stopwatch]::StartNew()
+    $LogContent = ''
+    try {
+        $coreKey = if ($SelectedEngine -eq 'OPENOCD') { 'OPENOCD' } elseif (Test-IsJLinkEngine $SelectedEngine) { 'JLINK' } else { 'CUBEPROGRAMMER' }
+        $coreArgs = @($ExeArgs)
+        switch ($coreKey) {
+            'OPENOCD' {
+                $action = switch ($Command) { 'halt' { 'halt' }; 'go' { 'resume' }; 'reset' { 'reset run' } }
+                $coreArgs[-1] = '"init; ' + $action + '; poll; echo [format {FLASH_CORE_STATE %s} [[target current] curstate]]; shutdown"'
+            }
+            'JLINK' {
+                $actions = switch ($Command) { 'halt' { 'h' }; 'go' { 'g' }; 'reset' { 'r'; 'g' } }
+                $lines = @('EoE 1', 'connect') + @($actions) + @('IsHalted', 'q')
+                Set-Content -LiteralPath $JLinkScript -Value ($lines -join "`r`n") -Encoding ASCII
+            }
+            default {
+                $action = if ($Command -eq 'halt') { '-halt' } else { '-rst' }
+                $coreArgs = @('-c', "$ConnectionArgs mode=HOTPLUG", $action, '-score')
+            }
+        }
+        $result = Invoke-ReadTool $ExePath $coreArgs
+        $LogContent = $result.Log
+        $CorePassed = $result.ExitCode -eq 0 -and (Test-CoreControlLog $coreKey $Command $LogContent)
+        if (-not $CorePassed) { throw (T 'CoreError') }
+        $process = [pscustomobject]@{ ExitCode=0 }
+    } catch {
+        $LogContent += "`n" + $_.Exception.Message
+        $process = [pscustomobject]@{ ExitCode=1 }
+    } finally { $coreTimer.Stop() }
+    $OperationDuration = $coreTimer.Elapsed.ToString('hh\:mm\:ss\.fff')
+}
 if ($Verify -and -not $PreflightFailed) {
     $ReadOperationHandled = $true
     Write-Info (T 'VerifyEffects')
@@ -2898,6 +2996,7 @@ if ($Erase) {
 }
 if ($Backup) { $Success = $ExitOk -and $BackupSaved }
 if ($Verify) { $IsVerified = $VerifyPassed; $Success = $IntegrityGateOk -and $ExitOk -and $VerifyPassed }
+if ($CoreControl) { $Success = $ExitOk -and $CorePassed }
 
 if ($Success) {
     Write-Ok (T "OkSuccess")
@@ -3002,7 +3101,10 @@ $HistoryIndexLink = "<a href='$HistoryIndexRelative'>$(T 'HistoryTitle')</a>"
 if ($Erase) { $ProjectTitle = T 'EraseName'; $HexNameEsc = ''; $IntegrityRow = '' }
 if ($Backup) { $ProjectTitle = T 'BackupName'; $HexNameEsc = Escape-Html ([IO.Path]::GetFileName($BackupOutput)); $IntegrityRow = '' }
 if ($Verify) { $ProjectTitle = T 'VerifyName' }
-$OperationRows = if ($Verify) {
+if ($CoreControl) { $ProjectTitle = $CoreLabel; $HexNameEsc = ''; $IntegrityRow = '' }
+$OperationRows = if ($CoreControl) {
+    Status-Row $CoreLabel $CorePassed (T 'Yes') (T 'No')
+} elseif ($Verify) {
     Status-Row (T 'Verification') $VerifyPassed (T 'VerPassed') (T 'VerFailed')
 } elseif ($Erase) {
     Status-Row (T 'EraseName') $IsErased (T 'Yes') (T 'No')
@@ -3118,7 +3220,7 @@ $HistoryEntry = [ordered]@{
     TimestampLocal = $NowLocal.ToString('yyyy-MM-dd HH:mm:ss zzz')
     TimestampUtc = $NowUtc.ToString('o')
     Success = $Success
-    Operation = if ($Verify) { 'check' } elseif ($Erase) { 'erase' } elseif ($Backup) { 'backup' } else { 'flash' }
+    Operation = if ($CoreControl) { $Command } elseif ($Verify) { 'check' } elseif ($Erase) { 'erase' } elseif ($Backup) { 'backup' } else { 'flash' }
     BackupFile = $BackupOutput
     BackupRange = $BackupRangeLabel
     ResultText = if ($Success) { T 'SuccessMsg' } else { T 'ErrorMsg' }

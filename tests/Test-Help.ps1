@@ -11,7 +11,7 @@ try {
     $source = $source.Replace('$LangRu = @{', 'throw "HELP_FELL_THROUGH"' + "`r`n" + '$LangRu = @{')
     $source = $source -replace '(?m)^(pwsh|powershell) -NoProfile', ('"' + $PowerShellExe + '" -NoProfile')
     [IO.File]::WriteAllText((Join-Path $fixture 'flash.cmd'), $source, (New-Object Text.UTF8Encoding($false)))
-    foreach ($name in @('erase', 'backup', 'forget', 'info', 'setup', 'check')) {
+    foreach ($name in @('erase', 'backup', 'forget', 'info', 'setup', 'check', 'halt', 'go', 'reset')) {
         Copy-Item -LiteralPath (Join-Path $repo "bin/$name.cmd") -Destination $fixture
     }
     Set-Content -LiteralPath (Join-Path $fixture '.flash_engine') -Value 'sentinel'
@@ -19,7 +19,7 @@ try {
     $before = Get-ChildItem $fixture -Force -File | Get-FileHash | ConvertTo-Json
     Push-Location $fixture
     try {
-        foreach ($name in @('flash', 'erase', 'backup', 'forget', 'info', 'setup', 'check')) {
+        foreach ($name in @('flash', 'erase', 'backup', 'forget', 'info', 'setup', 'check', 'halt', 'go', 'reset')) {
           foreach ($lang in @('en', 'ru')) {
             foreach ($key in @('--help', '-Help', '-h', '--version', '-Version')) {
                 $output = & $env:ComSpec /d /c "$name.cmd $key -Lang $lang" 2>&1 | Out-String
@@ -34,8 +34,10 @@ try {
             }
           }
         }
-        $output = & $env:ComSpec /d /c 'check --help -Lang en' 2>&1 | Out-String
-        if ($LASTEXITCODE -ne 0 -or $output -notmatch 'check.cmd \[options\]' -or $output -match 'HELP_FELL_THROUGH') { throw "Bare check command failed: $output" }
+        foreach ($name in @('check','halt','go','reset')) {
+            $output = & $env:ComSpec /d /c "$name --help -Lang en" 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0 -or $output -notmatch ([regex]::Escape("$name.cmd [options]")) -or $output -match 'HELP_FELL_THROUGH') { throw "Bare $name command failed: $output" }
+        }
         $output = & $env:ComSpec /d /c 'erase.cmd -Backup --help --version -Lang ru' 2>&1 | Out-String
         if ($LASTEXITCODE -ne 0 -or $output -notmatch 'erase.cmd \[options\]') { throw "Help must precede operation validation: $output" }
     } finally { Pop-Location }

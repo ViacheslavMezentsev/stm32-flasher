@@ -92,7 +92,7 @@ try {
     $modified = $modified -replace '(?m)^(pwsh|powershell) -NoProfile', ('"' + $PowerShellExe + '" -NoProfile')
     foreach ($dir in @($work,$other)) {
         [IO.File]::WriteAllText((Join-Path $dir 'flash.cmd'), $modified, (New-Object Text.UTF8Encoding($false)))
-        foreach ($name in @('erase','backup','info','forget','setup')) { Copy-Item -LiteralPath (Join-Path $repo "bin/$name.cmd") -Destination $dir }
+        foreach ($name in @('erase','backup','info','forget','setup','halt','go','reset')) { Copy-Item -LiteralPath (Join-Path $repo "bin/$name.cmd") -Destination $dir }
         Set-Content -LiteralPath (Join-Path $dir '.flash_engine') -Value 'OPENOCD'
     }
     Set-Content -LiteralPath (Join-Path $work 'firmware.hex') -Value ":0400000001020304F2`r`n:00000001FF" -Encoding ASCII
@@ -109,7 +109,7 @@ try {
         Assert ($result.Code -eq 1 -and $result.Text -match 'already running in this directory') 'Cross-PowerShell contender bypassed lock'
     }
     foreach ($lang in @('en','ru')) {
-        foreach ($command in @('flash.cmd','erase.cmd','backup.cmd','setup.cmd','forget.cmd','flash.cmd -ResetConfig','info.cmd -ProbeTarget')) {
+        foreach ($command in @('flash.cmd','erase.cmd','backup.cmd','setup.cmd','forget.cmd','halt.cmd','go.cmd','reset.cmd','flash.cmd -ResetConfig','info.cmd -ProbeTarget')) {
             $watch = [Diagnostics.Stopwatch]::StartNew()
             $result = Run-Cmd "$command -Lang $lang"
             Assert ($result.Code -eq 1 -and $result.Text -match 'stm32-flasher' -and $result.Text -notmatch 'UNEXPECTED_|HOLDER_TIMEOUT') "Contender failed: $command $($result.Text)"
@@ -121,6 +121,10 @@ try {
     foreach ($command in @(
         'setup.cmd --help','erase.cmd --version','info.cmd',
         'setup.cmd -DryRun','forget.cmd -DryRun',
+        'halt.cmd --help','go.cmd --version','reset.cmd --help',
+        'halt.cmd -DryRun -Engine OPENOCD -Target target/stm32f1x.cfg',
+        'go.cmd -DryRun -Engine OPENOCD -Target target/stm32f1x.cfg',
+        'reset.cmd -DryRun -Engine OPENOCD -Target target/stm32f1x.cfg',
         'flash.cmd -DryRun -HexFile firmware.hex -Engine OPENOCD -Target target/stm32f1x.cfg',
         'erase.cmd -DryRun -Engine OPENOCD -Target target/stm32f1x.cfg',
         'backup.cmd -DryRun -Engine OPENOCD -Target target/stm32f1x.cfg -Size 64',

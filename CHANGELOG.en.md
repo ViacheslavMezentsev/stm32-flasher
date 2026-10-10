@@ -4,6 +4,10 @@
 
 ### Added
 
+- `halt.cmd`, `go.cmd`, `reset.cmd`: thin `flash.cmd -Command` wrappers sharing settings, probe selection, directory locking, reports and history. No HEX required, Flash programming/erasing or configuration cleanup.
+- Core control through OpenOCD/ST-Link and SEGGER/J-Link; CubeProgrammer/ST-Link supports halt/reset using HOTPLUG to avoid a connection-time reset. CubeProgrammer go and its J-Link control combinations are rejected before MCU access; no automatic engine switching.
+- Success requires exit 0 and the expected core state; errors/unknown output return 1 without retrying another serial. Test-CoreControl uses real CMD and stub executables; hardware validation remains pending.
+- After adding core control, all 21 suites passed locally in PS5.1/7, including 120 new scenarios, help, locking, localization and packaging. Branch CI is pending push.
 - The new comparison command is named `check` to avoid the CMD built-in `verify`. The experimental `-Command verify` is no longer accepted; existing history is unchanged.
 - `check.cmd` / `flash.cmd -Command check`: read Intel HEX ranges and compare bytes on the PC using CubeProgrammer, OpenOCD or J-Link. No programming, erasing, reset or automatic resume commands; the core may remain halted. Gaps are not read. Reports and history identify the operation as check.
 - Validate HEX, overlaps, address bounds and SHA-256 before MCU access; read failures and mismatches return 1. Add CMD tests with stub executables, RU/EN help, DryRun and wrapper packaging. Hardware verification testing is still pending.

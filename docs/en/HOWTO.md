@@ -16,6 +16,23 @@ The core may remain halted. There is no implicit programming, erase, reset or re
 Only HEX data bytes are compared, not the entire Flash. Board-specific behavior
 still needs hardware validation; halting a power-control device may also be unsafe.
 
+## Core control
+
+Start with `halt.cmd -DryRun` in the project directory. Actual operations:
+`halt.cmd` halts the core, `go.cmd` resumes without reset, and `reset.cmd`
+resets the MCU and runs. Reset does not clear configuration.
+Equivalent: `flash.cmd -Command halt` (or go/reset). No HEX is needed or read.
+Settings come from `.flash.json`; explicit options take precedence. Without a
+pinned serial, multiple probes trigger a menu; a single probe needs no serial.
+
+OpenOCD/ST-Link requires a saved or explicit `-Target`; SEGGER/J-Link requires
+`-Device`. CubeProgrammer/ST-Link supports halt/reset; go and CubeProgrammer/J-Link
+are currently rejected without switching engines. For J-Link, explicitly select
+`-Engine JLINK` or use setup. Success reflects the tool's state response at the
+time of the check, not application health. Peripherals/watchdogs may keep running
+while halted. Even halting a power-control board may be unsafe; agree on a safe
+hardware test setup first.
+
 ## Localization checks
 
 Test the no-argument entry separately with
