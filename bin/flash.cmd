@@ -44,6 +44,7 @@ param(
     [string]$Probe = "",
     [string]$Serial = "",
     [string]$Sha256 = "",
+    [string]$Command = "",
     [switch]$Erase,
     [switch]$ResetConfig,
     [switch]$Clean,
@@ -75,11 +76,15 @@ if ($helpRequested -or $versionRequested) {
     Write-Output "stm32-flasher $VERSION"
     if ($helpRequested) {
         $ru = ($Lang -eq 'ru') -or (-not $Lang -and [Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName -eq 'ru')
+        $requestedCommand = $Command
         $command = 'flash.cmd'
         $example = 'flash.cmd -HexFile firmware.hex'
         $options = '-HexFile <file.hex>  -Sha256 <hash>'
         $description = if ($ru) { 'Прошивка и проверка STM32.' } else { 'Program and verify STM32 Flash.' }
-        if ($Erase) {
+        if ($requestedCommand) {
+            $command = 'verify.cmd'; $example = 'verify.cmd -HexFile firmware.hex'
+            $description = if ($ru) { 'Сравнение диапазонов HEX с памятью MCU без записи и стирания. Ядро может быть остановлено; автоматического сброса и запуска нет.' } else { 'Compare HEX ranges with MCU memory without programming or erasing. The core may be halted; no automatic reset or resume.' }
+        } elseif ($Erase) {
             $command = 'erase.cmd'; $example = 'erase.cmd -Probe JLINK'
             $options = '-Engine <engine>  -Probe <STLINK|JLINK>  -Serial <serial>'
             $description = if ($ru) { 'Полное стирание Flash выбранного MCU.' } else { 'Erase all Flash of the selected MCU.' }
@@ -103,6 +108,7 @@ if ($helpRequested -or $versionRequested) {
         Write-Output $description
         Write-Output "`n$command [options]"
         Write-Output "  $options"
+        if ($command -eq 'flash.cmd') { Write-Output '  -Command <verify>' }
         if (-not ($Clean -or $ResetConfig -or $Setup)) {
             Write-Output '  -Engine <CUBEPROGRAMMER|OPENOCD|JLINK|exe>  -Probe <STLINK|JLINK>'
             Write-Output '  -Serial <serial>  -Device <J-Link MCU>  -Target <OpenOCD cfg>'
@@ -121,6 +127,14 @@ if ($helpRequested -or $versionRequested) {
 # ══════════════════════════════════════════════════════════════════════════════
 
 $LangRu = @{
+    VerifyName         = "Сравнение HEX с памятью MCU"
+    VerifySuccess      = "Память MCU совпадает с данными HEX"
+    VerifyError        = "Проверка памяти MCU не пройдена"
+    VerifyEffects      = "Только чтение и сравнение. Ядро может быть остановлено; сброс и запуск не выполняются."
+    VerifyMismatch     = "Несовпадение памяти по адресу 0x{0:X8}"
+    VerifyTarget       = "Для verify через OpenOCD нужен доступный сохранённый target или явный -Target. Автоопределение MCU не выполняется."
+    VerifyOptions      = "Некорректный движок или тип программатора. Проверка отменена."
+    CommandInvalid     = "Неподдерживаемая команда. Сейчас доступна: verify."
     DirectoryBusy      = "В этой папке уже выполняется операция stm32-flasher. Дождитесь её завершения."
     DirectoryLockError = "Не удалось заблокировать рабочую папку. Операция отменена."
     ConfigSource = "Источник настроек"
@@ -292,6 +306,14 @@ $LangRu = @{
 }
 
 $LangEn = @{
+    VerifyName         = "Compare HEX with MCU memory"
+    VerifySuccess      = "MCU memory matches HEX data"
+    VerifyError        = "MCU memory verification failed"
+    VerifyEffects      = "Read and compare only. The core may be halted; no reset or resume is performed."
+    VerifyMismatch     = "Memory mismatch at address 0x{0:X8}"
+    VerifyTarget       = "OpenOCD verify requires an available saved target or explicit -Target. MCU autodetection is not performed."
+    VerifyOptions      = "Invalid engine or probe type. Verification cancelled."
+    CommandInvalid     = "Unsupported command. Currently available: verify."
     DirectoryBusy      = "A stm32-flasher operation is already running in this directory. Wait for it to finish."
     DirectoryLockError = "Unable to lock the working directory. Operation cancelled."
     ConfigSource = "Configuration source"
@@ -512,9 +534,11 @@ if ($Lang -eq 'en') {
     if ($PSUICulture -match '^ru') { $ActiveLang = $LangRu } else { $ActiveLang = $LangEn }
 }
 
+if ($Command -and $Command -ine 'verify') { Write-Host (T 'CommandInvalid'); exit 1 }
+$Verify = $Command -ieq 'verify'
 $NoFirmware = $Erase -or $Backup -or $Info -or $Setup
 $FreshProbeSelection = $Erase -or $Backup -or ($Info -and $ProbeTarget)
-if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean | Where-Object { $_ }).Count -gt 1) -or
+if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean, $Verify | Where-Object { $_ }).Count -gt 1) -or
     ($Setup -and ($Engine -or $Device -or $Target -or $Probe -or $Serial -or $Silent)) -or
     ($ProbeTarget -and -not $Info) -or (($Output -or $Size -or $Address) -and -not $Backup) -or
     ($NoFirmware -and ($HexFile -or $Sha256 -or ($Input -and $Input -notin @('ru','en')))) -or
@@ -524,6 +548,16 @@ if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean | Where-Object { $_ 
     exit 1
 }
 
+if ($Verify) {
+    $ActiveLang['Flashing'] = T 'VerifyName'
+    $ActiveLang['OkSuccess'] = T 'VerifySuccess'
+    $ActiveLang['SuccessMsg'] = T 'VerifySuccess'
+    $ActiveLang['ErrorMsg'] = T 'VerifyError'
+    $ActiveLang['HtmlTitle'] = T 'VerifyName'
+    $ActiveLang['InvalidTarget'] = T 'VerifyTarget'
+    $ActiveLang['InvalidProbe'] = T 'VerifyOptions'
+    $ActiveLang['InvalidEngine'] = T 'VerifyOptions'
+}
 if ($Erase) {
     $ActiveLang['Flashing'] = T 'EraseRunning'
     $ActiveLang['OkSuccess'] = T 'EraseSuccess'
@@ -544,6 +578,7 @@ if ($HexFile -and -not $DryRun) {
     if ($ResolvedHex) {
         $HexFile = $ResolvedHex
     } else {
+        if ($Verify) { Write-Host "$(T 'InvalidHexFile')$HexFile"; exit 1 }
         Write-Host "   [!] $(T 'InvalidHexFile')$HexFile" -ForegroundColor Yellow
         $HexFile = ""
     }
@@ -554,7 +589,7 @@ if ($Engine -and -not $DryRun) {
     if (($Engine -ieq 'OPENOCD') -or ($Engine -ieq 'JLINK') -or ($Engine -ieq 'CUBEPROGRAMMER') -or ($Engine -ieq 'CUBE') -or (Test-Path -LiteralPath $Engine -PathType Leaf)) {
         $SelectedEngine = $Engine
     } else {
-        if ($NoFirmware) { throw (T 'InvalidEngine') }
+        if ($NoFirmware -or $Verify) { throw (T 'InvalidEngine') }
         Write-Host "   [!] $(T 'InvalidEngine')" -ForegroundColor Yellow
         $Engine = ""
     }
@@ -1682,6 +1717,39 @@ function Test-PreviewHex([string]$path) {
     if (-not $eof -or -not $data) { throw 'Intel HEX: EOF/data missing' }
 }
 
+function Read-VerifyRanges([string]$path) {
+    Test-PreviewHex $path
+    $records = New-Object 'System.Collections.Generic.List[object]'
+    [uint64]$base = 0; [uint64]$total = 0
+    foreach ($line in [IO.File]::ReadLines($path)) {
+        $record = $line.Trim()
+        if (-not $record) { continue }
+        $count = [Convert]::ToInt32($record.Substring(1, 2), 16)
+        $offset = [Convert]::ToUInt32($record.Substring(3, 4), 16)
+        $type = [Convert]::ToInt32($record.Substring(7, 2), 16)
+        if ($type -in @(2, 4)) {
+            $base = [uint64][Convert]::ToUInt32($record.Substring(9, 4), 16) * $(if ($type -eq 2) { 16 } else { 65536 })
+        } elseif ($type -eq 0 -and $count) {
+            $addressValue = $base + $offset
+            $total += $count
+            if ($addressValue + $count -gt 4294967296 -or $total -gt 67108864) { throw 'Intel HEX: address overflow or data exceeds 64 MiB' }
+            $bytes = New-Object byte[] $count
+            for ($i = 0; $i -lt $count; $i++) { $bytes[$i] = [Convert]::ToByte($record.Substring(9 + 2 * $i, 2), 16) }
+            $records.Add([pscustomobject]@{ Address=$addressValue; Bytes=$bytes })
+        }
+    }
+    $range = $null
+    foreach ($record in ($records | Sort-Object Address)) {
+        if ($range -and $record.Address -lt $range.Address + $range.Bytes.Count) { throw 'Intel HEX: overlapping data records' }
+        if (-not $range -or $record.Address -ne $range.Address + $range.Bytes.Count) {
+            if ($range) { $range }
+            $range = [pscustomobject]@{ Address=$record.Address; Bytes=(New-Object 'System.Collections.Generic.List[byte]') }
+        }
+        $range.Bytes.AddRange([byte[]]$record.Bytes)
+    }
+    if ($range) { $range }
+}
+
 # Keep planning before discovery and all execution-side effects (spec 4.7).
 function Show-DryRunPlan {
     $ru = $ActiveLang -eq $LangRu
@@ -1725,7 +1793,7 @@ function Show-DryRunPlan {
     }
     Write-Host $p.Title
     Write-Host $p.Limits
-    $operation = if ($Info) { 'info' } elseif ($Backup) { 'backup' } elseif ($Erase) { 'erase' } else { 'flash' }
+    $operation = if ($Verify) { 'verify' } elseif ($Info) { 'info' } elseif ($Backup) { 'backup' } elseif ($Erase) { 'erase' } else { 'flash' }
     Write-Host "   Operation: $operation [CLI/default]"
     $missing = New-Object 'System.Collections.Generic.List[string]'
     $errors = New-Object 'System.Collections.Generic.List[string]'
@@ -1742,6 +1810,7 @@ function Show-DryRunPlan {
             if ([IO.Path]::GetExtension($planHex) -ine '.hex') { throw $p.FileError }
             Write-PlanValue $p.Firmware @{Value=$planHex; Source=$(if ($HexFile) {'CLI'} else {$p.Local})}
             Test-PreviewHex $planHex
+            if ($Verify) { $null = @(Read-VerifyRanges $planHex) }
             Write-Host "   Intel HEX: $($p.Valid)"
             $sidecar = Find-Sha256File $planHex
             if ($Sha256 -and $Sha256 -notmatch '^[a-fA-F0-9]{64}$') { throw $p.HashError }
@@ -1795,7 +1864,8 @@ function Show-DryRunPlan {
         Write-PlanValue $p.Tool @{Value=$(if ($exe) {$exe} else {$p.ToolMissing}); Source=$p.Local}
     }
     if ($Erase) { Write-Host "   $($p.Erase)" }
-    if (-not $NoFirmware) { Write-Host "   $($p.Flash)" }
+    if ($Verify) { Write-Host "   $(T 'VerifyEffects')" }
+    elseif (-not $NoFirmware) { Write-Host "   $($p.Flash)" }
     if ($Backup) {
         Write-Host "   $($p.Read)"
         try {
@@ -1819,6 +1889,7 @@ function Show-DryRunPlan {
     if ($missing.Count) {
         Write-Host "   $($p.Missing): $($missing -join ', ')"
         $example = "flash.cmd -DryRun"
+        if ($Verify) { $example += ' -Command verify' }
         if ($Info) { $example += ' -Info -ProbeTarget' } elseif ($Backup) { $example += ' -Backup' } elseif ($Erase) { $example += ' -Erase' }
         foreach ($known in @(@('-Engine', $eng.Value), @('-Target', $targetPlan.Value), @('-Device', $devicePlan.Value), @('-HexFile', $planHex))) {
             if ($known[1]) { $example += ' ' + $known[0] + ' "' + $known[1] + '"' }
@@ -1932,7 +2003,7 @@ if ($Probe) {
         '^(?i:STLINK|ST-LINK|SWD)$' { $SelectedProbeType = "STLINK"; break }
         '^(?i:JLINK|J-LINK)$'       { $SelectedProbeType = "JLINK"; break }
         default {
-            if ($NoFirmware) { throw (T 'InvalidProbe') }
+            if ($NoFirmware -or $Verify) { throw (T 'InvalidProbe') }
             Write-Warn (T "InvalidProbe")
             $SelectedProbeType = "STLINK"
         }
@@ -1973,6 +2044,7 @@ if ($HexFile) {
         $AutoFlash = $true
         Write-Info "$(T 'Selected')$HexName"
     } else {
+        if ($Verify) { Write-Err "$(T 'InvalidHexFile')$HexFile"; exit 1 }
         Write-Warn "$(T 'InvalidHexFile')$HexFile"
         $HexFile = ""
     }
@@ -2027,6 +2099,11 @@ $PreflightFailed = $false
 $PreflightMessage = ""
 $PreflightLog = ""
 $PreflightDuration = [TimeSpan]::Zero
+$VerifyRanges = @()
+if ($Verify) {
+    try { $VerifyRanges = @(Read-VerifyRanges $TargetHex) }
+    catch { Write-Err $_.Exception.Message; exit 1 }
+}
 
 if (-not $NoFirmware) { try {
     $hashSourceFile = Find-Sha256File $TargetHex
@@ -2050,6 +2127,8 @@ if (-not $NoFirmware) { try {
         }
     }
 
+    if ($Verify -and ($Sha256 -or $hashSourceFile) -and -not $HashCheckPerformed) { throw (T 'IntegrityInvalid') }
+
     if ($HashCheckPerformed) {
         $PreflightTimer = [System.Diagnostics.Stopwatch]::StartNew()
         $HashActual = (Get-FileHash -LiteralPath $TargetHex -Algorithm SHA256).Hash.ToUpperInvariant()
@@ -2071,6 +2150,7 @@ if (-not $NoFirmware) { try {
         }
     }
 } catch {
+    if ($Verify) { Write-Err $_.Exception.Message; exit 1 }
     Write-Warn $_.Exception.Message
 } }
 
@@ -2146,6 +2226,7 @@ if (-not $SelectedEngine) {
         for ($k=0; $k -lt $Opts.Count; $k++) { Write-Host "     [$($k+1)] $($Opts[$k].Label)" }
         $ans = Read-Host "   $(T 'PromptChooseEng')"
         $parsedEngineChoice = 0
+        if ($Verify -and (-not [int]::TryParse($ans, [ref]$parsedEngineChoice) -or $parsedEngineChoice -lt 1 -or $parsedEngineChoice -gt $Opts.Count)) { throw (T 'ErrBadChoice') }
         if (-not [int]::TryParse($ans, [ref]$parsedEngineChoice)) { $parsedEngineChoice = 1 }
         $idx = $parsedEngineChoice - 1
         if ($idx -ge 0 -and $idx -lt $Opts.Count) { $SelectedEngine = $Opts[$idx].Value } else { $SelectedEngine = "OPENOCD" }
@@ -2161,7 +2242,19 @@ $StLinkSerialCfgPath = Join-Path $CurrentDir ".stlink_serial"
 $JLinkSerialCfgPath = Join-Path $CurrentDir ".jlink_serial"
 $ProbeTypeCfgPath = Join-Path $CurrentDir ".probe_type"
 $ProbeInfo = $null
-if ($SavedProbePreference -and -not $Serial -and -not $FreshProbeSelection) {
+if ($Verify) {
+    if (Test-IsJLinkEngine $SelectedEngine) {
+        if ($ProbeSpecified -and $SelectedProbeType -ne 'JLINK') { throw (T 'ModeConflict') }
+        $SelectedProbeType = 'JLINK'
+    }
+    if ($SelectedEngine -eq 'OPENOCD' -and $SelectedProbeType -ne 'STLINK') { throw (T 'ModeConflict') }
+    $ProbeSpecified = $true
+    if (-not $Serial) {
+        $Serial = Get-LaunchSetting $(if ($SelectedProbeType -eq 'JLINK') { $JLinkSerialCfgPath } else { $StLinkSerialCfgPath })
+        if (-not $Serial) { $Serial = Select-UnpinnedProbe $SelectedProbeType }
+    }
+}
+if (-not $Verify -and $SavedProbePreference -and -not $Serial -and -not $FreshProbeSelection) {
     $savedSerialPath = if ($SelectedProbeType -eq 'JLINK') { $JLinkSerialCfgPath } else { $StLinkSerialCfgPath }
     if (-not (Get-LaunchSetting $savedSerialPath)) {
         $Serial = Select-UnpinnedProbe $SelectedProbeType
@@ -2172,6 +2265,7 @@ if ($SavedProbePreference -and -not $Serial -and -not $FreshProbeSelection) {
 if ($Serial) {
     $SelectedProbeSerial = $Serial
     Write-Info "$(T 'ProbeSerial'): $Serial"
+    if ($Verify -and $SelectedProbeType -eq 'STLINK') { Save-LaunchSetting $StLinkSerialCfgPath $Serial }
 }
 if (-not $ProbeSpecified -and (Get-LaunchSetting $ProbeTypeCfgPath)) {
     $SavedProbeType = Get-LaunchSetting $ProbeTypeCfgPath
@@ -2186,7 +2280,7 @@ if ($SelectedProbeType -eq "JLINK") {
         $SelectedProbeSerial = Get-LaunchSetting $JLinkSerialCfgPath
     }
 }
-if (-not (Test-IsJLinkEngine $SelectedEngine) -and $SelectedProbeType -ne "JLINK") {
+if (-not $Verify -and -not (Test-IsJLinkEngine $SelectedEngine) -and $SelectedProbeType -ne "JLINK") {
 $explicitUsbMatch = $false
 if ($Serial -and -not $DryRun -and -not $FreshProbeSelection) {
     $serialInventory = $null
@@ -2315,7 +2409,8 @@ if ($PreflightFailed) {
         }
     }
 
-    if (-not $TargetCfg -and (-not $Serial -or $SelectedProbeInfo)) {
+    if ($Verify -and -not $TargetCfg) { throw (T 'InvalidTarget') }
+    if (-not $Verify -and -not $TargetCfg -and (-not $Serial -or $SelectedProbeInfo)) {
         Write-Info (T "SearchStLinkInfo")
         try {
             if (-not $ProbeInfo) {
@@ -2375,6 +2470,7 @@ if ($PreflightFailed) {
     if ($Erase) {
         $TclCmd = '"init; reset init; set banks [flash list]; if {[llength $banks] == 0} {error {No flash banks}}; set banknum 0; foreach bank $banks {flash erase_sector $banknum 0 last; incr banknum}; echo {FLASH_ERASE_COMPLETE}; shutdown"'
     }
+    if ($Verify) { $TclCmd = '"init; shutdown"' }
     $ExeArgs = @("-s", "`"$OpenOcdScripts`"", "-f", "interface/stlink.cfg")
     if ($SelectedProbeSerial) {
         $ExeArgs += @("-c", "`"$(Get-OpenOcdSerialCommand $SelectedProbeSerial plain)`"")
@@ -2433,7 +2529,7 @@ if ($PreflightFailed) {
         "q"
     )
     if ($Erase) { $scriptLines = @('EoE 1', 'r', 'h', 'erase', 'q') }
-    if ($Backup -or $Info) { $scriptLines = @('EoE 1', 'connect', 'q') }
+    if ($Backup -or $Info -or $Verify) { $scriptLines = @('EoE 1', 'connect', 'q') }
     if (-not $DryRun) { Set-Content -LiteralPath $JLinkScript -Value ($scriptLines -join "`r`n") -Encoding ASCII }
 
     $ExePath = $JLinkExe
@@ -2462,7 +2558,8 @@ if ($PreflightFailed) {
         $ExeArgs = @('-c', $ConnectionArgs, '-e', 'all')
         $RetryArgsWithoutSerial = @('-c', "port=$ConnectionPort", '-e', 'all')
     }
-    if ($SelectedProbeType -ne "JLINK" -and -not $NoFirmware) {
+    if ($Verify) { $ExeArgs = @('-c', $ConnectionArgs); $RetryArgsWithoutSerial = @() }
+    if ($SelectedProbeType -ne "JLINK" -and -not $NoFirmware -and -not $Verify) {
         $ExeArgs += "-rst"
         $RetryArgsWithoutSerial += "-rst"
     }
@@ -2472,6 +2569,50 @@ $BackupSaved = $false
 $ReadOperationHandled = $false
 $BackupOutput = ''
 $BackupRangeLabel = ''
+$VerifyPassed = $false
+if ($Verify -and -not $PreflightFailed) {
+    $ReadOperationHandled = $true
+    Write-Info (T 'VerifyEffects')
+    $verifyTimer = [Diagnostics.Stopwatch]::StartNew()
+    $LogContent = ''
+    $readKey = if ($SelectedEngine -eq 'OPENOCD') { 'OPENOCD' } elseif (Test-IsJLinkEngine $SelectedEngine) { 'JLINK' } else { 'CUBEPROGRAMMER' }
+    $binaryPath = Join-Path $CurrentDir ('.flash_read_' + [guid]::NewGuid().ToString('N') + '.bin')
+    try {
+        if ($readKey -eq 'OPENOCD' -and $binaryPath -match '[{}\r\n"]') { throw 'OpenOCD: unsupported characters in working directory' }
+        foreach ($range in $VerifyRanges) {
+            if (Test-Path -LiteralPath $binaryPath) { Remove-Item -LiteralPath $binaryPath -ErrorAction Stop }
+            $readArgs = @($ExeArgs)
+            switch ($readKey) {
+                'JLINK' {
+                    $lines = @('EoE 1', 'connect', 'h', ('savebin "{0}" 0x{1:X8} 0x{2:X}' -f $binaryPath, $range.Address, $range.Bytes.Count), 'q')
+                    Set-Content -LiteralPath $JLinkScript -Value ($lines -join "`r`n") -Encoding ASCII
+                }
+                'OPENOCD' {
+                    $readArgs[-1] = '"init; halt; dump_image {{{0}}} 0x{1:X8} {2}; echo {{FLASH_BACKUP_COMPLETE}}; shutdown"' -f ($binaryPath -replace '\\', '/'), $range.Address, $range.Bytes.Count
+                }
+                default { $readArgs = @('-c', $ConnectionArgs, '-u', ('0x{0:X8}' -f $range.Address), "$($range.Bytes.Count)", "`"$binaryPath`"") }
+            }
+            $result = Invoke-ReadTool $ExePath $readArgs
+            $LogContent += "`n" + $result.Log
+            if ($result.ExitCode -ne 0 -or -not (Test-BackupReadLog $readKey $result.Log) -or -not (Test-Path -LiteralPath $binaryPath) -or (Get-Item -LiteralPath $binaryPath).Length -ne $range.Bytes.Count) { throw (T 'BackupFailed') }
+            $actual = [IO.File]::ReadAllBytes($binaryPath)
+            for ($i = 0; $i -lt $actual.Length; $i++) {
+                if ($actual[$i] -ne $range.Bytes[$i]) { throw ((T 'VerifyMismatch') -f ($range.Address + $i)) }
+            }
+        }
+        $VerifyPassed = $true
+        $process = [pscustomobject]@{ ExitCode=0 }
+        $LogContent += "`n$(T 'VerifySuccess')"
+    } catch {
+        $LogContent += "`n" + $_.Exception.Message
+        Write-Err $_.Exception.Message
+        $process = [pscustomobject]@{ ExitCode=1 }
+    } finally {
+        $verifyTimer.Stop()
+        Remove-Item -LiteralPath $binaryPath -ErrorAction SilentlyContinue
+    }
+    $OperationDuration = $verifyTimer.Elapsed.ToString('hh\:mm\:ss\.fff')
+}
 if ($Backup -or ($Info -and $ProbeTarget)) {
     $ReadOperationHandled = $true
     $readTimer = [Diagnostics.Stopwatch]::StartNew()
@@ -2756,6 +2897,7 @@ if ($Erase) {
     $Success = $ExitOk -and $IsErased
 }
 if ($Backup) { $Success = $ExitOk -and $BackupSaved }
+if ($Verify) { $IsVerified = $VerifyPassed; $Success = $IntegrityGateOk -and $ExitOk -and $VerifyPassed }
 
 if ($Success) {
     Write-Ok (T "OkSuccess")
@@ -2859,7 +3001,10 @@ $HistoryIndexRelative = ".history/index.html"
 $HistoryIndexLink = "<a href='$HistoryIndexRelative'>$(T 'HistoryTitle')</a>"
 if ($Erase) { $ProjectTitle = T 'EraseName'; $HexNameEsc = ''; $IntegrityRow = '' }
 if ($Backup) { $ProjectTitle = T 'BackupName'; $HexNameEsc = Escape-Html ([IO.Path]::GetFileName($BackupOutput)); $IntegrityRow = '' }
-$OperationRows = if ($Erase) {
+if ($Verify) { $ProjectTitle = T 'VerifyName' }
+$OperationRows = if ($Verify) {
+    Status-Row (T 'Verification') $VerifyPassed (T 'VerPassed') (T 'VerFailed')
+} elseif ($Erase) {
     Status-Row (T 'EraseName') $IsErased (T 'Yes') (T 'No')
 } elseif ($Backup) {
     (Status-Row (T 'BackupName') $BackupSaved (T 'Yes') (T 'No')) +
@@ -2973,7 +3118,7 @@ $HistoryEntry = [ordered]@{
     TimestampLocal = $NowLocal.ToString('yyyy-MM-dd HH:mm:ss zzz')
     TimestampUtc = $NowUtc.ToString('o')
     Success = $Success
-    Operation = if ($Erase) { 'erase' } elseif ($Backup) { 'backup' } else { 'flash' }
+    Operation = if ($Verify) { 'verify' } elseif ($Erase) { 'erase' } elseif ($Backup) { 'backup' } else { 'flash' }
     BackupFile = $BackupOutput
     BackupRange = $BackupRangeLabel
     ResultText = if ($Success) { T 'SuccessMsg' } else { T 'ErrorMsg' }

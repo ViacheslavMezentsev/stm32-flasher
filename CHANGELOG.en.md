@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- `verify.cmd` / `flash.cmd -Command verify`: read Intel HEX ranges and compare bytes on the PC using CubeProgrammer, OpenOCD or J-Link. No programming, erasing, reset or automatic resume commands; the core may remain halted. Gaps are not read. Reports and history identify the operation as verify.
+- Validate HEX, overlaps, address bounds and SHA-256 before MCU access; read failures and mismatches return 1. Add CMD tests with stub executables, RU/EN help, DryRun and wrapper packaging. Hardware verification testing is still pending.
+- The existing 19 suites passed in PS5.1/7; after test-harness fixes, the new Test-Verify passed separately (72 cases per version). CI after push is still pending.
+
 ### Changed
 - Consolidate settings in `.flash.json`, schema version 1. Operational runs or confirmed setup migrate legacy files; JSON takes precedence. Writes use a temporary file and atomic replacement, followed by legacy cleanup after JSON validation.
 - Info/DryRun never migrate; help/version never read settings. Invalid JSON fails before discovery; explicit ResetConfig/forget clears both formats. Add migration, write/deletion failure, RU/EN and argument-priority tests; include the format guide in release ZIPs.

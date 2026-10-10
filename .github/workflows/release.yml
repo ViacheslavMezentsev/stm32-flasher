@@ -67,6 +67,7 @@ jobs:
             'backup.cmd',
             'info.cmd',
             'setup.cmd',
+            'verify.cmd',
             'README.md',
             'LICENSE',
             'CHANGELOG.md',

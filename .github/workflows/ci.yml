@@ -28,6 +28,7 @@ jobs:
             'bin/backup.cmd',
             'bin/info.cmd',
             'bin/setup.cmd',
+            'bin/verify.cmd',
             'README.md',
             'LICENSE',
             'CHANGELOG.md',

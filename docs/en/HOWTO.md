@@ -3,6 +3,19 @@
 [Русский](../ru/HOWTO.md). PowerShell examples start at the clone root unless noted.
 Examples do not authorize an agent to push or operate hardware.
 
+## Compare MCU memory
+
+In the firmware directory: `verify.cmd -DryRun`, then `verify.cmd` to read and compare.
+Equivalent: `flash.cmd -Command verify -HexFile firmware.hex`.
+Use `./verify.cmd` in PowerShell. In CMD, do not shorten it to `verify`:
+that is a built-in disk-write verification command, not this tool.
+Specify `-HexFile` when several images exist. Engine/probe settings come from
+`.flash.json`; explicit options take precedence. OpenOCD requires a saved target
+or `-Target target/stm32f1x.cfg`; J-Link requires a device.
+The core may remain halted. There is no implicit programming, erase, reset or resume.
+Only HEX data bytes are compared, not the entire Flash. Board-specific behavior
+still needs hardware validation; halting a power-control device may also be unsafe.
+
 ## Localization checks
 
 Test the no-argument entry separately with
