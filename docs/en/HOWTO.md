@@ -5,6 +5,13 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Localization checks
 
+Test the no-argument entry separately with
+`pwsh -NoProfile -File tests/Test-FlashEntry.ps1` (or Windows PowerShell).
+It runs real CMD/EXE processes with stubs for three engines, without MCU access.
+Do not substitute a call with `-Lang` or `-HexFile`: nonempty arguments concealed
+issue #1 in 0.2.10–0.2.11. Version 0.2.12 fixes it; replace flash.cmd without
+clearing project settings.
+
 Without hardware: `pwsh -NoProfile -File tests/Test-Localization.ps1`.
 For Windows PowerShell, run `powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Localization.ps1`.
 This checks the main dictionaries, placeholder indices and literal T keys;

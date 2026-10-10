@@ -59,6 +59,13 @@ fast-forward рабочей ветки, `git push --atomic origin main :<branch>
 
 ## Автоматические проверки
 
+Основной запуск без аргументов проверяется отдельно:
+`pwsh -NoProfile -File tests/Test-FlashEntry.ps1` (либо Windows PowerShell).
+Набор запускает настоящие CMD/EXE-процессы с заглушками трёх движков, без MCU.
+Не заменяйте этот сценарий вызовом с `-Lang` или `-HexFile`: непустые аргументы
+скрывали регрессию issue #1 в 0.2.10–0.2.11. Исправление поставляется в 0.2.12;
+для обновления замените flash.cmd, сохранив настройки проекта.
+
 Локализация без оборудования: `pwsh -NoProfile -File tests/Test-Localization.ps1`.
 Для Windows PowerShell используйте `powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Localization.ps1`.
 Проверяются основные словари,

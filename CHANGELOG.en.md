@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-10-10
+
+### Fixed
+- The owner confirmed no-argument startup with a single HEX: CubeProgrammer/ST-Link programming and verification succeeded (3.584 s).
+- Fix silent exit when running `flash.cmd` without arguments (issue #1). In 0.2.10–0.2.11, CMD quote substitution on empty FLASH_ARGS corrupted the PowerShell invocation; 0.2.9 was unaffected. Escape quotes only when arguments are present.
+- Add Test-FlashEntry with real CMD launches and stub executables for CubeProgrammer, OpenOCD and J-Link. Cover a single HEX without arguments, fresh/saved configuration, explicit paths, no HEX, invalid multiple-HEX selection, tool failures, missing verification markers and SHA-256 mismatch. Reports and history are checked after a real child process; no MCU is used.
+
 ### Documentation
 - Record the 0.2.11 release, successful CI for all 16 suites in PS5.1/7 and Release in TODO. Independent verification of the downloaded ZIP remains pending due to an environment network error. Propose a tagged-commit CI gate before asset building; workflow behavior is unchanged.
 

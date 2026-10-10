@@ -2,6 +2,17 @@
 
 ## Текущее состояние
 
+- Срочное исправление issue #1 в `codex/no-args-hotfix`, подготовка 0.2.12.
+  Сравнение с 0.2.9 подтвердило регрессию CMD в 0.2.10–0.2.11 (`6867e44`):
+  пустая FLASH_ARGS портила запуск. Правка ограничена обработкой аргументов.
+  Новый Test-FlashEntry воспроизвёл ошибку до исправления и прошёл 14 сценариев
+  с EXE-заглушками CubeProgrammer/OpenOCD/J-Link в PS7 после исправления.
+  Все 17 наборов прошли в PS5.1/7 10.10.2026; ТЗ strict без замечаний.
+  Локальный ZIP проверен: 15 файлов совпали с исходниками, SHA-256,
+  24 вызова help/version и неизменённый CMD без аргументов в папке без HEX.
+  Агент не выполнял операций с MCU. Владелец подтвердил исходный запуск без
+  аргументов: единственный HEX, CubeProgrammer/ST-Link, успешные запись и проверка,
+  длительность 3.584 с. Публикация не выполнена.
 - Опубликован [v0.2.11](https://github.com/ViacheslavMezentsev/stm32-flasher/releases/tag/v0.2.11),
   коммит `2277d45`. CI рабочей ветки, main и тега успешен, включая 16 наборов
   в Windows PowerShell 5.1 и PowerShell 7. Release завершился успешно;
@@ -55,6 +66,12 @@
 
 ## Ближайшие шаги
 
+- [x] Завершить 17 наборов PS5.1/7 и ТЗ strict для 0.2.12.
+- [x] Проверить локальный пакет 0.2.12.
+- [x] Подтвердить исходный сценарий владельцем перед публикацией (CubeProgrammer/ST-Link).
+- [ ] Подписанный коммит исправления; push, успешный CI, land и CI main.
+- [ ] Выпустить новый тег v0.2.12, не менять опубликованные теги; проверить Release.
+- [ ] После подтверждения результата закрыть issue #1 владельцем.
 - [x] Проверить 0.2.11 в PS5.1/7, ТЗ strict и состав релизного ZIP.
 - [x] Коммит подготовки 0.2.11 (`2277d45`); push владельцем, успешный CI, land и CI main.
 - [x] Владелец опубликовал v0.2.11; Release успешен, ZIP/SHA-256 присутствуют.
@@ -138,6 +155,20 @@
 - Связать публикацию релиза с успешным CI; пока release workflow независим.
 
 ## English
+
+Urgent issue #1 fix on `codex/no-args-hotfix`, preparing 0.2.12. Comparison with
+0.2.9 confirmed a CMD regression introduced in 6867e44, affecting 0.2.10–0.2.11:
+empty FLASH_ARGS corrupted startup. The fix is limited to argument handling.
+New Test-FlashEntry failed before the fix and passed 14 PS7 scenarios with stub
+executables for CubeProgrammer/OpenOCD/J-Link afterward. All 17 suites passed
+in PS5.1/7 on 2026-10-10; strict specification validation is clean. Local package:
+15 source-identical files, SHA-256, 24 help/version calls and unmodified no-argument
+CMD startup without HEX all passed. The owner confirmed no-argument startup with
+one HEX and CubeProgrammer/ST-Link: programming and verification succeeded in
+3.584 s. The agent performed no MCU operations; not published.
+Next: signed commit, owner
+push, successful CI, land, main CI and v0.2.12 publication; do not move old tags.
+The owner closes issue #1 after confirming the result. The release CI gate is deferred.
 
 Published v0.2.11 from 2277d45. Branch, main and tag CI succeeded, including all
 16 suites in Windows PowerShell 5.1 and PowerShell 7. Release succeeded; the ZIP

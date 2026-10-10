@@ -17,16 +17,19 @@ shift
 goto scan_reference_args
 :launch
 
+REM Substitution on an undefined CMD variable leaves literal text instead of empty arguments.
+if defined FLASH_ARGS set "FLASH_ARGS=%FLASH_ARGS:"=\"%"
+
 REM Launch PowerShell with UTF-8 encoded script text
 where pwsh >nul 2>nul
 if errorlevel 1 goto use_ps5
 
 :use_pwsh
-pwsh -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %FLASH_ARGS:"=\"%
+pwsh -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %FLASH_ARGS%
 exit /b %errorlevel%
 
 :use_ps5
-powershell -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %FLASH_ARGS:"=\"%
+powershell -NoProfile -ExecutionPolicy Bypass -Command ". ([ScriptBlock]::Create((Get-Content -Raw -Encoding UTF8 -LiteralPath $env:SCRIPT_PATH)))" %FLASH_ARGS%
 
 :end
 exit /b %errorlevel%
@@ -62,7 +65,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "0.2.11"
+$VERSION = "0.2.12"
 
 # Informational requests must exit before settings, discovery or any operation.
 $referenceArgs = @($Input) + @($args)
