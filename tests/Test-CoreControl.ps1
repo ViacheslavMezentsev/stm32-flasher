@@ -14,6 +14,15 @@ foreach ($failure in @('Error: unable to reset', 'Info : Unable to match request
     Assert (-not (Test-CoreControlLog 'OPENOCD' 'reset' "$speedInfo`n$failure`nFLASH_CORE_STATE running")) 'Real errors must not be filtered'
 }
 Assert (-not (Test-CoreControlLog 'OPENOCD' 'reset' $speedInfo)) 'Speed fallback alone is not success'
+$jlinkPolicy = 'J-Link Commander will now exit on Error'
+$jlinkHalt = "J-Link>IsHalted`r`nCPU is halted (PC = 0x08001234)."
+Assert (Test-CoreControlLog 'JLINK' 'halt' $jlinkHalt) 'J-Link halted state may include PC'
+Assert (Test-CoreControlLog 'JLINK' 'halt' "$jlinkPolicy`n$jlinkHalt") 'J-Link EoE acknowledgement is not a failure'
+Assert (Test-CoreControlLog 'JLINK' 'reset' "$jlinkPolicy`nJ-Link>IsHalted`nCPU is not halted.") 'J-Link running state with EoE'
+foreach ($failure in @('****** Error: CPU is not halted', 'Error: cannot connect', "$jlinkPolicy ERROR")) {
+    Assert (-not (Test-CoreControlLog 'JLINK' 'go' "$jlinkPolicy`n$failure`nJ-Link>IsHalted`nCPU is not halted.")) 'J-Link real errors must remain failures'
+}
+Assert (-not (Test-CoreControlLog 'JLINK' 'halt' "$jlinkPolicy`nCPU is halted (PC = 0x08001234).")) 'Unscoped state is not confirmation'
 $helper = @'
 using System;
 using System.IO;
@@ -42,8 +51,8 @@ public static class Tool {
         if (mode == "error") { Console.WriteLine("Error: command failed"); return 7; }
         if (mode == "stale") { Console.WriteLine("No probe found for serial"); return 1; }
         if (mode == "wrong-state") state = command == "halt" ? "running" : "halted";
-        if (kind == "jlink") { Console.WriteLine("CPU is halted."); Console.WriteLine("J-Link>IsHalted"); }
-        if (mode != "no-state") Console.WriteLine((kind == "jlink" ? "CPU is " : kind == "cube" ? "Core is " : "FLASH_CORE_STATE ") + (kind == "jlink" && state == "running" ? "not halted" : state));
+        if (kind == "jlink") { Console.WriteLine("J-Link Commander will now exit on Error"); Console.WriteLine("CPU is halted."); Console.WriteLine("J-Link>IsHalted"); }
+        if (mode != "no-state") Console.WriteLine((kind == "jlink" ? "CPU is " : kind == "cube" ? "Core is " : "FLASH_CORE_STATE ") + (kind == "jlink" ? (state == "running" ? "not halted." : "halted (PC = 0x08001234).") : state));
         if (mode == "log-error") Console.WriteLine("Error: operation failed despite state response");
         return 0;
     }

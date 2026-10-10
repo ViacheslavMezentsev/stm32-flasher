@@ -31,6 +31,11 @@ still needs hardware validation; halting a power-control device may also be unsa
 
 ## Core control
 
+J-Link may return `Error: CPU is not halted` for a separate go if the core is
+already running. Do not automatically replace go with reset: its effect differs.
+IsHalted describes the state at query time, not a guaranteed halt between
+Commander sessions. The J-Link speed is currently fixed at 4000 kHz.
+
 Start with `halt.cmd -DryRun` in the project directory. Actual operations:
 `halt.cmd` halts the core, `go.cmd` resumes without reset, and `reset.cmd`
 resets the MCU and runs. Reset does not clear configuration.

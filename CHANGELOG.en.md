@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Hardware Follow-Up
+- Tested halt/reset on AT32F403ACGU7 with SEGGER V8.32 at the default 4000 kHz, without Flash writes/erase. Fixed false failures parsing the EoE acknowledgement (`will now exit on Error`) and IsHalted with a PC address. Stubs now include real output formats; actual errors still fail. Separate go found an already running core and failed; check was not run without HEX. This is neither AT32 flashing support nor STM32/J-Link acceptance.
 - The owner's logs confirm JSON setup: saving OpenOCD, loading through info, cancellation with unchanged SHA-256, switching to CubeProgrammer with openocdTarget cleared, and returning to OpenOCD with an explicit target (exit 0, JSON and info). The agent performed no MCU operations for this check.
 - The owner subsequently confirmed OpenOCD check on STM32G474RE/ST-Link with target/stm32g4x.cfg (3.655 s) and separate go using the saved target (1.694 s). Console output confirms matching HEX ranges and the expected core state after go. The new J-Link commands and hardware check failure cases remain untested.
 - The owner confirmed normal CubeProgrammer flashing (3.514 s) followed by check (1.089 s) on STM32G474RE/ST-Link: MCU bytes matched the HEX ranges. Evidence is the supplied console output, not an agent rerun; whole-Flash contents, post-check core state and hardware failure cases were not verified. OpenOCD check and the new J-Link commands still await hardware validation.

@@ -1666,6 +1666,10 @@ function Test-CoreControlSupport($engine, $probeType, $operation) {
 }
 
 function Test-CoreControlLog($engine, $operation, [string]$log) {
+    if ($engine -eq 'JLINK') {
+        # EoE acknowledges the error policy; it does not report an operation error.
+        $log = [regex]::Replace($log, '(?im)^[\t ]*J-Link Commander will now exit on Error[\t ]*\r?$', '')
+    }
     if ($engine -eq 'OPENOCD') {
         # A supported lower adapter speed does not invalidate the core state.
         $log = [regex]::Replace($log, '(?im)^[\t ]*Info[\t ]*:[\t ]*Unable to match requested speed [0-9]+ kHz, using [0-9]+ kHz[\t ]*\r?$', '')
@@ -1674,7 +1678,7 @@ function Test-CoreControlLog($engine, $operation, [string]$log) {
     $expected = if ($operation -eq 'halt') { 'halted' } else { 'running' }
     $pattern = switch ($engine) {
         'OPENOCD' { '(?im)^\s*FLASH_CORE_STATE\s+(halted|running|reset|unknown)\s*$' }
-        'JLINK' { '(?im)^\s*J-Link>\s*IsHalted\s*\r?\n\s*CPU is (halted|not halted)\.?\s*$' }
+        'JLINK' { '(?im)^\s*J-Link>\s*IsHalted\s*\r?\n\s*CPU is (halted|not halted)(?:[\t ]+\(PC = 0x[0-9a-f]+\))?\.?[\t ]*\r?$' }
         default { '(?im)^\s*Core is (halted|running|locked up|reset|kept under reset)\.?\s*$' }
     }
     $states = [regex]::Matches($log, $pattern)
