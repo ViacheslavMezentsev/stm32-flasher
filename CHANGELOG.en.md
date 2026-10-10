@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Hardware Follow-Up
+- Fixed a false OpenOCD core-control failure on the informational adapter speed fallback message. Only the exact informational line is excluded; real errors, missing state and nonzero exit still fail. OpenOCD halt/go/reset and CubeProgrammer halt/reset were tested on STM32G474RE/ST-Link without Flash writes. State after disconnect is not guaranteed; J-Link and hardware check remain untested.
+
 ### Added
 
 - `halt.cmd`, `go.cmd`, `reset.cmd`: thin `flash.cmd -Command` wrappers sharing settings, probe selection, directory locking, reports and history. No HEX required, Flash programming/erasing or configuration cleanup.

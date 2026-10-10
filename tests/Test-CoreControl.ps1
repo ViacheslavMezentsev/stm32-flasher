@@ -4,6 +4,16 @@ $repo = Split-Path -Parent $PSScriptRoot
 $root = Join-Path $PSScriptRoot ('.tmp-core-' + [guid]::NewGuid().ToString('N'))
 $oldRoot = $env:FLASH_CORE_ROOT; $oldMode = $env:FLASH_CORE_MODE; $oldCommand = $env:FLASH_CORE_COMMAND
 function Assert($ok, $message) { if (-not $ok) { throw $message } }
+$sourceText = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
+$parserStart = $sourceText.IndexOf('function Test-CoreControlLog(')
+$parserEnd = $sourceText.IndexOf('function Invoke-ReadTool(', $parserStart)
+Invoke-Expression $sourceText.Substring($parserStart, $parserEnd - $parserStart)
+$speedInfo = 'Info : Unable to match requested speed 2000 kHz, using 1800 kHz'
+Assert (Test-CoreControlLog 'OPENOCD' 'reset' "$speedInfo`nFLASH_CORE_STATE running") 'OpenOCD speed fallback is not an operation failure'
+foreach ($failure in @('Error: unable to reset', 'Info : Unable to match requested speed 2000 kHz', "$speedInfo ERROR", 'Info : Unable to read memory')) {
+    Assert (-not (Test-CoreControlLog 'OPENOCD' 'reset' "$speedInfo`n$failure`nFLASH_CORE_STATE running")) 'Real errors must not be filtered'
+}
+Assert (-not (Test-CoreControlLog 'OPENOCD' 'reset' $speedInfo)) 'Speed fallback alone is not success'
 $helper = @'
 using System;
 using System.IO;

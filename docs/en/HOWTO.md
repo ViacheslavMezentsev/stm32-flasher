@@ -33,6 +33,12 @@ time of the check, not application health. Peripherals/watchdogs may keep runnin
 while halted. Even halting a power-control board may be unsafe; agree on a safe
 hardware test setup first.
 
+OpenOCD may report an adapter speed fallback (`Unable to match requested speed
+... using ...`); this informational line alone is not a failure.
+The core may change state after the tool disconnects. If a separate go returns
+`target not halted`, do not automatically retry with reset: that restarts the
+application instead of continuing its previous PC. Assess board state and safety first.
+
 ## Localization checks
 
 Test the no-argument entry separately with

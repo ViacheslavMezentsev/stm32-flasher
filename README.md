@@ -36,7 +36,8 @@
 В CMD можно вызвать `check`, в PowerShell — `./check.cmd`.
 Управление ядром не требует HEX: OpenOCD/ST-Link и SEGGER/J-Link поддерживают
 все три команды; CubeProgrammer/ST-Link — только halt/reset. Неподдерживаемое
-сочетание отклоняется без смены движка. Аппаратные проверки новых команд ещё не выполнены.
+сочетание отклоняется без смены движка. На STM32G474RE/ST-Link проверены команды
+OpenOCD и halt/reset CubeProgrammer; J-Link и аппаратный check пока не проверены.
 
 ### Быстрый старт
 
@@ -94,7 +95,8 @@ Backup/erase prompt when multiple probes are connected. `info.cmd -ProbeTarget` 
 Use `check` in CMD or `./check.cmd` in PowerShell.
 Core control needs no HEX: OpenOCD/ST-Link and SEGGER/J-Link support all three
 commands; CubeProgrammer/ST-Link supports halt/reset only. Unsupported combinations
-fail without switching engines. Hardware validation of the new commands is pending.
+fail without switching engines. OpenOCD controls and CubeProgrammer halt/reset were
+tested on STM32G474RE/ST-Link; J-Link and hardware check validation remain pending.
 
 All commands accept `--help` (`-Help`, `-h`) and `--version` (`-Version`): information only, without executing operations. Language: `-Lang ru` / `-Lang en`.
 

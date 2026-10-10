@@ -1666,6 +1666,10 @@ function Test-CoreControlSupport($engine, $probeType, $operation) {
 }
 
 function Test-CoreControlLog($engine, $operation, [string]$log) {
+    if ($engine -eq 'OPENOCD') {
+        # A supported lower adapter speed does not invalidate the core state.
+        $log = [regex]::Replace($log, '(?im)^[\t ]*Info[\t ]*:[\t ]*Unable to match requested speed [0-9]+ kHz, using [0-9]+ kHz[\t ]*\r?$', '')
+    }
     if ($log -match '(?im)\b(error|failed|failure|cannot|unable|unknown command)\b') { return $false }
     $expected = if ($operation -eq 'halt') { 'halted' } else { 'running' }
     $pattern = switch ($engine) {
