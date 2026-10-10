@@ -38,7 +38,8 @@
 все три команды; CubeProgrammer/ST-Link — только halt/reset. Неподдерживаемое
 сочетание отклоняется без смены движка. На STM32G474RE/ST-Link проверены команды
 OpenOCD и halt/reset CubeProgrammer. Владелец также подтвердил check через
-CubeProgrammer; check через OpenOCD и новые команды через J-Link ещё требуют проверки.
+CubeProgrammer и OpenOCD, включая последующий go с сохранённым target.
+Новые команды через J-Link ещё требуют аппаратной проверки.
 
 ### Быстрый старт
 
@@ -98,7 +99,8 @@ Core control needs no HEX: OpenOCD/ST-Link and SEGGER/J-Link support all three
 commands; CubeProgrammer/ST-Link supports halt/reset only. Unsupported combinations
 fail without switching engines. OpenOCD controls and CubeProgrammer halt/reset were
 tested on STM32G474RE/ST-Link. The owner also confirmed check through CubeProgrammer;
-OpenOCD check and the new commands through J-Link still require hardware validation.
+OpenOCD check and subsequent go using the saved target were also confirmed by the owner.
+The new commands through J-Link still require hardware validation.
 
 All commands accept `--help` (`-Help`, `-h`) and `--version` (`-Version`): information only, without executing operations. Language: `-Lang ru` / `-Lang en`.
 

@@ -3,6 +3,19 @@
 [Русский](../ru/HOWTO.md). PowerShell examples start at the clone root unless noted.
 Examples do not authorize an agent to push or operate hardware.
 
+## Manual JSON setup check
+
+For manual JSON setup testing, use a new empty directory and invoke setup/info
+by their full paths in `bin`. Select OpenOCD, a specific ST-Link and the board's
+target, then confirm with `y`. Inspect JSON and info and record the JSON SHA-256.
+Select CubeProgrammer in setup but cancel with Enter at the final confirmation:
+the hash must remain unchanged. Repeat and confirm: engine must change and
+openocdTarget must be cleared. Return to OpenOCD with an explicit target.
+Check the exit code immediately after each call. Setup enumerates USB probes
+without connecting to the MCU; do not flash for this test. The owner confirmed
+OpenOCD saving, info, cancellation by SHA-256 and switching to CubeProgrammer;
+switching back to OpenOCD with a target was also confirmed (exit 0 and info reload).
+
 ## Compare MCU memory
 
 In the firmware directory: `check.cmd -DryRun`, then `check.cmd` to read and compare.
