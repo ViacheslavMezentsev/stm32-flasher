@@ -3,7 +3,9 @@
 ## [Unreleased]
 
 ### Hardware Follow-Up
-- Fixed a false OpenOCD core-control failure on the informational adapter speed fallback message. Only the exact informational line is excluded; real errors, missing state and nonzero exit still fail. OpenOCD halt/go/reset and CubeProgrammer halt/reset were tested on STM32G474RE/ST-Link without Flash writes. State after disconnect is not guaranteed; J-Link and hardware check remain untested.
+- The owner confirmed normal CubeProgrammer flashing (3.514 s) followed by check (1.089 s) on STM32G474RE/ST-Link: MCU bytes matched the HEX ranges. Evidence is the supplied console output, not an agent rerun; whole-Flash contents, post-check core state and hardware failure cases were not verified. OpenOCD check and the new J-Link commands still await hardware validation.
+- The OpenOCD speed parsing fix is merged into main (ea7e045); branch and main CI passed.
+- Fixed a false OpenOCD core-control failure on the informational adapter speed fallback message. Only the exact informational line is excluded; real errors, missing state and nonzero exit still fail. OpenOCD halt/go/reset and CubeProgrammer halt/reset were tested on STM32G474RE/ST-Link without Flash writes. State after disconnect is not guaranteed; new J-Link commands remain untested on hardware.
 
 ### Added
 
@@ -13,7 +15,7 @@
 - After adding core control, all 21 suites passed locally in PS5.1/7, including 120 new scenarios, help, locking, localization and packaging. Branch CI is pending push.
 - The new comparison command is named `check` to avoid the CMD built-in `verify`. The experimental `-Command verify` is no longer accepted; existing history is unchanged.
 - `check.cmd` / `flash.cmd -Command check`: read Intel HEX ranges and compare bytes on the PC using CubeProgrammer, OpenOCD or J-Link. No programming, erasing, reset or automatic resume commands; the core may remain halted. Gaps are not read. Reports and history identify the operation as check.
-- Validate HEX, overlaps, address bounds and SHA-256 before MCU access; read failures and mismatches return 1. Add CMD tests with stub executables, RU/EN help, DryRun and wrapper packaging. Hardware verification testing is still pending.
+- Validate HEX, overlaps, address bounds and SHA-256 before MCU access; read failures and mismatches return 1. Add CMD tests with stub executables, RU/EN help, DryRun and wrapper packaging. Hardware check coverage is described above.
 - The existing 19 suites passed in PS5.1/7; after test-harness fixes, the new Test-Verify passed separately (72 cases per version). CI after push is still pending.
 
 ### Changed
