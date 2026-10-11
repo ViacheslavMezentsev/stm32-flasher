@@ -2,7 +2,7 @@
 
 [Русский](../ru/maintenance.md)
 
-1. Read [AGENTS](../../AGENTS.md), [README](../../README.md), [TODO](../../TODO.md)
+1. Read [AGENTS](../../AGENTS.md), [README](../../README.en.md), [TODO](../../TODO.md)
    and both Unreleased changelogs. Consult the Russian specification and user guide.
 2. Inspect the branch and dirty files. New work uses `<agent>/<task>` from updated
    main (`codex/`, `claude/`, `gemini/`, `dev/`, etc.). Preserve existing work.
@@ -24,6 +24,12 @@ At each stage completion, report the verified current branch and the next Git
 commands. Keep push separate from land, which follows successful CI.
 
 ## Layout and documentation
+
+Architecture contract: one standalone `bin/flash.cmd`, thin CMD wrappers and no
+required external implementation files. Support Windows PowerShell 5.1/7 and RU/EN.
+Shared and local checks: [ci](../../ci/README.en.md). Changelogs use only
+Added/Changed/Fixed; omit empty categories and append a short release summary
+to the version/date heading. READMEs are README.md (RU) and README.en.md (EN).
 
 Root: README, changelogs, LICENSE, AGENTS, TODO and Git configuration.
 `bin` holds standalone `flash.cmd` and thin CMD wrappers. The release ZIP keeps

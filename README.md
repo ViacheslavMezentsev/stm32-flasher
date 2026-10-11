@@ -1,148 +1,83 @@
 # stm32-flasher
 
-[English version below](#english)
+**Русский** | [English](README.en.md)
 
----
+Переносимый набор команд для STM32 через ST-Link и J-Link. Вся логика находится
+в самодостаточном `flash.cmd`, остальные CMD служат короткими псевдонимами.
+Windows 10/11, Windows PowerShell 5.1 или PowerShell 7; нужны драйверы отладчика.
 
-## Русский
+Текущее дерево готовится к **0.3.0**. Версия скрипта пока **0.2.12**;
+новые команды ниже не входят в опубликованный архив 0.2.12.
 
-Утилита для прошивки STM32 через ST-Link или J-Link. Один файл, минимум подготовки, отчёт по результату.
+## Быстрый старт
 
-**Поддерживаемые движки:** OpenOCD (установленный или скачивается автоматически), STM32CubeProgrammer (если установлен), SEGGER J-Link Commander (если установлен).
-Поддерживается выбор конкретного ST-Link или J-Link, если к ПК подключено несколько программаторов.
-Поддерживается предварительная проверка SHA-256 для `*.hex` перед прошивкой.
-Поддерживается локальная история последних сессий прошивки в `.history\`.
-Рабочие операции в одной папке защищены от одновременного запуска. Справка, DryRun и обычный info остаются доступны; подробные границы — в [инструкции](docs/user-guide.md).
+Скопируйте все CMD из `bin` репозитория (или корня релизного ZIP) в папку
+с прошивкой. Команды ниже для CMD; в PowerShell добавьте `./` перед именем.
 
-Версия **0.2.12**. Необязательные команды-обёртки держите рядом с `flash.cmd`:
+```bat
+info.cmd
+setup.cmd
+flash.cmd
+```
 
-Все команды поддерживают `--help` (`-Help`, `-h`) и `--version` (`-Version`): только справка или версия, без выполнения операций. Язык: `-Lang ru` / `-Lang en`.
+`info` показывает окружение и USB-программаторы без подключения к MCU.
+`setup` меняет движок и отладчик после подтверждения, не прошивая плату.
+`flash` сразу прошивает единственный HEX; при нескольких предлагает выбор.
+HEX можно передать аргументом или перетащить на `flash.cmd`.
+При нескольких отладчиках без сохранённого выбора появляется меню.
 
-`-DryRun` показывает план без запуска утилит, опроса USB/MCU, сети и изменения файлов. Проверяет локальный Intel HEX и SHA-256 при наличии; не проверяет совместимость с платой. Код `0` означает готовность плана, `1` — ошибку или нехватку параметров.
+## Команды
 
 | Команда | Действие |
-|---|---|
-| `erase.cmd` | Полное стирание Flash |
-| `backup.cmd` | Резервная копия в Intel HEX + SHA-256 в `backups` |
-| `info.cmd` | Обзор ПК, инструментов, USB-программаторов и сохранённых настроек |
-| `setup.cmd` | Перенастройка движка и программатора с подтверждением, без операций с MCU |
-| `check.cmd` | Сравнение диапазонов HEX с памятью MCU без записи и стирания |
-| `halt.cmd` / `go.cmd` / `reset.cmd` | Остановить ядро / продолжить без сброса / сбросить MCU и запустить |
-| `forget.cmd` | Удаление настроек, логов, отчётов и скачанных инструментов; копии сохраняются |
+| --- | --- |
+| `flash` | Запись и проверка прошивки |
+| `check` | Чтение и сравнение только диапазонов HEX, без записи |
+| `erase` | Полное стирание Flash |
+| `backup` | Сохранение Flash в Intel HEX с SHA-256 |
+| `halt` / `go` / `reset` | Остановка / продолжение без сброса / сброс с запуском |
+| `info` | Инструменты, версии, настройки, отладчики и HEX в папке |
+| `setup` | Перенастройка без удаления истории и прошивок |
+| `forget` | Очистка настроек и рабочих артефактов; прошивки и backups остаются |
 
-Несколько программаторов при backup/erase выбираются через меню. `info.cmd -ProbeTarget` подключается к выбранному MCU. `forget.cmd -DryRun` показывает список удаления; `flash.cmd -ResetConfig` сбрасывает только настройки.
+У всех команд есть `--help`, `--version`, `-Lang ru` / `-Lang en`.
+Справка и версия не выполняют операций и не читают настройки.
+`-DryRun` проверяет план, HEX и заданную SHA-256 локально: без оборудования,
+запуска утилит, сети и изменения файлов. Код 0 означает готовый план, не успех на MCU.
 
-`check.cmd` может остановить ядро; автоматически не сбрасывает и не запускает его.
-В CMD можно вызвать `check`, в PowerShell — `./check.cmd`.
-Управление ядром не требует HEX: OpenOCD/ST-Link и SEGGER/J-Link поддерживают
-все три команды; CubeProgrammer/ST-Link — только halt/reset. Неподдерживаемое
-сочетание отклоняется без смены движка. На STM32G474RE/ST-Link проверены команды
-OpenOCD и halt/reset CubeProgrammer. Владелец также подтвердил check через
-CubeProgrammer и OpenOCD, включая последующий go с сохранённым target.
-Через SEGGER V8.32 отдельно проверены halt/reset на AT32F403ACGU7; это не
-подтверждает поддержку прошивки AT32. На STM32F103CB/J-Link проверена отдельная
-пара halt/go; владелец также подтвердил reset, flash и check.
+## Движки и ограничения
 
-### Быстрый старт
+- **STM32CubeProgrammer**: установленный CLI, ST-Link или J-Link.
+- **OpenOCD**: установленный или автоматически скачиваемый, ST-Link;
+  `st-info` помогает определить STM32 для прошивки.
+- **SEGGER J-Link Commander**: установленный CLI, J-Link и имя MCU.
 
-1. Скопируйте `flash.cmd` из `bin` репозитория (или корня релизного ZIP) рядом с `*.hex`; нужные обёртки скопируйте туда же
-2. Подключите ST-Link или J-Link к компьютеру и плате
-3. Двойной клик по `flash.cmd`
-4. Если `*.hex` один, прошивка начнётся сразу
+`halt/go/reset` поддержаны через OpenOCD/ST-Link и SEGGER/J-Link;
+CubeProgrammer/ST-Link поддерживает только `halt/reset`. Неподдерживаемое
+сочетание отклоняется без автоматической смены движка.
+Для `check` и управления OpenOCD нужен явный или сохранённый target,
+для SEGGER нужен device. Автоопределение MCU в этих операциях не выполняется.
 
-`bin` нужен только для хранения исходников. При запуске команд по полному пути настройки, HEX, отчёты и история по-прежнему относятся к папке вызова.
+`check` может оставить ядро остановленным, не сбрасывает и не запускает его.
+Остановка ядра не гарантирует остановку периферии или watchdog.
+CubeProgrammer/J-Link после прошивки не выполняет проблемный `-rst`;
+запуск приложения может потребовать отдельного сброса.
 
-### Требования
+На STM32G474RE/ST-Link подтверждены `check` через CubeProgrammer/OpenOCD,
+управление OpenOCD и `halt/reset` CubeProgrammer. На STM32F103CB/J-Link
+подтверждены `halt/go/reset`, прошивка и `check` через SEGGER.
+Это не гарантия для всех MCU и версий утилит; подробности в [проверках](docs/testing.md).
 
-- Windows 10 / 11
-- PowerShell 5.1 (встроен) или 7+ (рекомендуется: `winget install Microsoft.PowerShell`)
-- Драйверы ST-Link — [st.com/stlink-v2](https://www.st.com/en/development-tools/stsw-link009.html) или SEGGER J-Link Software — [segger.com/downloads/jlink](https://www.segger.com/downloads/jlink/)
-- Интернет при первом запуске:
-  - загрузка OpenOCD ~5 MB, если CubeProgrammer не установлен;
-  - загрузка `stlink` tools, если нужен `st-info` и он не найден локально.
+## Рабочие файлы
 
-Подробная инструкция: [Инструкция по использованию](docs/user-guide.md). Проверки и структура рабочих каталогов: [тестирование](docs/testing.md).
+Данные создаются в **папке вызова**, даже при запуске CMD по полному пути:
+`.flash.json` (настройки), `.tools` (локальные утилиты), `flash_log.txt`,
+`report.html`, `.history` (история) и `backups` (резервные копии).
+Старые настройки переносятся в JSON при рабочем запуске или сохранении setup;
+`info` и `DryRun` ничего не мигрируют.
+Найденная рядом с HEX контрольная сумма проверяется перед прошивкой.
+Отчёт успешной операции сохраняется тихо, при ошибке открывается в браузере.
+Блокировка защищает папку от параллельных операций, но не общий отладчик из разных папок.
 
-### Файлы, создаваемые автоматически
-
-| Файл | Назначение |
-|---|---|
-| `.tools\` | OpenOCD (скачивается один раз) |
-| `.flash.json` | Движок, тип/serial программатора, device/target; [формат и миграция](docs/reference/launch-configuration.md) |
-| `*.hex.sha256` / `*.sha256` | Опциональная контрольная сумма SHA-256 для `*.hex` |
-| `flash_log.txt` | Лог последней прошивки |
-| `report.html` | HTML-отчёт последней прошивки |
-| `.history\` | Архив отчётов и логов предыдущих сессий |
-| `backups\` | Резервные копии Flash; `forget.cmd` их не удаляет |
-
----
-
-## English <a name="english"></a>
-
-Working operations in one directory are protected against concurrent runs. Help, DryRun and basic info remain available; scope and limitations are documented in [HOWTO](docs/en/HOWTO.md#concurrent-runs).
-
-Version **0.2.12**. Keep optional command wrappers next to `flash.cmd`:
-
-| Command | Action |
-|---|---|
-| `setup.cmd` | Reconfigure engine and probe with confirmation, without MCU operations |
-| `erase.cmd` | Full Flash erase |
-| `backup.cmd` | Intel HEX + SHA-256 backup in `backups` |
-| `info.cmd` | PC, tools, USB probes and saved settings overview |
-| `forget.cmd` | Remove settings, logs, reports and downloaded tools; preserve backups |
-| `check.cmd` | Compare HEX ranges with MCU memory without programming or erasing |
-| `halt.cmd` / `go.cmd` / `reset.cmd` | Halt / resume without reset / reset MCU and run |
-
-Backup/erase prompt when multiple probes are connected. `info.cmd -ProbeTarget` connects to the selected MCU. `forget.cmd -DryRun` previews cleanup; `flash.cmd -ResetConfig` resets settings only.
-
-`check.cmd` may halt the core; it does not automatically reset or resume it.
-Use `check` in CMD or `./check.cmd` in PowerShell.
-Core control needs no HEX: OpenOCD/ST-Link and SEGGER/J-Link support all three
-commands; CubeProgrammer/ST-Link supports halt/reset only. Unsupported combinations
-fail without switching engines. OpenOCD controls and CubeProgrammer halt/reset were
-tested on STM32G474RE/ST-Link. The owner also confirmed check through CubeProgrammer;
-OpenOCD check and subsequent go using the saved target were also confirmed by the owner.
-SEGGER V8.32 halt/reset were separately tested on AT32F403ACGU7; this does not
-establish AT32 flashing support. Separate halt/go were tested on STM32F103CB/J-Link;
-the owner also confirmed reset, flash and check.
-
-All commands accept `--help` (`-Help`, `-h`) and `--version` (`-Version`): information only, without executing operations. Language: `-Lang ru` / `-Lang en`.
-
-`-DryRun` previews the plan without running tools, querying USB/MCU, network access or file changes. It validates local Intel HEX and SHA-256 when provided, not board compatibility. Exit `0` means the plan is complete; `1` means an error or missing parameters.
-
-STM32 flashing utility via ST-Link or J-Link. Single file, minimal setup, result report included.
-
-**Supported engines:** OpenOCD (installed or auto-downloaded), STM32CubeProgrammer (if installed), SEGGER J-Link Commander (if installed).
-Supports selecting a specific ST-Link or J-Link when multiple programmers are connected.
-Supports optional SHA-256 verification for `*.hex` before flashing.
-Supports a local flash-session history in `.history\`.
-
-### Quick start
-
-1. Copy `flash.cmd` from the repository's `bin` (or release ZIP root) next to your `*.hex`; copy any needed wrappers beside it
-2. Connect ST-Link or J-Link to PC and board
-3. Double-click `flash.cmd`
-4. If there is only one `*.hex`, flashing starts immediately
-
-`bin` is only a source layout. When invoking commands by full path, settings, HEX files, reports and history still belong to the working directory.
-
-### Requirements
-
-- Windows 10 / 11
-- PowerShell 5.1 (built-in) or 7+ (recommended: `winget install Microsoft.PowerShell`)
-- ST-Link drivers — [st.com/stlink-v2](https://www.st.com/en/development-tools/stsw-link009.html) or SEGGER J-Link Software — [segger.com/downloads/jlink](https://www.segger.com/downloads/jlink/)
-- Internet on first run:
-  - OpenOCD ~5 MB download, if CubeProgrammer is not installed;
-  - `stlink` tools download, if `st-info` is needed and not found locally.
-
-### Auto-created files
-
-| File | Purpose |
-|---|---|
-| `.tools\` | OpenOCD (downloaded once) |
-| `.flash.json` | Engine, probe type/serial, device/target; [format and migration](docs/reference/launch-configuration.md#english) |
-| `*.hex.sha256` / `*.sha256` | Optional SHA-256 checksum for `*.hex` |
-| `flash_log.txt` | Last flash log |
-| `report.html` | Last flash HTML report |
-| `.history\` | Archive of reports and logs from previous sessions |
-| `backups\` | Flash backups; preserved by `forget.cmd` |
+[Инструкция](docs/user-guide.md) · [Настройки](docs/reference/launch-configuration.md) ·
+[CHANGELOG](CHANGELOG.md) · [Релизы](https://github.com/ViacheslavMezentsev/stm32-flasher/releases) ·
+[CI и локальные проверки](https://github.com/ViacheslavMezentsev/stm32-flasher/tree/main/ci)

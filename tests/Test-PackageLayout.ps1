@@ -7,7 +7,7 @@ function Assert($ok, $message) { if (-not $ok) { throw $message } }
 try {
     New-Item -ItemType Directory $root | Out-Null
     Copy-Item -LiteralPath (Join-Path $repo 'bin') -Destination $root -Recurse
-    foreach ($name in @('README.md','LICENSE','CHANGELOG.md','CHANGELOG.en.md','docs/TECHNICAL_SPECIFICATION.md','docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md','docs/reference/stlink-inventory.md','docs/reference/launch-configuration.md','docs/user-guide.md','docs/testing.md')) {
+    foreach ($name in @('README.md','README.en.md','LICENSE','CHANGELOG.md','CHANGELOG.en.md','docs/TECHNICAL_SPECIFICATION.md','docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md','docs/reference/stlink-inventory.md','docs/reference/launch-configuration.md','docs/user-guide.md','docs/testing.md')) {
         $destination = Join-Path $root $name
         New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
         Copy-Item -LiteralPath (Join-Path $repo $name) -Destination $destination
@@ -27,6 +27,9 @@ try {
     Assert ((Get-Content "$archive.sha256" -Raw) -eq "$expectedHash *stm32-flasher-0.0.0.zip") 'Package checksum mismatch'
     $unpacked = Join-Path $root 'unpacked'
     Expand-Archive -LiteralPath $archive -DestinationPath $unpacked
+    foreach ($name in @('README.md','README.en.md')) {
+        Assert ((Get-FileHash (Join-Path $unpacked $name)).Hash -eq (Get-FileHash (Join-Path $repo $name)).Hash) "Missing or changed $name in ZIP"
+    }
     $commands = @('flash','erase','backup','info','forget','setup','check','halt','go','reset')
     Assert (@(Get-ChildItem $unpacked -Filter '*.cmd' -File).Count -eq $commands.Count) 'Missing root commands in ZIP'
     Assert (-not (Test-Path (Join-Path $unpacked 'bin'))) 'ZIP must not require a bin directory'

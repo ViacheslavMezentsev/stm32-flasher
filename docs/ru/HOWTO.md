@@ -3,6 +3,13 @@
 [English](../en/HOWTO.md). Примеры — PowerShell из корня клона, если не указано иное.
 Это команды для ручного запуска, не разрешение агенту выполнять push или аппаратные операции.
 
+## Локальный CI
+
+Общий локальный CI из корня клона: `./ci/Invoke-Local.ps1`.
+Только статические проверки: `./ci/Invoke-Local.ps1 -Stage Validate`.
+Только PS7: `./ci/Invoke-Local.ps1 -Stage Regression -PowerShellExe pwsh`.
+Состав проверок, зависимости и логи: [ci](../../ci/README.md).
+
 ## Единая конфигурация
 
 Ручной setup с JSON проверяйте в новой пустой папке, вызывая setup/info по

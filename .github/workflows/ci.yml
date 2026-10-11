@@ -18,71 +18,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate required files
-        shell: pwsh
-        run: |
-          $required = @(
-            'bin/flash.cmd',
-            'bin/erase.cmd',
-            'bin/forget.cmd',
-            'bin/backup.cmd',
-            'bin/info.cmd',
-            'bin/setup.cmd',
-            'bin/check.cmd',
-            'bin/halt.cmd',
-            'bin/go.cmd',
-            'bin/reset.cmd',
-            'README.md',
-            'LICENSE',
-            'CHANGELOG.md',
-            'CHANGELOG.en.md',
-            'docs/TECHNICAL_SPECIFICATION.md',
-            'docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md',
-            'docs/reference/stlink-inventory.md',
-            'docs/reference/launch-configuration.md',
-            'docs/user-guide.md',
-            'docs/testing.md'
-          )
-
-          $missing = $required | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) }
-          if ($missing) {
-            throw "Missing required files: $($missing -join ', ')"
-          }
-
-      - name: Validate PowerShell syntax
-        shell: pwsh
-        run: |
-          $errors = $null
-          $tokens = $null
-          $files = @(Get-Item bin/flash.cmd) + @(Get-ChildItem tests -Filter '*.ps1' -File)
-          foreach ($file in $files) {
-            [System.Management.Automation.Language.Parser]::ParseInput(
-              (Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8),
-              [ref]$tokens,
-              [ref]$errors
-            ) | Out-Null
-            if ($errors.Count -gt 0) {
-              throw "Syntax errors in $($file.Name): $($errors | Out-String)"
-            }
-          }
-
-      - name: Validate script version format
-        shell: pwsh
-        run: |
-          $content = Get-Content -LiteralPath 'bin/flash.cmd' -Raw -Encoding UTF8
-          if ($content -notmatch '\$VERSION\s*=\s*"(\d+)\.(\d+)\.(\d+)"') {
-            throw 'Version string not found or not in Major.Minor.Patch format.'
-          }
-          Write-Host "Detected script version $($Matches[1]).$($Matches[2]).$($Matches[3])"
-
       - name: Set up Python for specification checks
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Validate specification structure and traceability
+      - name: Validate project and specification
         shell: pwsh
-        run: python -X utf8 tests/tools/check_spec.py docs/TECHNICAL_SPECIFICATION.md --strict
+        run: ./ci/Invoke-Local.ps1 -Stage Validate
 
   regression:
     name: Regression (${{ matrix.shell }})
@@ -100,7 +43,7 @@ jobs:
         shell: pwsh
         env:
           TEST_POWERSHELL: ${{ matrix.shell }}
-        run: ./tests/Invoke-Tests.ps1 -PowerShellExe $env:TEST_POWERSHELL -LogDirectory "$env:RUNNER_TEMP/stm32-test-logs"
+        run: ./ci/Invoke-Local.ps1 -Stage Regression -PowerShellExe $env:TEST_POWERSHELL -LogDirectory "$env:RUNNER_TEMP/stm32-test-logs"
 
       - name: Upload test logs
         if: always()

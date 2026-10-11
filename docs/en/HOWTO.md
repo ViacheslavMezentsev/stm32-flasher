@@ -3,6 +3,13 @@
 [Русский](../ru/HOWTO.md). PowerShell examples start at the clone root unless noted.
 Examples do not authorize an agent to push or operate hardware.
 
+## Local CI
+
+Full local CI from the clone root: `./ci/Invoke-Local.ps1`.
+Static checks only: `./ci/Invoke-Local.ps1 -Stage Validate`.
+PS7 only: `./ci/Invoke-Local.ps1 -Stage Regression -PowerShellExe pwsh`.
+Coverage, prerequisites and logs: [ci](../../ci/README.en.md).
+
 ## Manual JSON setup check
 
 For manual JSON setup testing, use a new empty directory and invoke setup/info
