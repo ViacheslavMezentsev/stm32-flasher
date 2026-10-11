@@ -54,6 +54,8 @@ A full run takes several minutes; live output and logs show progress.
 
 ## Source Snapshots
 
+Before adding concurrency: [isolation audit and 1/2-worker comparison](isolation.en.md).
+
 ```powershell
 ./ci/Invoke-Snapshot.ps1 -Kind WorkingTree -Profile Quick
 # Full clean-HEAD run before integration:

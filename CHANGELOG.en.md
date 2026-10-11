@@ -7,6 +7,9 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- RU/EN test isolation audit and same-snapshot one/two-worker comparison method. The local research harness separates source copies, TEMP/TMP and process trees; standard CI is unchanged. Found a PS5.1-from-Python dependency on inherited PS7 PSModulePath; the harness corrects the child environment and checks it before execution.
+- Limited comparison: 6/23 suites, 1/2 workers, PS5.1/7, all 24 executions passed with unchanged inputs and no remaining processes. Total time improved by 1.71x/1.55x; a single local observation does not establish full-CI or GitHub speedup.
+
 - Local CI source snapshots: WorkingTree/clean Commit, archive and SHA-256 manifest, separate logs and integrity checks. Sequential PS/CMD startup benchmark with warmups and repeated series; snapshot contracts in both shells. No suite parallelism or runtime command changes.
 
 - Add local Quick, exact suite selection and listing without execution. Mark partial coverage in console/run.json; keep single-test results.json as an array. Separate default logs by attempt. Full CI and runtime commands remain unchanged.

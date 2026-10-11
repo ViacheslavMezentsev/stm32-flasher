@@ -5,6 +5,12 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
+Concurrency needs separate source copies, TEMP/TMP and descendant supervision,
+not just GUID fixture names. Starting Windows PowerShell from Python with an
+inherited PS7 `PSModulePath` can break standard commands. Remove it only from the
+child env copy, never from system settings. Scope and results:
+[CI isolation](../../ci/isolation.en.md).
+
 Capture tested inputs with `./ci/Invoke-Snapshot.ps1 -Kind WorkingTree -Profile Quick`.
 After committing, use `./ci/Invoke-Snapshot.ps1 -Kind Commit` on a clean tree (Full).
 Each attempt retains an archive, SHA-256, versions and logs; do not edit files

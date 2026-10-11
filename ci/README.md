@@ -55,6 +55,8 @@ GitHub использует те же скрипты из `ci`, но запус�
 
 ## Снимок исходников
 
+Перед распараллеливанием: [аудит изоляции и методика сравнения 1/2 worker](isolation.md).
+
 ```powershell
 ./ci/Invoke-Snapshot.ps1 -Kind WorkingTree -Profile Quick
 # Полный прогон чистого HEAD перед интеграцией:
