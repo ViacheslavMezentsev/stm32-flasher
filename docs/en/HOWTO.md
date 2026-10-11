@@ -5,6 +5,12 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
+Capture tested inputs with `./ci/Invoke-Snapshot.ps1 -Kind WorkingTree -Profile Quick`.
+After committing, use `./ci/Invoke-Snapshot.ps1 -Kind Commit` on a clean tree (Full).
+Each attempt retains an archive, SHA-256, versions and logs; do not edit files
+during capture. Quick does not replace Full. Measurement method and limitations:
+[CI](../../ci/README.en.md#source-snapshots).
+
 Fast feedback (not acceptance): `./ci/Invoke-Local.ps1 -Profile Quick`.
 List selected suites: `./ci/Invoke-Local.ps1 -Profile Quick -List`.
 One exact suite: `./ci/Invoke-Local.ps1 -TestName Test-Localization.ps1`.

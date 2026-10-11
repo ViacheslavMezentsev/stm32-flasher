@@ -7,6 +7,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Local CI source snapshots: WorkingTree/clean Commit, archive and SHA-256 manifest, separate logs and integrity checks. Sequential PS/CMD startup benchmark with warmups and repeated series; snapshot contracts in both shells. No suite parallelism or runtime command changes.
+
 - Add local Quick, exact suite selection and listing without execution. Mark partial coverage in console/run.json; keep single-test results.json as an array. Separate default logs by attempt. Full CI and runtime commands remain unchanged.
 
 - Add `ci` with RU/EN GitHub/local check documentation, shared Validate/Regression/All entry points and failure-propagation tests. The existing tests runner remains compatible.

@@ -5,6 +5,12 @@
 
 ## Локальный CI
 
+Для фиксации проверяемого входа: `./ci/Invoke-Snapshot.ps1 -Kind WorkingTree -Profile Quick`.
+После коммита на чистом дереве: `./ci/Invoke-Snapshot.ps1 -Kind Commit` (полный прогон).
+Каждая попытка сохраняет архив, SHA-256, версии и логи; не редактируйте файлы
+во время создания снимка. Quick не заменяет Full. Методика измерений и ограничения:
+[CI](../../ci/README.md#снимок-исходников).
+
 Быстрый цикл (не приёмка): `./ci/Invoke-Local.ps1 -Profile Quick`.
 Посмотреть состав: `./ci/Invoke-Local.ps1 -Profile Quick -List`.
 Точный набор: `./ci/Invoke-Local.ps1 -TestName Test-Localization.ps1`.

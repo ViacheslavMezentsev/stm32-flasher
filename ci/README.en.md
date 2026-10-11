@@ -20,6 +20,9 @@ They cover CMD entry points, engines, RU/EN, configuration, safety and packaging
 
 ## Locally
 
+Snapshot tests also require Git on PATH. GitHub installs Python 3.12 in each
+regression job; no third-party Python packages are needed.
+
 Requires Windows, both shells and Python 3.12 on PATH. From the clone root:
 
 ```powershell
@@ -49,7 +52,70 @@ pwsh -NoProfile -File tests/Test-Localization.ps1
 GitHub uses the same `ci` scripts but runs shells in separate jobs.
 A full run takes several minutes; live output and logs show progress.
 
-## Fast Feedback
+## Source Snapshots
+
+```powershell
+./ci/Invoke-Snapshot.ps1 -Kind WorkingTree -Profile Quick
+# Full clean-HEAD run before integration:
+./ci/Invoke-Snapshot.ps1 -Kind Commit
+```
+
+WorkingTree captures current tracked and nonignored new file bytes, preserving
+deletions. Commit requires a clean tree and uses `git archive HEAD`, including
+export-ignore/export-subst attributes. The manifest distinguishes these inputs.
+Git metadata and ignored logs, firmware and caches are excluded. Nonignored
+personal files ARE included: inspect `git status` first. Symlinks, junctions and
+submodules are rejected until a separate capture recipe is provided.
+
+Do not edit during capture: a second inventory/byte pass rejects changes. Once
+captured, the original tree can be edited while checks run in the separate
+`source` copy. This is not an atomic filesystem snapshot or an untrusted-code sandbox.
+
+Each attempt creates `tests/.tmp-ci-snapshots/<timestamp-id>` with `source.zip`,
+`manifest.json` (HEAD, dirty, UTC, per-input and ZIP SHA-256), `source`, `console.log`,
+`logs`, and `outcome.json` (parameters, versions, status, integrity and capture/check/
+verification durations). Check time includes querying process versions. An explicit
+`-RunDirectory` must be new; existing destinations are never reused. Failed and
+incomplete attempts are retained; Creating/Running do not mean success. Before/after
+integrity checks reject changed inputs, archive or manifest. New outputs are allowed
+only under `tests/.tmp-*`, `tests/manual`, `docs/research`, `dist`, `__pycache__`;
+captured inputs there are still hashed. This detects accidental changes, not code
+deliberately forging evidence.
+
+`-Stage`, `-Profile`, `-TestName`, `-PowerShellExe`, `-PythonExe` forward to local CI.
+Full remains the default; Quick/selected suites are partial coverage, recorded in
+`logs/*/run.json`. Full GitHub CI remains unchanged.
+
+## Controlled Measurements
+
+After checks finish, with no other CI runs, select the snapshot directory:
+
+```powershell
+$run = 'tests/.tmp-ci-snapshots/<timestamp-id>'
+python -B -X utf8 "$run/source/ci/benchmark.py" --snapshot $run
+```
+
+The Windows-only benchmark sequentially starts PS5.1/7 directly and through CMD:
+empty processes and reading/parsing the captured `flash.cmd`, never executing it
+or accessing an MCU. Each combination gets 2 warmups and 2 series of 8 samples;
+order is seeded/shuffled and mirrored in the second series. Warmups are excluded
+from statistics. Options: `--warmup`, `--rounds`, `--repeats`, `--seed`, repeated
+`--host`. Run the captured benchmark implementation.
+
+A separate `benchmark-*.json` retains every sample, versions, parameters, manifest/
+benchmark SHA-256, and per-series median/range. Nonzero exits or a 30-second timeout
+stop the run as Failed without discarding earlier samples. Final integrity is checked.
+Compare series on identical inputs and hardware; these are startup/parse costs,
+not a full-CI speedup. Suite parallelism is not enabled yet.
+
+Controlled run on 2026-10-11 (PS5.1.26100.9444 / PS7.6.6, Python 3.11.9):
+empty-process medians across two series were 99/103 ms direct and 669/655 ms
+through CMD for PS5.1; 150/150 ms and 703/697 ms for PS7. Parsing added roughly
+20–60 ms, CMD about 550 ms. This is one Windows machine, not a performance
+threshold or proof of the delay's cause (such as antivirus). The local run does
+not substitute for GitHub testing with Python 3.12.
+
+## Suite Selection
 
 ```powershell
 ./ci/Invoke-Local.ps1 -Profile Quick -List

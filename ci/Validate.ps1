@@ -9,6 +9,8 @@ try {
         'bin/go.cmd', 'bin/reset.cmd', 'README.md', 'README.en.md', 'LICENSE',
         'CHANGELOG.md', 'CHANGELOG.en.md', 'AGENTS.md', 'TODO.md',
         'ci/README.md', 'ci/README.en.md', 'ci/Invoke-Local.ps1',
+        'ci/Invoke-Snapshot.ps1', 'ci/snapshot.py', 'ci/benchmark.py',
+        'tests/Test-Snapshot.ps1', 'tests/tools/test_snapshot.py',
         'tests/Invoke-Tests.ps1', 'tests/tools/check_spec.py',
         'docs/TECHNICAL_SPECIFICATION.md', 'docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md',
         'docs/reference/stlink-inventory.md', 'docs/reference/launch-configuration.md',

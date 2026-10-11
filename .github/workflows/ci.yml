@@ -39,6 +39,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python for snapshot contract tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Run all hardware-free tests
         shell: pwsh
         env:
