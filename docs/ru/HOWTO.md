@@ -5,6 +5,10 @@
 
 ## Локальный CI
 
+Для удалённого сравнения после land: Actions -> CI Worker Comparison ->
+Run workflow -> main. [Условия и чтение результатов](../../ci/comparison.md).
+Один снимок, полный комплект, порядок 1/2/2/1 внутри каждой VM.
+
 Полный opt-in прогон с двумя worker (PS5.1/7 последовательно):
 ```powershell
 $snapshot = Join-Path $PWD.Path 'tests/.tmp-ci-snapshots/parallel'

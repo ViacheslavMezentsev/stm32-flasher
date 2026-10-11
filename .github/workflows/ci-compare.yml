@@ -1,0 +1,91 @@
+name: CI Worker Comparison
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-worker-comparison
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    outputs:
+      manifest: ${{ steps.capture.outputs.manifest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate
+        shell: pwsh
+        run: ./ci/Invoke-Local.ps1 -Stage Validate
+      - name: Capture once
+        id: capture
+        shell: pwsh
+        run: |
+          python -B -X utf8 ci/snapshot.py create --source "$env:GITHUB_WORKSPACE" --destination "$env:RUNNER_TEMP/s15" --kind WorkingTree
+          if ($LASTEXITCODE -ne 0) { throw 'Capture failed' }
+          $hash = (Get-FileHash "$env:RUNNER_TEMP/s15/manifest.json" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "manifest=$hash" >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: comparison-source
+          path: ${{ runner.temp }}/s15
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+  compare:
+    needs: snapshot
+    runs-on: windows-latest
+    timeout-minutes: 135
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: comparison-source
+          path: ${{ runner.temp }}/s15
+      - name: Compare full suites on this VM
+        shell: pwsh
+        env:
+          TEST_SHELL: ${{ matrix.shell }}
+          EXPECTED_MANIFEST: ${{ needs.snapshot.outputs.manifest }}
+        run: |
+          $hash = (Get-FileHash "$env:RUNNER_TEMP/s15/manifest.json" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne $env:EXPECTED_MANIFEST) { throw 'Downloaded manifest mismatch' }
+          python -B -X utf8 ci/snapshot.py verify --destination "$env:RUNNER_TEMP/s15"
+          if ($LASTEXITCODE -ne 0) { throw 'Invalid downloaded snapshot' }
+          python -B -X utf8 "$env:RUNNER_TEMP/s15/source/ci/compare.py" --snapshot "$env:RUNNER_TEMP/s15" --output "$env:RUNNER_TEMP/c15" --host $env:TEST_SHELL
+          if ($LASTEXITCODE -ne 0) { throw 'Comparison failed; do not use speedup' }
+      - name: Publish summary
+        if: always()
+        shell: pwsh
+        run: |
+          $summary = "$env:RUNNER_TEMP/c15/summary.md"
+          if (Test-Path $summary) { Get-Content $summary -Raw | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comparison-${{ matrix.shell }}
+          path: |
+            ${{ runner.temp }}/c15/comparison.json
+            ${{ runner.temp }}/c15/summary.md
+            ${{ runner.temp }}/c15/*/run.json
+            ${{ runner.temp }}/c15/*/results.json
+            ${{ runner.temp }}/c15/*/??/result.json
+            ${{ runner.temp }}/c15/*/??/stdout.log
+            ${{ runner.temp }}/c15/*/??/stderr.log
+            ${{ runner.temp }}/c15/*/??/logs/*
+          if-no-files-found: warn
+          retention-days: 14

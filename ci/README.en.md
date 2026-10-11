@@ -41,6 +41,9 @@ match the captured implementation; older snapshots lacking it cannot be used.
 
 ## GitHub
 
+Controlled 1/2-worker comparison is separate and manual:
+[method and owner steps](comparison.en.md). Default CI below is unchanged.
+
 [CI](../.github/workflows/ci.yml) runs on every branch/tag push, pull request and
 manual dispatch. Two independent jobs use `windows-latest`:
 

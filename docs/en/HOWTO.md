@@ -5,6 +5,10 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
+For remote comparison after land: Actions -> CI Worker Comparison ->
+Run workflow -> main. [Conditions and interpretation](../../ci/comparison.en.md).
+One snapshot, full suite, order 1/2/2/1 within each VM.
+
 Full opt-in two-worker run (PS5.1/7 sequentially):
 ```powershell
 $snapshot = Join-Path $PWD.Path 'tests/.tmp-ci-snapshots/parallel'

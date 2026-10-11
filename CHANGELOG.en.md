@@ -7,6 +7,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Manual GitHub CI comparison: one shared snapshot, full 1/2/2/1-worker trials on one VM per shell, raw timings and medians, separate artifacts. Incomplete/failed evidence prohibits speedup claims; orchestrator contracts join CI. CI defaults are unchanged; remote measurements have not run yet.
+
 - Opt-in isolated CI runner with 1/2 workers: captured inputs, private copies and TEMP/TMP, process-tree supervision, timeouts and retained results. Regression contracts cover collisions, cancellation, failures, integrity and incomplete evidence. Local/GitHub defaults, runtime CMD and version are unchanged.
 
 - RU/EN test isolation audit and same-snapshot one/two-worker comparison method. The local research harness separates source copies, TEMP/TMP and process trees; standard CI is unchanged. Found a PS5.1-from-Python dependency on inherited PS7 PSModulePath; the harness corrects the child environment and checks it before execution.
