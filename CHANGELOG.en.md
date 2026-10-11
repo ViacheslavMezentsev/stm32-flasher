@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### J-Link Core Control
+- Fixed the cause of standalone go failing after halt: Commander resumes the core on close by default. Only halt sets SetRestartOnClose=0 before stopping; go remains resume without reset. Reset, check and flashing sequences are unchanged, and real errors are not suppressed. The EXE stub checks the exact sequences of all three commands.
+- The owner's STM32F103CB/J-Link log confirms halt/reset, flash and check; go failed in the original version. This is separate evidence, not an agent flashing rerun.
+
 ### Hardware Follow-Up
 - Tested halt/reset on AT32F403ACGU7 with SEGGER V8.32 at the default 4000 kHz, without Flash writes/erase. Fixed false failures parsing the EoE acknowledgement (`will now exit on Error`) and IsHalted with a PC address. Stubs now include real output formats; actual errors still fail. Separate go found an already running core and failed; check was not run without HEX. This is neither AT32 flashing support nor STM32/J-Link acceptance.
 - The owner's logs confirm JSON setup: saving OpenOCD, loading through info, cancellation with unchanged SHA-256, switching to CubeProgrammer with openocdTarget cleared, and returning to OpenOCD with an explicit target (exit 0, JSON and info). The agent performed no MCU operations for this check.

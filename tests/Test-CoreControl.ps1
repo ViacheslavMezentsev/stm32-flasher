@@ -39,7 +39,7 @@ public static class Tool {
         File.AppendAllText(Path.Combine(root, "calls.txt"), String.Join(" ", args) + "\n" + text + "\nCALL_END\n");
         string expected;
         if (kind == "jlink") {
-            expected = "EoE 1\nconnect\n" + (command == "halt" ? "h" : command == "go" ? "g" : "r\ng") + "\nIsHalted\nq";
+            expected = "EoE 1\nconnect\n" + (command == "halt" ? "exec SetRestartOnClose = 0\nh" : command == "go" ? "g" : "r\ng") + "\nIsHalted\nq";
             if (text.Trim() != expected) return 91;
         } else if (kind == "cube") {
             if (command == "go" || !text.Contains("port=SWD") || !text.EndsWith((command == "halt" ? "-halt" : "-rst") + " -score")) return 92;

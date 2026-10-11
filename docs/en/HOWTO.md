@@ -33,8 +33,11 @@ still needs hardware validation; halting a power-control device may also be unsa
 
 J-Link may return `Error: CPU is not halted` for a separate go if the core is
 already running. Do not automatically replace go with reset: its effect differs.
-IsHalted describes the state at query time, not a guaranteed halt between
-Commander sessions. The J-Link speed is currently fixed at 4000 kHz.
+Commander resumes the core on close by default; halt uses
+`exec SetRestartOnClose = 0` before `h` so closing does not undo the halt.
+Go still uses only `g`, without halt or reset. External resets, watchdogs and
+other debuggers may change state between commands. J-Link speed is fixed at 4000 kHz.
+SEGGER reference: [SetRestartOnClose](https://kb.segger.com/J-Link_Command_Strings#SetRestartOnClose).
 
 Start with `halt.cmd -DryRun` in the project directory. Actual operations:
 `halt.cmd` halts the core, `go.cmd` resumes without reset, and `reset.cmd`

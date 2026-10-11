@@ -2656,7 +2656,8 @@ if ($CoreControl -and -not $PreflightFailed) {
                 $coreArgs[-1] = '"init; ' + $action + '; poll; echo [format {FLASH_CORE_STATE %s} [[target current] curstate]]; shutdown"'
             }
             'JLINK' {
-                $actions = switch ($Command) { 'halt' { 'h' }; 'go' { 'g' }; 'reset' { 'r'; 'g' } }
+                # Commander otherwise resumes a halted core when it closes the connection.
+                $actions = switch ($Command) { 'halt' { 'exec SetRestartOnClose = 0'; 'h' }; 'go' { 'g' }; 'reset' { 'r'; 'g' } }
                 $lines = @('EoE 1', 'connect') + @($actions) + @('IsHalted', 'q')
                 Set-Content -LiteralPath $JLinkScript -Value ($lines -join "`r`n") -Encoding ASCII
             }
