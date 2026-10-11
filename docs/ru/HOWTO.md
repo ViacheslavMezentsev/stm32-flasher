@@ -5,6 +5,10 @@
 
 ## Локальный CI
 
+Быстрый цикл (не приёмка): `./ci/Invoke-Local.ps1 -Profile Quick`.
+Посмотреть состав: `./ci/Invoke-Local.ps1 -Profile Quick -List`.
+Точный набор: `./ci/Invoke-Local.ps1 -TestName Test-Localization.ps1`.
+
 Общий локальный CI из корня клона: `./ci/Invoke-Local.ps1`.
 Только статические проверки: `./ci/Invoke-Local.ps1 -Stage Validate`.
 Только PS7: `./ci/Invoke-Local.ps1 -Stage Regression -PowerShellExe pwsh`.

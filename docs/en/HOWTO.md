@@ -5,6 +5,10 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
+Fast feedback (not acceptance): `./ci/Invoke-Local.ps1 -Profile Quick`.
+List selected suites: `./ci/Invoke-Local.ps1 -Profile Quick -List`.
+One exact suite: `./ci/Invoke-Local.ps1 -TestName Test-Localization.ps1`.
+
 Full local CI from the clone root: `./ci/Invoke-Local.ps1`.
 Static checks only: `./ci/Invoke-Local.ps1 -Stage Validate`.
 PS7 only: `./ci/Invoke-Local.ps1 -Stage Regression -PowerShellExe pwsh`.

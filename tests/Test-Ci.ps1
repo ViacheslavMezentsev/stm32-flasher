@@ -42,6 +42,38 @@ try {
     try { & (Join-Path $root 'ci/Invoke-Local.ps1') -Stage Regression -PowerShellExe @($hostExe,$hostExe) -LogDirectory $multiLogs } catch { $failed = $true }
     Assert $failed 'Multiple-host failures were masked'
     Assert (@(Get-ChildItem $multiLogs -Filter results.json -Recurse).Count -eq 2) 'Failure prevented the second host from running'
+    $targetLogs = Join-Path $root 'targeted'
+    $result = Run-Ci @('-Stage','Regression','-TestName','Test-02.ps1','-PowerShellExe',$hostExe,'-LogDirectory',$targetLogs)
+    Assert ($result.Code -eq 0 -and $result.Output -match 'PARTIAL' -and $result.Output -notmatch 'Running Test-01') 'Exact selection failed or hid partial coverage'
+    $summaryFile = Get-ChildItem $targetLogs -Filter run.json -Recurse | Select-Object -First 1
+    $summary = Get-Content $summaryFile.FullName -Raw | ConvertFrom-Json
+    Assert ($summary.Partial -and $summary.Status -eq 'Passed' -and $summary.SelectedTests.Count -eq 1 -and $summary.DiscoveredCount -eq 2) 'Wrong selection manifest'
+    $resultsFile = Get-ChildItem $targetLogs -Filter results.json -Recurse | Select-Object -First 1
+    Assert ((Get-Content $resultsFile.FullName -Raw).TrimStart().StartsWith('[')) 'Single-suite results must remain an array'
+    foreach ($attempt in 1..2) {
+        $result = Run-Ci @('-Stage','Regression','-TestName','Test-02.ps1','-PowerShellExe',$hostExe)
+        Assert ($result.Code -eq 0) 'Default log run failed'
+    }
+    $defaultLogs = Join-Path $root 'tests/.tmp-ci-logs'
+    Assert (@(Get-ChildItem $defaultLogs -Directory).Count -eq 2) 'Default runs reused a log directory'
+    Assert (@(Get-ChildItem $defaultLogs -Filter run.json -Recurse).Count -eq 2) 'Earlier run evidence was lost'
+    foreach ($invalid in @('Test-missing.ps1','Test-*.ps1','../Test-02.ps1')) {
+        $invalidLogs = Join-Path $root 'invalid'
+        $result = Run-Ci @('-Stage','Regression','-TestName',$invalid,'-PowerShellExe',$hostExe,'-LogDirectory',$invalidLogs)
+        Assert ($result.Code -ne 0 -and -not (Test-Path $invalidLogs)) 'Invalid selection executed tests or created logs'
+    }
+    $quick = @('Test-Ci.ps1','Test-ExplicitSerial.ps1','Test-Localization.ps1','Test-ProbeInventory.ps1','Test-ReleaseNotes.ps1','Test-TestRunner.ps1')
+    foreach ($name in $quick) { Set-Content (Join-Path $root "tests/$name") "Write-Output 'QUICK_FIXTURE'" -Encoding ASCII }
+    $quickLogs = Join-Path $root 'quick'
+    $result = Run-Ci @('-List','-Profile','Quick','-LogDirectory',$quickLogs)
+    Assert ($result.Code -eq 0 -and -not (Test-Path $quickLogs) -and $result.Output -notmatch 'QUICK_FIXTURE|VALIDATION_FAILED') 'List ran validation/tests or wrote logs'
+    foreach ($name in $quick) { Assert ($result.Output -match [regex]::Escape($name)) 'Quick list omitted suite' }
+    $result = Run-Ci @('-Stage','Regression','-Profile','Quick','-PowerShellExe',$hostExe,'-LogDirectory',$quickLogs)
+    Assert ($result.Code -eq 0 -and $result.Output -match 'Selected 6/8 suites passed' -and $result.Output -notmatch 'Running Test-01') 'Quick ran excluded tests'
+    $result = Run-Ci @('-Profile','Quick','-TestName','Test-02.ps1')
+    Assert ($result.Code -ne 0) 'Conflicting selectors accepted'
+    $result = Run-Ci @('-Stage','Validate','-Profile','Quick')
+    Assert ($result.Code -ne 0) 'Validate ignored selector'
     $pythonStub = Join-Path $root 'python-stub.cmd'
     Set-Content $pythonStub "@echo off`r`nexit /b 7" -Encoding ASCII
     $preference = $ErrorActionPreference

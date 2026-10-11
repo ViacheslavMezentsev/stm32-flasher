@@ -7,6 +7,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Add local Quick, exact suite selection and listing without execution. Mark partial coverage in console/run.json; keep single-test results.json as an array. Separate default logs by attempt. Full CI and runtime commands remain unchanged.
+
 - Add `ci` with RU/EN GitHub/local check documentation, shared Validate/Regression/All entry points and failure-propagation tests. The existing tests runner remains compatible.
 
 - `halt.cmd`, `go.cmd`, `reset.cmd`: thin `flash.cmd -Command` wrappers sharing settings, probe selection, directory locking, reports and history. No HEX required, Flash programming/erasing or configuration cleanup.

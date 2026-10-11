@@ -35,9 +35,10 @@ Missing shells or Python cause failure, not skipped coverage.
 Failed suites are not masked; remaining suites continue.
 A validation error stops the full run before regressions.
 
-Default logs: `tests/.tmp-ci-logs/1-powershell` and `2-pwsh`, ignored by Git.
-`-LogDirectory` changes the log root. Preserve results before another run:
-log names are reused. To run an individual suite:
+Default logs: `tests/.tmp-ci-logs/<timestamp-id>/1-powershell` and `2-pwsh`, ignored
+by Git. Each local invocation is retained separately. Explicit `-LogDirectory`
+preserves the previous behavior and reuses that path; choose different directories
+for independent attempts. To run an individual suite:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Localization.ps1
@@ -47,6 +48,30 @@ pwsh -NoProfile -File tests/Test-Localization.ps1
 `tests/Invoke-Tests.ps1` remains a compatible single-shell entry point.
 GitHub uses the same `ci` scripts but runs shells in separate jobs.
 A full run takes several minutes; live output and logs show progress.
+
+## Fast Feedback
+
+```powershell
+./ci/Invoke-Local.ps1 -Profile Quick -List
+./ci/Invoke-Local.ps1 -Profile Quick
+./ci/Invoke-Local.ps1 -TestName Test-Localization.ps1,Test-TestRunner.ps1
+```
+
+Quick runs validation and six short suites: Ci, ExplicitSerial, Localization,
+ProbeInventory, ReleaseNotes, TestRunner, in both shells by default. It covers
+infrastructure and selected contracts, not a smoke test of all flashing commands.
+For documentation start with `-Stage Validate`; for runtime changes add affected
+suites. Quick does not replace CMD/engines, safety, configuration, packaging or
+full CI before land. GitHub still runs Full.
+
+`-TestName` accepts exact filenames, without paths or wildcards; unknown names
+fail before tests start. It cannot be combined with Quick. `-List` only lists
+suites, without validation, child processes or logs.
+Console output and `run.json` record selection/discovery, Partial, timestamps,
+host and status. `results.json` remains an array even for one test.
+Status=Running means incomplete, not passed. This is not a source snapshot:
+do not edit the tree during a run; capturing inputs is a separate next step.
+A smaller selection improves feedback time, not full-suite performance.
 
 ## Releases and Hardware
 
