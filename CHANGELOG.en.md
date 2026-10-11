@@ -31,6 +31,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Increase the GitHub CI regression job limit from 15 to 30 minutes after the full PS5.1 run was cancelled at the time limit. Test coverage and sequential execution are unchanged; this provides headroom, not a CI speedup.
+
 - Split README into Russian and English files with language tabs; ship both in the ZIP. Clarify verified commands and scope for the upcoming 0.3.0. Simplify AGENTS while preserving branch/push/CI/land rules. Group changelogs into three categories with short release summaries, retaining historical entries.
 
 - Tested halt/reset on AT32F403ACGU7 with SEGGER V8.32 at the default 4000 kHz, without Flash writes/erase. Fixed false failures parsing the EoE acknowledgement (`will now exit on Error`) and IsHalted with a PC address. Stubs now include real output formats; actual errors still fail. Separate go found an already running core and failed; check was not run without HEX. This is neither AT32 flashing support nor STM32/J-Link acceptance.

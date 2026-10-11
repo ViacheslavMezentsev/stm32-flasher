@@ -49,7 +49,7 @@ manual dispatch. Two independent jobs use `windows-latest`:
 
 - Validate (5 minutes): required files, PowerShell syntax, version format,
   changelog categories and strict specification structure/traceability (Python 3.12).
-- Regression (15 minutes per shell): all `tests/Test-*.ps1` suites in Windows
+- Regression (30 minutes per shell): all `tests/Test-*.ps1` suites in Windows
   PowerShell 5.1 and PowerShell 7. A failure does not cancel the other matrix job.
 
 Per-suite logs, timings, exit codes and `results.json` are uploaded even on failure;

@@ -12,7 +12,7 @@ pull request и вручную. Два независимых задания н�
 
 - Validate (5 минут): обязательные файлы, синтаксис PowerShell, формат версии,
   категории CHANGELOG и структура/трассировка ТЗ (`--strict`, Python 3.12).
-- Regression (15 минут на оболочку): все `tests/Test-*.ps1` в Windows PowerShell
+- Regression (30 минут на оболочку): все `tests/Test-*.ps1` в Windows PowerShell
   5.1 и PowerShell 7. Матрица не отменяет вторую оболочку при отказе первой.
 
 Логи каждого набора, время, код возврата и `results.json` загружаются даже при
