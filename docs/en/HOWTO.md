@@ -5,6 +5,16 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
+Full opt-in two-worker run (PS5.1/7 sequentially):
+```powershell
+$snapshot = Join-Path $PWD.Path 'tests/.tmp-ci-snapshots/parallel'
+./ci/Invoke-Snapshot.ps1 -Stage Validate -RunDirectory $snapshot
+./ci/Invoke-Isolated.ps1 -SnapshotDirectory $snapshot -Workers 2
+```
+Repeat the second command with -Workers 1 to compare the same snapshot.
+Use a new snapshot path; each invocation creates separate logs.
+Timeouts and limitations: [CI](../../ci/README.en.md#isolated-runner-opt-in).
+
 Concurrency needs separate source copies, TEMP/TMP and descendant supervision,
 not just GUID fixture names. Starting Windows PowerShell from Python with an
 inherited PS7 `PSModulePath` can break standard commands. Remove it only from the

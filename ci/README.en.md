@@ -2,6 +2,43 @@
 
 [Русский](README.md) | **English**
 
+## Isolated Runner (Opt-in)
+
+Windows only; default local/GitHub runs remain sequential within each shell.
+Capture the current runner and validate static checks first:
+
+```powershell
+$snapshot = Join-Path $PWD.Path 'tests/.tmp-ci-snapshots/parallel'
+./ci/Invoke-Snapshot.ps1 -Stage Validate -RunDirectory $snapshot
+./ci/Invoke-Isolated.ps1 -SnapshotDirectory $snapshot -Workers 2
+# Compare identical inputs:
+./ci/Invoke-Isolated.ps1 -SnapshotDirectory $snapshot -Workers 1
+```
+
+Workers defaults to 1. All Test-*.ps1 suites run unless exact TestName values
+are supplied; -List is supported and partial coverage is explicit.
+PS5.1 and PS7 run sequentially, with up to two suites active per shell.
+An available worker takes the next suite. Each suite has private sources,
+cwd, TEMP/TMP and a Windows Job Object. After the root exits, the tree gets up
+to one second to settle; remaining descendants are terminated and reported as
+failures. Initial process counts and settling time are recorded.
+This prevents accidental conflicts, not hostile code.
+
+-SuiteTimeoutSeconds defaults to 600; -RunTimeoutSeconds defaults to 1800
+per shell, including preparation, checked between phases and during execution.
+Cancellation/global timeout stops active process trees and queued work, returns
+failure and prevents the next shell from starting. Ordinary suite failures do
+not cancel other suites. Interrupted/incomplete runs cannot pass.
+
+Evidence goes to fresh tests/.tmp-ci-isolated/<id>/<index-shell> directories.
+An explicit -LogDirectory must also be new; previous evidence is never replaced.
+run.json/results.json record selection, partial coverage, durations and status;
+numbered directories retain copies, stdout/stderr, suite logs and result.json.
+SHA-256 integrity is checked before/after. Exit zero without consistent results
+is insufficient. The parent prints suite completions; live details are in logs.
+Compare 1/2 workers using one snapshot without other heavy runs. The runner must
+match the captured implementation; older snapshots lacking it cannot be used.
+
 ## GitHub
 
 [CI](../.github/workflows/ci.yml) runs on every branch/tag push, pull request and
@@ -108,7 +145,7 @@ A separate `benchmark-*.json` retains every sample, versions, parameters, manife
 benchmark SHA-256, and per-series median/range. Nonzero exits or a 30-second timeout
 stop the run as Failed without discarding earlier samples. Final integrity is checked.
 Compare series on identical inputs and hardware; these are startup/parse costs,
-not a full-CI speedup. Suite parallelism is not enabled yet.
+not a full-CI speedup. Suite parallelism is opt-in only.
 
 Controlled run on 2026-10-11 (PS5.1.26100.9444 / PS7.6.6, Python 3.11.9):
 empty-process medians across two series were 99/103 ms direct and 669/655 ms

@@ -5,6 +5,16 @@
 
 ## Локальный CI
 
+Полный opt-in прогон с двумя worker (PS5.1/7 последовательно):
+```powershell
+$snapshot = Join-Path $PWD.Path 'tests/.tmp-ci-snapshots/parallel'
+./ci/Invoke-Snapshot.ps1 -Stage Validate -RunDirectory $snapshot
+./ci/Invoke-Isolated.ps1 -SnapshotDirectory $snapshot -Workers 2
+```
+Для сравнения повторите второй вызов с -Workers 1 на том же снимке.
+Путь снимка должен быть новым; логи создаются отдельно при каждом запуске.
+Таймауты и ограничения: [CI](../../ci/README.md#изолированный-runner-opt-in).
+
 Параллельность требует отдельных копий исходников, TEMP/TMP и контроля потомков,
 не только GUID в имени стенда. Если запускать Windows PowerShell из Python,
 унаследованный `PSModulePath` PS7 может сломать стандартные команды. Убирайте его

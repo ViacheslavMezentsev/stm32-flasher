@@ -7,6 +7,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Opt-in isolated CI runner with 1/2 workers: captured inputs, private copies and TEMP/TMP, process-tree supervision, timeouts and retained results. Regression contracts cover collisions, cancellation, failures, integrity and incomplete evidence. Local/GitHub defaults, runtime CMD and version are unchanged.
+
 - RU/EN test isolation audit and same-snapshot one/two-worker comparison method. The local research harness separates source copies, TEMP/TMP and process trees; standard CI is unchanged. Found a PS5.1-from-Python dependency on inherited PS7 PSModulePath; the harness corrects the child environment and checks it before execution.
 - Limited comparison: 6/23 suites, 1/2 workers, PS5.1/7, all 24 executions passed with unchanged inputs and no remaining processes. Total time improved by 1.71x/1.55x; a single local observation does not establish full-CI or GitHub speedup.
 
