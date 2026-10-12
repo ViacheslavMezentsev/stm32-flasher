@@ -3,61 +3,29 @@
 All notable changes to this project are documented here.
 Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]: Preparing 0.3.0: core control and unified configuration
+## [Unreleased]
+
+## [0.3.0] - 2026-10-12: Unified settings and core control
 
 ### Added
 
-- Manual GitHub CI comparison: one shared snapshot, full 1/2/2/1-worker trials on one VM per shell, raw timings and medians, separate artifacts. Incomplete/failed evidence prohibits speedup claims; orchestrator contracts join CI. CI defaults are unchanged; remote measurements have not run yet.
-
-- Opt-in isolated CI runner with 1/2 workers: captured inputs, private copies and TEMP/TMP, process-tree supervision, timeouts and retained results. Regression contracts cover collisions, cancellation, failures, integrity and incomplete evidence. Local/GitHub defaults, runtime CMD and version are unchanged.
-
-- RU/EN test isolation audit and same-snapshot one/two-worker comparison method. The local research harness separates source copies, TEMP/TMP and process trees; standard CI is unchanged. Found a PS5.1-from-Python dependency on inherited PS7 PSModulePath; the harness corrects the child environment and checks it before execution.
-- Limited comparison: 6/23 suites, 1/2 workers, PS5.1/7, all 24 executions passed with unchanged inputs and no remaining processes. Total time improved by 1.71x/1.55x; a single local observation does not establish full-CI or GitHub speedup.
-
-- Local CI source snapshots: WorkingTree/clean Commit, archive and SHA-256 manifest, separate logs and integrity checks. Sequential PS/CMD startup benchmark with warmups and repeated series; snapshot contracts in both shells. No suite parallelism or runtime command changes.
-
-- Add local Quick, exact suite selection and listing without execution. Mark partial coverage in console/run.json; keep single-test results.json as an array. Separate default logs by attempt. Full CI and runtime commands remain unchanged.
-
-- Add `ci` with RU/EN GitHub/local check documentation, shared Validate/Regression/All entry points and failure-propagation tests. The existing tests runner remains compatible.
-
-- `halt.cmd`, `go.cmd`, `reset.cmd`: thin `flash.cmd -Command` wrappers sharing settings, probe selection, directory locking, reports and history. No HEX required, Flash programming/erasing or configuration cleanup.
-- Core control through OpenOCD/ST-Link and SEGGER/J-Link; CubeProgrammer/ST-Link supports halt/reset using HOTPLUG to avoid a connection-time reset. CubeProgrammer go and its J-Link control combinations are rejected before MCU access; no automatic engine switching.
-- Success requires exit 0 and the expected core state; errors/unknown output return 1 without retrying another serial. Test-CoreControl uses real CMD and stub executables; hardware validation remains pending.
-- After adding core control, all 21 suites passed locally in PS5.1/7, including 120 new scenarios, help, locking, localization and packaging. Branch CI is pending push.
-- The new comparison command is named `check` to avoid the CMD built-in `verify`. The experimental `-Command verify` is no longer accepted; existing history is unchanged.
-- `check.cmd` / `flash.cmd -Command check`: read Intel HEX ranges and compare bytes on the PC using CubeProgrammer, OpenOCD or J-Link. No programming, erasing, reset or automatic resume commands; the core may remain halted. Gaps are not read. Reports and history identify the operation as check.
-- Validate HEX, overlaps, address bounds and SHA-256 before MCU access; read failures and mismatches return 1. Add CMD tests with stub executables, RU/EN help, DryRun and wrapper packaging. Hardware check coverage is described above.
-- The existing 19 suites passed in PS5.1/7; after test-harness fixes, the new Test-Verify passed separately (72 cases per version). CI after push is still pending.
+- `check.cmd`: read and compare Intel HEX ranges without writing, erasing, resetting or automatically resuming the core. Validate HEX structure, overlaps, address bounds and SHA-256 before MCU access; dedicated operation reports and history.
+- `halt.cmd`, `go.cmd`, `reset.cmd`: core control through the shared `Command` parameter, saved settings and probe selection. OpenOCD/ST-Link and SEGGER/J-Link support all three commands; CubeProgrammer/ST-Link supports halt/reset. Unsupported combinations fail without switching engines.
+- Local CI with full/quick checks, suite selection, source snapshots and timing measurements. Isolated 1/2-worker runner with private copies, TEMP/TMP, process supervision, timeouts and input integrity checks. Manual same-snapshot worker comparison workflow.
+- Regression coverage for new commands, JSON configuration, packaging, isolation and complete results in PowerShell 5.1/7.
 
 ### Changed
 
-- Switch ordinary GitHub CI to the isolated two-worker runner per shell, with full suite discovery and captured sources. Runner budget is 25 minutes within a 30-minute job; artifacts retain the manifest, reports and logs without working copies. Local defaults remain unchanged. Experiment 38186953080 passed 200/200 suite executions, with median speedups of 1.608x (PS5.1) / 1.513x (PS7); one experiment is not a timing guarantee.
-
-- Increase the GitHub CI regression job limit from 15 to 30 minutes after the full PS5.1 run was cancelled at the time limit. Test coverage and sequential execution are unchanged; this provides headroom, not a CI speedup.
-
-- Split README into Russian and English files with language tabs; ship both in the ZIP. Clarify verified commands and scope for the upcoming 0.3.0. Simplify AGENTS while preserving branch/push/CI/land rules. Group changelogs into three categories with short release summaries, retaining historical entries.
-
-- Tested halt/reset on AT32F403ACGU7 with SEGGER V8.32 at the default 4000 kHz, without Flash writes/erase. Fixed false failures parsing the EoE acknowledgement (`will now exit on Error`) and IsHalted with a PC address. Stubs now include real output formats; actual errors still fail. Separate go found an already running core and failed; check was not run without HEX. This is neither AT32 flashing support nor STM32/J-Link acceptance.
-- The owner's logs confirm JSON setup: saving OpenOCD, loading through info, cancellation with unchanged SHA-256, switching to CubeProgrammer with openocdTarget cleared, and returning to OpenOCD with an explicit target (exit 0, JSON and info). The agent performed no MCU operations for this check.
-- The owner subsequently confirmed OpenOCD check on STM32G474RE/ST-Link with target/stm32g4x.cfg (3.655 s) and separate go using the saved target (1.694 s). Console output confirms matching HEX ranges and the expected core state after go. The new J-Link commands and hardware check failure cases remain untested.
-- The owner confirmed normal CubeProgrammer flashing (3.514 s) followed by check (1.089 s) on STM32G474RE/ST-Link: MCU bytes matched the HEX ranges. Evidence is the supplied console output, not an agent rerun; whole-Flash contents, post-check core state and hardware failure cases were not verified. OpenOCD check and the new J-Link commands still await hardware validation.
-- The OpenOCD speed parsing fix is merged into main (ea7e045); branch and main CI passed.
-- Fixed a false OpenOCD core-control failure on the informational adapter speed fallback message. Only the exact informational line is excluded; real errors, missing state and nonzero exit still fail. OpenOCD halt/go/reset and CubeProgrammer halt/reset were tested on STM32G474RE/ST-Link without Flash writes. State after disconnect is not guaranteed; new J-Link commands remain untested on hardware.
-
-- Consolidate settings in `.flash.json`, schema version 1. Operational runs or confirmed setup migrate legacy files; JSON takes precedence. Writes use a temporary file and atomic replacement, followed by legacy cleanup after JSON validation.
-- Info/DryRun never migrate; help/version never read settings. Invalid JSON fails before discovery; explicit ResetConfig/forget clears both formats. Add migration, write/deletion failure, RU/EN and argument-priority tests; include the format guide in release ZIPs.
-- Following JSON integration, all 19 suites passed locally in PS5.1/7 without an MCU; the strict specification check is clean. CI results for this stage are not yet confirmed.
-- The owner confirmed JSON migration and successful programming with verification through CubeProgrammer/ST-Link (3.406 s), based on console output and the generated settings file. A subsequent info run confirmed JSON loading and the saved engine and probe selection.
-- Move CMD files into the repository's `bin`. Release ZIP commands remain at the root for copying beside firmware; runtime data stays in the working directory.
-- Update CI and packaging paths. Test-FlashEntry covers both CMD layouts with stub executables; Test-PackageLayout executes the release workflow packaging block and checks SHA-256, unchanged CMD files and portable RU/EN help entry points.
-- All 18 suites and the strict specification check passed locally in PS5.1/7. No hardware operations were performed; GitHub CI is pending the push.
+- Consolidate settings in `.flash.json`, schema 1. JSON takes precedence; legacy files migrate during working operations or confirmed setup saves. Info/DryRun do not migrate; help/version do not read settings. Writes use a temporary file and atomic replacement; invalid JSON fails before hardware discovery.
+- Move repository CMD files into `bin`; release ZIP commands remain at the root for copying beside firmware. Working data stays in the calling directory.
+- Separate RU/EN READMEs with language tabs; update usage and maintenance instructions and group CI documentation under `ci`.
+- GitHub CI uses two isolated workers per shell, full suite discovery and captured sources. The runner budget is 25 minutes within a 30-minute job; logs and reports are retained separately from working copies. Local execution remains sequential by default.
 
 ### Fixed
 
-- Fixed the cause of standalone go failing after halt: Commander resumes the core on close by default. Only halt sets SetRestartOnClose=0 before stopping; go remains resume without reset. Reset, check and flashing sequences are unchanged, and real errors are not suppressed. The EXE stub checks the exact sequences of all three commands.
-- The owner's STM32F103CB/J-Link log confirms halt/reset, flash and check; go failed in the original version. This is separate evidence, not an agent flashing rerun.
-
-- Quote the HEX path passed to CubeProgrammer, including fallback arguments, so directories containing spaces do not split it. The new CMD test reproduced the defect before the fix.
+- J-Link Commander no longer resumes the core on close after halt: only halt sets `SetRestartOnClose=0`. Go resumes without resetting.
+- J-Link EoE/IsHalted service messages and normal OpenOCD speed fallback are no longer treated as errors; actual errors and missing expected states still fail.
+- Quote HEX paths passed to CubeProgrammer, including fallback arguments, to support directories containing spaces.
 
 ## [0.2.12] - 2026-10-10: Fix no-argument startup
 

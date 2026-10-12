@@ -17,14 +17,17 @@ try {
     $block = [regex]::Match($workflow, '(?ms)^      - name: Prepare release package\r?\n.*?^        run: \|\r?\n(?<code>(?:          [^\r\n]*\r?\n|\r?\n)+)')
     Assert $block.Success 'Release packaging block not found'
     $code = $block.Groups['code'].Value -replace '(?m)^          ', ''
-    $code = $code.Replace('${{ steps.meta.outputs.version }}', '0.0.0')
+    $scriptText = Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8
+    Assert ($scriptText -match '\$VERSION\s*=\s*"(\d+\.\d+\.\d+)"') 'Missing script version'
+    $version = $Matches[1]
+    $code = $code.Replace('${{ steps.meta.outputs.version }}', $version)
     Assert (-not $code.Contains('${{')) 'Unresolved workflow expression'
     $env:GITHUB_OUTPUT = Join-Path $root 'outputs.txt'
     Push-Location $root
     try { & ([scriptblock]::Create($code)) } finally { Pop-Location }
-    $archive = Join-Path $root 'dist/stm32-flasher-0.0.0.zip'
+    $archive = Join-Path $root "dist/stm32-flasher-$version.zip"
     $expectedHash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-    Assert ((Get-Content "$archive.sha256" -Raw) -eq "$expectedHash *stm32-flasher-0.0.0.zip") 'Package checksum mismatch'
+    Assert ((Get-Content "$archive.sha256" -Raw) -eq "$expectedHash *stm32-flasher-$version.zip") 'Package checksum mismatch'
     $unpacked = Join-Path $root 'unpacked'
     Expand-Archive -LiteralPath $archive -DestinationPath $unpacked
     foreach ($name in @('README.md','README.en.md')) {
@@ -52,6 +55,8 @@ try {
                     $entry = Join-Path $tool "$name.cmd"
                     $output = & $env:ComSpec /d /c "`"$entry`" --help -Lang $language" 2>&1 | Out-String
                     Assert ($LASTEXITCODE -eq 0 -and $output -match 'stm32-flasher') "$layout $name $language failed: $output"
+                    $output = & $env:ComSpec /d /c "`"$entry`" --version -Lang $language" 2>&1 | Out-String
+                    Assert ($LASTEXITCODE -eq 0 -and $output.Trim() -eq "stm32-flasher $version") "$layout $name $language version failed: $output"
                 }
             }
             Assert (@(Get-ChildItem $work -Force | Where-Object Extension -ne '.cmd').Count -eq 0) 'Help created runtime files'

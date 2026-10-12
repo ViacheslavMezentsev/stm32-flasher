@@ -6,8 +6,7 @@ A portable STM32 command toolkit for ST-Link and J-Link. All logic lives in
 standalone `flash.cmd`; the other CMD files are short aliases.
 Requires Windows 10/11, Windows PowerShell 5.1 or PowerShell 7 and probe drivers.
 
-This tree is being prepared for **0.3.0**. The script still reports **0.2.12**;
-the new commands below are not part of the published 0.2.12 archive.
+Version **0.3.0**: unified `.flash.json` settings, memory checks and core control.
 
 ## Quick Start
 
