@@ -5,6 +5,11 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
+Ordinary GitHub CI uses two workers per shell, a checkout snapshot and all suites.
+Use the example below to reproduce locally; Invoke-Local stays sequential.
+GitHub gives the runner 1500 seconds to leave time for log upload within the
+30-minute job limit. A timeout cancellation is not a PASS.
+
 For remote comparison after land: Actions -> CI Worker Comparison ->
 Run workflow -> main. [Conditions and interpretation](../../ci/comparison.en.md).
 One snapshot, full suite, order 1/2/2/1 within each VM.

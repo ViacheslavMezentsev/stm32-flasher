@@ -31,6 +31,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Switch ordinary GitHub CI to the isolated two-worker runner per shell, with full suite discovery and captured sources. Runner budget is 25 minutes within a 30-minute job; artifacts retain the manifest, reports and logs without working copies. Local defaults remain unchanged. Experiment 38186953080 passed 200/200 suite executions, with median speedups of 1.608x (PS5.1) / 1.513x (PS7); one experiment is not a timing guarantee.
+
 - Increase the GitHub CI regression job limit from 15 to 30 minutes after the full PS5.1 run was cancelled at the time limit. Test coverage and sequential execution are unchanged; this provides headroom, not a CI speedup.
 
 - Split README into Russian and English files with language tabs; ship both in the ZIP. Clarify verified commands and scope for the upcoming 0.3.0. Simplify AGENTS while preserving branch/push/CI/land rules. Group changelogs into three categories with short release summaries, retaining historical entries.

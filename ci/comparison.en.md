@@ -3,7 +3,16 @@
 [Русский](comparison.md) | **English**
 
 Separate manual **CI Worker Comparison** workflow, ci-compare.yml.
-Default CI is unchanged. No hardware is used.
+Default CI uses two workers; this workflow separately compares 1/2 workers.
+No hardware is used.
+
+## First Result
+
+[Run 38186953080](https://github.com/ViacheslavMezentsev/stm32-flasher/actions/runs/38186953080)
+at 4e4f41c passed all eight full 25-suite trials. One/two-worker medians:
+PS5.1 889.09/552.85 s (1.608x), PS7 735.26/486.08 s (1.513x).
+This supports adopting two workers in ordinary CI, not a timing or reliability
+guarantee across Windows runners. Subsequent pushes check stability.
 
 ## Owner Workflow
 

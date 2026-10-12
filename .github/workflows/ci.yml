@@ -44,17 +44,31 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Run all hardware-free tests
+      - name: Capture regression sources
+        shell: pwsh
+        run: |
+          python -B -X utf8 ci/snapshot.py create --source "$env:GITHUB_WORKSPACE" --destination "$env:RUNNER_TEMP/stm32-ci-source" --kind WorkingTree
+          if ($LASTEXITCODE -ne 0) { throw 'Regression snapshot failed' }
+
+      - name: Run all hardware-free tests with two workers
         shell: pwsh
         env:
           TEST_POWERSHELL: ${{ matrix.shell }}
-        run: ./ci/Invoke-Local.ps1 -Stage Regression -PowerShellExe $env:TEST_POWERSHELL -LogDirectory "$env:RUNNER_TEMP/stm32-test-logs"
+        run: |
+          ./ci/Invoke-Isolated.ps1 -SnapshotDirectory "$env:RUNNER_TEMP/stm32-ci-source" -Workers 2 -PowerShellExe $env:TEST_POWERSHELL -SuiteTimeoutSeconds 600 -RunTimeoutSeconds 1500 -LogDirectory "$env:RUNNER_TEMP/stm32-test-logs"
 
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-logs-${{ matrix.shell }}
-          path: ${{ runner.temp }}/stm32-test-logs
+          path: |
+            ${{ runner.temp }}/stm32-ci-source/manifest.json
+            ${{ runner.temp }}/stm32-test-logs/*/run.json
+            ${{ runner.temp }}/stm32-test-logs/*/results.json
+            ${{ runner.temp }}/stm32-test-logs/*/*/result.json
+            ${{ runner.temp }}/stm32-test-logs/*/*/stdout.log
+            ${{ runner.temp }}/stm32-test-logs/*/*/stderr.log
+            ${{ runner.temp }}/stm32-test-logs/*/*/logs/*
           if-no-files-found: warn
           retention-days: 14

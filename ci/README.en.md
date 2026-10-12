@@ -4,7 +4,7 @@
 
 ## Isolated Runner (Opt-in)
 
-Windows only; default local/GitHub runs remain sequential within each shell.
+Windows only; local runs remain sequential by default; GitHub uses two workers.
 Capture the current runner and validate static checks first:
 
 ```powershell
@@ -42,7 +42,7 @@ match the captured implementation; older snapshots lacking it cannot be used.
 ## GitHub
 
 Controlled 1/2-worker comparison is separate and manual:
-[method and owner steps](comparison.en.md). Default CI below is unchanged.
+[method and owner steps](comparison.en.md). This is not part of ordinary push CI.
 
 [CI](../.github/workflows/ci.yml) runs on every branch/tag push, pull request and
 manual dispatch. Two independent jobs use `windows-latest`:
@@ -51,6 +51,13 @@ manual dispatch. Two independent jobs use `windows-latest`:
   changelog categories and strict specification structure/traceability (Python 3.12).
 - Regression (30 minutes per shell): all `tests/Test-*.ps1` suites in Windows
   PowerShell 5.1 and PowerShell 7. A failure does not cancel the other matrix job.
+
+Each regression job captures its checkout and runs Invoke-Isolated with two
+workers and no subset selection. The runner budget is 25 minutes, each suite
+10 minutes; remaining job time allows setup and artifact upload. Each suite
+has private sources, cwd, TEMP/TMP and a process tree. Artifacts include
+manifest.json, run.json, results.json and suite logs, not source copies or
+generated test fixtures.
 
 Per-suite logs, timings, exit codes and `results.json` are uploaded even on failure;
 `test-logs-powershell` / `test-logs-pwsh` artifacts are retained for 14 days.
@@ -148,7 +155,7 @@ A separate `benchmark-*.json` retains every sample, versions, parameters, manife
 benchmark SHA-256, and per-series median/range. Nonzero exits or a 30-second timeout
 stop the run as Failed without discarding earlier samples. Final integrity is checked.
 Compare series on identical inputs and hardware; these are startup/parse costs,
-not a full-CI speedup. Suite parallelism is opt-in only.
+not a full-CI speedup. Local suite parallelism remains opt-in.
 
 Controlled run on 2026-10-11 (PS5.1.26100.9444 / PS7.6.6, Python 3.11.9):
 empty-process medians across two series were 99/103 ms direct and 669/655 ms
