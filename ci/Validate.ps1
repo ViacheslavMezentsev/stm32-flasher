@@ -13,6 +13,7 @@ try {
         'ci/Invoke-Isolated.ps1', 'ci/isolated.py', 'tests/Test-IsolatedRunner.ps1', 'tests/tools/test_isolated.py',
         '.github/workflows/ci-compare.yml', 'ci/compare.py', 'tests/Test-CiComparison.ps1', 'tests/tools/test_compare.py',
         'ci/comparison.md', 'ci/comparison.en.md',
+        'tests/Test-DoctorPolicy.ps1', 'docs/reference/doctor.md', 'docs/reference/doctor.en.md',
         'tests/Test-Snapshot.ps1', 'tests/tools/test_snapshot.py',
         'tests/Invoke-Tests.ps1', 'tests/tools/check_spec.py',
         'docs/TECHNICAL_SPECIFICATION.md', 'docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md',

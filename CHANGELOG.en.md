@@ -5,6 +5,10 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- First doctor stage: agreed contract, embedded release passport and hardware-free OK/WARN/ERROR policy tests. Unknown evidence is distinguished from proven blockers. The command and environment collector are not wired yet; existing commands behave as before.
+
 ## [0.3.0] - 2026-10-12: Unified settings and core control
 
 ### Added

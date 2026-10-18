@@ -5,6 +5,10 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
+First doctor stage: [contract and fact format](../reference/doctor.en.md).
+Test-DoctorPolicy.ps1 checks policy without running flash or accessing USB.
+The doctor command is not wired yet; the passport does not verify the attached board.
+
 Ordinary GitHub CI uses two workers per shell, a checkout snapshot and all suites.
 Use the example below to reproduce locally; Invoke-Local stays sequential.
 GitHub gives the runner 1500 seconds to leave time for log upload within the

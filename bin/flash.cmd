@@ -526,6 +526,123 @@ function T($key) {
     return $val
 }
 
+function Get-DoctorPassport {
+    # Release evidence, not a minimum-version policy or a connected-board claim.
+    return (ConvertFrom-Json @'
+{
+  "schemaVersion": 1,
+  "baselineRelease": "0.3.0",
+  "runtime": { "windows": ["10", "11"], "powerShell": ["5.1", "7"] },
+  "tools": {
+    "CUBEPROGRAMMER": { "testedVersions": ["2.19.0"] },
+    "OPENOCD": { "testedVersions": [], "versionNote": "Build identity was not recorded for the hardware baseline" },
+    "JLINK": { "testedVersions": ["V8.32"] }
+  },
+  "profiles": [
+    { "engine": "CUBEPROGRAMMER", "version": "2.19.0", "probe": "STLINK", "mcu": "STM32G474RE", "operations": ["flash", "check", "halt", "reset"], "evidence": "hardware" },
+    { "engine": "OPENOCD", "version": "0.12.0", "build": null, "probe": "STLINK", "mcu": "STM32G474RE", "operations": ["check", "halt", "go", "reset"], "evidence": "hardware" },
+    { "engine": "JLINK", "version": "V8.32", "probe": "JLINK", "mcu": "STM32F103CB", "operations": ["flash", "check", "halt", "go", "reset"], "evidence": "hardware" }
+  ],
+  "evidence": {
+    "hardware": "https://github.com/ViacheslavMezentsev/stm32-flasher/blob/v0.3.0/docs/testing.md",
+    "stubCi": "https://github.com/ViacheslavMezentsev/stm32-flasher/actions/runs/38194157118"
+  }
+}
+'@)
+}
+
+function New-DoctorFinding($id, $status, $code, $actual = '', $expected = '') {
+    [pscustomobject]@{ Id=$id; Status=$status; Code=$code; Actual=$actual; Expected=$expected }
+}
+
+function Get-DoctorAssessment([hashtable]$Facts) {
+    # Pure policy: callers collect facts separately. Invalid/incomplete facts fail closed.
+    foreach ($name in @('Runtime','Config','Engine','Probe','Inventory','Target','Device','StInfo')) {
+        if (-not $Facts.ContainsKey($name)) { throw "Missing doctor fact: $name" }
+    }
+    $domains = @{
+        Runtime=@('Supported','Unknown','Unsupported'); Config=@('Valid','Missing','Legacy','Invalid')
+        Target=@('Available','Unset','Missing','Unknown')
+    }
+    foreach ($name in $domains.Keys) {
+        if ($Facts[$name] -notin $domains[$name]) { throw "Invalid doctor fact: $name" }
+    }
+    $engine = $Facts.Engine; $probe = $Facts.Probe; $inventory = $Facts.Inventory
+    if ($engine.State -notin @('Available','Missing','NotSelected','Unknown') -or
+        $engine.VersionState -notin @('Known','Unknown','Timeout','Error') -or
+        $inventory.State -notin @('Known','Unknown','Timeout','Error') -or
+        $probe.Type -notin @('STLINK','JLINK','') -or
+        $probe.SerialRequested -isnot [bool] -or $probe.SerialFound -isnot [bool] -or
+        $Facts.Device -isnot [bool] -or $Facts.StInfo -isnot [bool]) { throw 'Invalid doctor observation' }
+    $passport = Get-DoctorPassport
+    if ($engine.State -eq 'Available' -and $engine.Name -notin @($passport.tools.PSObject.Properties.Name)) {
+        throw 'Unknown available engine identity'
+    }
+    if ($engine.VersionState -eq 'Known' -and [string]::IsNullOrWhiteSpace($engine.Version)) {
+        throw 'Known version requires a value'
+    }
+    if ($inventory.State -eq 'Known') {
+        if ($inventory.Count -isnot [int] -or $inventory.Count -lt 0 -or
+            $inventory.UnknownSerialCount -isnot [int] -or $inventory.UnknownSerialCount -lt 0 -or
+            $inventory.UnknownSerialCount -gt $inventory.Count -or
+            ($probe.SerialFound -and $inventory.Count -eq 0)) { throw 'Invalid known inventory' }
+    }
+    $rows = New-Object 'Collections.Generic.List[object]'
+    $status = switch ($Facts.Runtime) { 'Supported' {'OK'} 'Unsupported' {'ERROR'} default {'WARN'} }
+    $rows.Add((New-DoctorFinding 'runtime' $status ('Runtime' + $Facts.Runtime)))
+    $status = switch ($Facts.Config) { 'Valid' {'OK'} 'Invalid' {'ERROR'} default {'WARN'} }
+    $rows.Add((New-DoctorFinding 'configuration' $status ('Config' + $Facts.Config)))
+    $status = switch ($engine.State) { 'Available' {'OK'} 'Missing' {'ERROR'} default {'WARN'} }
+    $rows.Add((New-DoctorFinding 'engine' $status ('Engine' + $engine.State) $engine.Name))
+    if ($engine.State -eq 'Available') {
+        $tested = @($passport.tools.($engine.Name).testedVersions)
+        $status = 'WARN'; $code = 'Version' + $engine.VersionState
+        if ($engine.VersionState -eq 'Known') {
+            # Preserve OpenOCD build suffixes; do not infer newer == compatible.
+            $version = $engine.Version.Trim() -replace '^[vV]', ''
+            if ($engine.Name -eq 'CUBEPROGRAMMER') { $version = $version -replace '^(\d+\.\d+\.\d+)\.0$', '$1' }
+            $matchesBaseline = @($tested | Where-Object { ($_ -replace '^[vV]', '') -ceq $version }).Count -gt 0
+            $status = if ($matchesBaseline) { 'OK' } else { 'WARN' }
+            $code = if ($matchesBaseline) { 'VersionTested' } else { 'VersionDifferent' }
+        } elseif ($engine.VersionState -eq 'Error') { $status = 'ERROR' }
+        $rows.Add((New-DoctorFinding 'version' $status $code $engine.Version ($tested -join ', ')))
+        $pair = if (-not $probe.Type) { 'Unknown' }
+            elseif (($engine.Name -eq 'OPENOCD' -and $probe.Type -ne 'STLINK') -or
+                    ($engine.Name -eq 'JLINK' -and $probe.Type -ne 'JLINK')) { 'Unsupported' } else { 'Supported' }
+        $status = switch ($pair) { 'Supported' {'OK'} 'Unsupported' {'ERROR'} default {'WARN'} }
+        $rows.Add((New-DoctorFinding 'pair' $status ('Pair' + $pair)))
+    }
+    if ($inventory.State -ne 'Known') {
+        $rows.Add((New-DoctorFinding 'inventory' 'WARN' ('Inventory' + $inventory.State)))
+    } elseif (-not $probe.Type) {
+        $rows.Add((New-DoctorFinding 'inventory' 'WARN' 'ProbeTypeUnknown'))
+    } elseif ($probe.SerialRequested) {
+        if ($probe.SerialFound) { $status='OK'; $code='SerialFound' }
+        elseif ($inventory.UnknownSerialCount -gt 0) { $status='WARN'; $code='SerialUnknown' }
+        else { $status='ERROR'; $code='SerialMissing' }
+        $rows.Add((New-DoctorFinding 'inventory' $status $code))
+    } else {
+        if ($inventory.Count -eq 0) { $status='ERROR'; $code='ProbeMissing' }
+        elseif ($inventory.Count -gt 1) { $status='WARN'; $code='ProbeChoice' }
+        else { $status='OK'; $code='ProbeFound' }
+        $rows.Add((New-DoctorFinding 'inventory' $status $code))
+    }
+    if ($engine.State -eq 'Available' -and $engine.Name -eq 'OPENOCD') {
+        $status = switch ($Facts.Target) { 'Available' {'OK'} 'Missing' {'ERROR'} default {'WARN'} }
+        $rows.Add((New-DoctorFinding 'target' $status ('Target' + $Facts.Target)))
+        if ($Facts.Target -eq 'Unset' -and -not $Facts.StInfo) {
+            $rows.Add((New-DoctorFinding 'st-info' 'WARN' 'AutoDetectionUnavailable'))
+        }
+    }
+    if ($engine.State -eq 'Available' -and $engine.Name -eq 'JLINK') {
+        $status = if ($Facts.Device) { 'OK' } else { 'WARN' }
+        $code = if ($Facts.Device) { 'DeviceConfigured' } else { 'DeviceUnset' }
+        $rows.Add((New-DoctorFinding 'device' $status $code))
+    }
+    $exitCode = if (@($rows | Where-Object Status -eq 'ERROR').Count) { 1 } else { 0 }
+    [pscustomobject]@{ Findings=@($rows.ToArray()); ExitCode=$exitCode; NoticeCode='McuAndImageNotChecked'; BaselineRelease=$passport.baselineRelease }
+}
+
 function Resolve-HexPath($value) {
     if (-not $value) { return $null }
     $candidate = $value.Trim('"')
