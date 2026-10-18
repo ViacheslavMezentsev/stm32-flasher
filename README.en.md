@@ -6,7 +6,7 @@ A portable STM32 command toolkit for ST-Link and J-Link. All logic lives in
 standalone `flash.cmd`; the other CMD files are short aliases.
 Requires Windows 10/11, Windows PowerShell 5.1 or PowerShell 7 and probe drivers.
 
-Version **0.3.0**: unified `.flash.json` settings, memory checks and core control.
+Version **0.3.1**: `doctor` environment diagnostics and the script SHA-256 in `info`.
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ Multiple probes without a saved selection require a choice.
 
 Every command supports `--help`, `--version`, `-Lang ru` / `-Lang en`.
 Help/version perform no operations and do not read settings.
-The working branch adds [doctor](docs/reference/doctor.en.md): OK/WARN/ERROR,
+[Doctor](docs/reference/doctor.en.md) reports OK/WARN/ERROR,
 exit 0 when there are no ERROR findings. A different tool version is WARN,
 not proof of incompatibility. Diagnostics do not confirm board readiness.
 `-DryRun` validates the plan, HEX and supplied SHA-256 locally, without hardware,

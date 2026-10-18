@@ -2,6 +2,15 @@
 
 ## Текущее состояние
 
+- codex/release-0.3.1: подготовка версии 0.3.1, README RU/EN, CHANGELOG и
+  docs/releases/v0.3.1.md. Паспорт doctor остаётся на базе 0.3.0; GitHub Actions
+  не обновляются. База main 18f5da4: CI 39171367677 PASS, 27/27 в PS5.1 и PS7,
+  Validate PASS. Рабочее поведение не меняется, кроме номера версии.
+  Локально PASS PS5.1/7: PackageLayout, ReleaseNotes, DoctorPolicy, Localization
+  (4/27, не полный CI); Validate/ТЗ strict без замечаний. Далее: commit/push, CI ветки,
+  land, CI main, подписанный v0.3.1 и ручная публикация Release владельцем.
+  Тег и релиз пока не созданы. Записи ниже сохраняют историю предыдущих этапов.
+
 - Info/doctor: добавлено подтверждаемое Windows предупреждение J-Link RU/EN.
   Отдельный USB-запрос ограничен 10 с; неизвестный ответ не означает отсутствие.
   На ПК предупреждение подтверждено в Info EN и Doctor RU; без MCU/смены драйверов.

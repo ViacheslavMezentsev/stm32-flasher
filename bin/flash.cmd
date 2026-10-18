@@ -67,7 +67,7 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Версия скрипта
-$VERSION = "0.3.0"
+$VERSION = "0.3.1"
 
 # Informational requests must exit before settings, discovery or any operation.
 $referenceArgs = @($Input) + @($args)

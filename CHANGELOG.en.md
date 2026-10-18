@@ -5,6 +5,8 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-19: Environment diagnostics and script identity
+
 ### Added
 
 - Info/doctor: RU/EN warning when Windows detects J-Link but access through SEGGER Commander is unconfirmed. Windows discovery is bounded; drivers and settings are not changed.

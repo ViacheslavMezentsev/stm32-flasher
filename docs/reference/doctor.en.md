@@ -4,7 +4,7 @@
 
 Status: embedded passport, policy, doctor.cmd, environment collection and RU/EN
 output are implemented; tests use EXE stubs without MCU access.
-The runtime version stays 0.3.0; the published tag is not changed.
+The runtime version is 0.3.1; the passport retains the 0.3.0 test baseline.
 
 ## Scope
 
