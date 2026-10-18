@@ -20,6 +20,7 @@ function Find-JLinkExe { $null }
 function Find-StInfoExe { $null }
 function Get-ToolVersion { 'fixture' }
 function Get-JLinkProbes { @() }
+function Test-WindowsJLinkPresent { $false }
 function Get-InfoStLinkInventory { @{Entries=@(); Warning=$false; Source='fixture'} }
 function Get-CimInstance { $null }
 function Get-WmiObject { $null }

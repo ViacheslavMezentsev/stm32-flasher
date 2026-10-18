@@ -7,7 +7,9 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- First doctor stage: agreed contract, embedded release passport and hardware-free OK/WARN/ERROR policy tests. Unknown evidence is distinguished from proven blockers. The command and environment collector are not wired yet; existing commands behave as before.
+- Info/doctor: RU/EN warning when Windows detects J-Link but access through SEGGER Commander is unconfirmed. Windows discovery is bounded; drivers and settings are not changed.
+- `info.cmd` shows the SHA-256 of the actual launched `flash.cmd` to distinguish copies with the same version. An unreadable file produces a localized label without aborting the overview.
+- `doctor.cmd`: embedded release baseline, environment collection and RU/EN OK/WARN/ERROR output. Bounded version and USB queries without MCU connections, menus, migration or settings changes. Unknown responses do not prove probe absence; version differences alone are not errors. Help/version and DryRun do not run tools. Hardware-free CMD/EXE regression tests and inclusion in the release ZIP.
 
 ## [0.3.0] - 2026-10-12: Unified settings and core control
 

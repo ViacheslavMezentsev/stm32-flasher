@@ -3,11 +3,36 @@ $repo = Split-Path -Parent $PSScriptRoot
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseInput((Get-Content (Join-Path $repo 'bin/flash.cmd') -Raw -Encoding UTF8), [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }
-foreach ($name in @('Get-LaunchSettingMap', 'Invoke-ProbeInventory', 'ConvertFrom-CubeProbeList', 'Get-InfoStLinkInventory', 'Get-UsbStLinkProbes')) {
+foreach ($name in @('Get-LaunchSettingMap', 'Invoke-ProbeInventory', 'ConvertFrom-CubeProbeList', 'Get-InfoStLinkInventory', 'Get-UsbStLinkProbes', 'Get-RunningScriptHash')) {
     $node = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
     . ([scriptblock]::Create($node.Extent.Text))
 }
 function Assert($value, $message) { if (-not $value) { throw $message } }
+$identityRoot=Join-Path $PSScriptRoot ('.tmp-identity-' + [guid]::NewGuid().ToString('N'))
+$oldScriptPath=$env:SCRIPT_PATH
+try {
+    New-Item -ItemType Directory (Join-Path $identityRoot 'other') -Force | Out-Null
+    $first=Join-Path $identityRoot 'flash.cmd'
+    $second=Join-Path $identityRoot 'other/flash.cmd'
+    Copy-Item (Join-Path $repo 'bin/flash.cmd') $first
+    Copy-Item $first $second
+    $expected=(Get-FileHash $first -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert ((Get-RunningScriptHash $first) -ceq $expected) 'Hash must cover exact file bytes'
+    Assert ((Get-RunningScriptHash $second) -ceq $expected) 'Identical copies must have equal hashes'
+    Add-Content $second "`n# identity fixture" -Encoding UTF8
+    $env:SCRIPT_PATH=$second
+    Push-Location $identityRoot
+    try {
+        $changed=Get-RunningScriptHash
+        Assert ($changed -cne $expected -and $changed -ceq (Get-FileHash $second).Hash.ToLowerInvariant()) 'Hash must use launched path, not cwd copy or version'
+    } finally { Pop-Location }
+    Assert (-not (Get-RunningScriptHash (Join-Path $identityRoot 'missing.cmd'))) 'Missing file must not abort info'
+    Assert (-not (Get-RunningScriptHash '')) 'Unknown source must not fall back to cwd'
+} finally {
+    $env:SCRIPT_PATH=$oldScriptPath
+    if ((Split-Path -Parent ([IO.Path]::GetFullPath($identityRoot))) -ne $PSScriptRoot) { throw 'Invalid identity fixture path' }
+    Remove-Item -LiteralPath $identityRoot -Recurse -Force
+}
 $hostExe = (Get-Process -Id $PID).Path
 $capture = Invoke-ProbeInventory $hostExe '-NoProfile -Command "[Console]::WriteLine(''out''); [Console]::Error.WriteLine(''err'')"'
 Assert ($capture -match 'out' -and $capture -match 'err') 'Capture stdout and stderr without files'
@@ -72,6 +97,24 @@ $result = Get-InfoStLinkInventory @()
 Assert ($result.Source -eq 'Windows USB') 'Fallback without CubeProgrammer'
 # Exercise the real presentation function with no native tools or filesystem changes.
 & {
+    $node=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Test-WindowsJLinkPresent'},$true)
+    . ([scriptblock]::Create($node.Extent.Text))
+    function Invoke-DoctorQuery($exe,$arguments) {
+        Assert ($arguments -match '-NoProfile -NonInteractive -EncodedCommand ') 'Unbounded or interactive OS query'
+        $code=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String(($arguments -split ' ')[-1]))
+        Assert ($code.Contains("`$ProgressPreference='SilentlyContinue'") -and $code.Contains('Get-PnpDevice -PresentOnly -ErrorAction Stop')) 'OS query must exclude stale devices and progress output'
+        return $script:osQuery
+    }
+    foreach ($state in @('Known','Unknown','Timeout','Error')) {
+        $script:osQuery=@{State=$state;Text='JLINK_USB_PRESENT'}
+        Assert ((Test-WindowsJLinkPresent) -eq ($state -eq 'Known')) 'Failed OS query must not claim presence'
+    }
+    foreach ($text in @('','garbled')) {
+        $script:osQuery=@{State='Known';Text=$text}
+        Assert (-not (Test-WindowsJLinkPresent)) 'Missing marker must not claim presence'
+    }
+}
+& {
     $node = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Show-EnvironmentInfo' }, $true)
     . ([scriptblock]::Create($node.Extent.Text))
     foreach ($dict in @('$LangRu', '$LangEn')) {
@@ -94,17 +137,23 @@ Assert ($result.Source -eq 'Windows USB') 'Fallback without CubeProgrammer'
         [PSCustomObject]@{ Source = 'fixture'; Warning = $false; Entries = @([PSCustomObject]@{ Type = 'STLINK'; Serial = '444444444444444444444444'; Family = 'ST-Link' }) }
     }
     function Get-JLinkProbes {
+        if ($case -in @('windows-only','windows-absent')) { return }
         if ($case -eq 'timeout') { throw [TimeoutException]::new((T 'JLinkTimeout')) }
         if ($case -eq 'error') { throw 'J-Link test error' }
         [PSCustomObject]@{ Type = 'JLINK'; Serial = '12345678'; Family = 'J-Link CE' }
     }
     $CurrentDir = $repo
+    function Test-WindowsJLinkPresent { $case -eq 'windows-only' }
+    function Get-RunningScriptHash { if ($case -eq 'error') { return $null }; return ('a' * 64) }
     foreach ($language in @($LangRu, $LangEn)) {
-        foreach ($case in @('timeout', 'error', 'success')) {
+        foreach ($case in @('timeout', 'error', 'success', 'windows-only', 'windows-absent')) {
             $output = @(Show-EnvironmentInfo) -join "`n"
+            $expectedIdentity=if ($case -eq 'error') { $language.InfoHashUnavailable } else { 'a' * 64 }
+            Assert ($output.Contains("flash.cmd SHA-256: $expectedIdentity")) 'Missing script identity or localized fallback'
             Assert ($output.Contains('444444444444444444444444')) 'ST-Link lost on J-Link failure'
             Assert ($output.Contains('SECTION:5')) 'Inventory stopped after J-Link failure'
-            if ($case -ne 'success') {
+            Assert ($output.Contains($language.JLinkWindowsOnly) -eq ($case -eq 'windows-only')) 'Incorrect OS presence warning'
+            if ($case -in @('timeout','error','windows-only')) {
                 Assert ($output.IndexOf('WARNING:') -gt $output.IndexOf('SECTION:4')) 'Warning appeared before USB section'
                 Assert ($output.IndexOf('WARNING:') -lt $output.IndexOf('SECTION:5')) 'Warning appeared after USB section'
             }

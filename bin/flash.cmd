@@ -50,6 +50,7 @@ param(
     [switch]$Clean,
     [switch]$Backup,
     [switch]$Info,
+    [switch]$Doctor,
     [switch]$Setup,
     [switch]$ProbeTarget,
     [string]$Output = "",
@@ -96,6 +97,9 @@ if ($helpRequested -or $versionRequested) {
             $command = 'backup.cmd'; $example = 'backup.cmd -Output backups/board.hex'
             $options = '-Output <file.hex>  -Address <address>  -Size <bytes>'
             $description = if ($ru) { 'Сохранение Flash в Intel HEX и SHA-256; по умолчанию в backups.' } else { 'Save Flash as Intel HEX and SHA-256; default folder: backups.' }
+        } elseif ($Doctor) {
+            $command = 'doctor.cmd'; $example = 'doctor.cmd -Lang en'; $options = '-DryRun'
+            $description = if ($ru) { 'Диагностика окружения относительно паспорта выпуска. Без подключения к MCU и изменения настроек. WARN допускается (код 0), ERROR возвращает код 1.' } else { 'Compare the environment with the release baseline. No MCU connection or settings changes. WARN is allowed (exit 0); ERROR returns exit 1.' }
         } elseif ($Info) {
             $command = 'info.cmd'; $example = 'info.cmd -ProbeTarget'
             $options = '-ProbeTarget'
@@ -131,6 +135,49 @@ if ($helpRequested -or $versionRequested) {
 # ══════════════════════════════════════════════════════════════════════════════
 
 $LangRu = @{
+    DoctorTitle = 'Диагностика окружения; база выпуска: {0}'
+    DoctorNotice = 'MCU, питание, SWD и образ не проверены. Совпадение версии не подтверждает все операции.'
+    DoctorPlan = 'План: прочитать настройки без миграции, найти движок, запросить версию и список USB. Сейчас процессы и USB не опрашиваются.'
+    DoctorFailure = 'Диагностика не завершена: {0}'
+    DoctorOptions = 'Некорректные параметры диагностики. Движок и программатор автоматически не заменяются.'
+    DoctorDetails = 'Наблюдение: {0}; база: {1}'
+    DoctorSummary = 'Итог: OK={0}, WARN={1}, ERROR={2}'
+    DoctorRuntimeSupported = 'Windows и PowerShell поддерживаются'
+    DoctorRuntimeUnsupported = 'Windows или PowerShell не поддерживаются'
+    DoctorRuntimeUnknown = 'Среда выполнения не определена'
+    DoctorConfigValid = 'Настройки корректны'
+    DoctorConfigMissing = 'Настройки отсутствуют; автоматический выбор'
+    DoctorConfigLegacy = 'Старые настройки прочитаны без миграции'
+    DoctorConfigInvalid = 'Некорректные настройки; опрос отменён'
+    DoctorEngineAvailable = 'Движок найден'
+    DoctorEngineMissing = 'Выбранный движок отсутствует'
+    DoctorEngineNotSelected = 'Движок требует выбора'
+    DoctorEngineUnknown = 'Движок не определён'
+    DoctorVersionTested = 'Версия совпала с проверенной'
+    DoctorVersionDifferent = 'Версия не входит в точную проверенную базу'
+    DoctorVersionUnknown = 'Версия не определена'
+    DoctorVersionTimeout = 'Таймаут запроса версии'
+    DoctorVersionError = 'Не удалось запустить движок'
+    DoctorPairSupported = 'Сочетание движка и программатора допустимо; возможности команд различаются'
+    DoctorPairUnsupported = 'Сочетание движка и программатора не поддерживается'
+    DoctorPairUnknown = 'Тип программатора требует выбора'
+    DoctorInventoryUnknown = 'Список USB не подтверждён; отсутствие устройств не установлено'
+    DoctorInventoryTimeout = 'Таймаут USB-опроса; проверьте подключение и повторите doctor'
+    DoctorInventoryError = 'Ошибка USB-опроса; список может быть неполным'
+    DoctorProbeTypeUnknown = 'Тип программатора не определён'
+    DoctorSerialFound = 'Выбранный серийный номер найден'
+    DoctorSerialUnknown = 'Есть устройство с неизвестным серийным номером'
+    DoctorSerialMissing = 'Выбранный серийный номер отсутствует в подтверждённом списке'
+    DoctorProbeMissing = 'Подходящий программатор отсутствует в подтверждённом списке'
+    DoctorProbeChoice = 'Найдено несколько программаторов; нужен выбор'
+    DoctorProbeFound = 'Найден единственный подходящий программатор'
+    DoctorTargetAvailable = 'Конфигурация OpenOCD доступна'
+    DoctorTargetMissing = 'Заданный target OpenOCD отсутствует'
+    DoctorTargetUnset = 'Target не задан; check и управление ядром ограничены'
+    DoctorTargetUnknown = 'Доступность target не установлена'
+    DoctorAutoDetectionUnavailable = 'st-info не найден; автоопределение ограничено'
+    DoctorDeviceConfigured = 'Имя J-Link device задано, но MCU не проверен'
+    DoctorDeviceUnset = 'J-Link device не задан; аппаратные операции требуют модели'
     VerifyName         = "Сравнение HEX с памятью MCU"
     VerifySuccess      = "Память MCU совпадает с данными HEX"
     VerifyError        = "Проверка памяти MCU не пройдена"
@@ -163,6 +210,8 @@ $LangRu = @{
     BackupFailed       = "Чтение не завершено или размер файла не соответствует запросу"
     BackupSizeConflict = "Размер Flash в регистре не совпадает с выбранной моделью MCU. Укажите размер явно через -Size."
     InfoEnvironment    = "Окружение ПК"
+    InfoHashUnavailable = "хеш недоступен"
+    JLinkWindowsOnly = 'Windows видит J-Link, но доступ через SEGGER Commander не подтверждён. Проверьте USB, занятость отладчика и драйвер (в том числе замену через Zadig на WinUSB). Драйвер автоматически не меняется.'
     InfoTools          = "Найденные инструменты и версии"
     InfoVersionUnknown = "версия не определена"
     InfoActiveTool     = "* Движок по текущим настройкам или автоматическому выбору"
@@ -319,6 +368,49 @@ $LangRu = @{
 }
 
 $LangEn = @{
+    DoctorTitle = 'Environment diagnostics; release baseline: {0}'
+    DoctorNotice = 'MCU, power, SWD and image were not checked. A matching version does not validate every operation.'
+    DoctorPlan = 'Plan: read settings without migration, locate the engine, query its version and USB inventory. No processes or USB queries run now.'
+    DoctorFailure = 'Diagnostics failed: {0}'
+    DoctorOptions = 'Invalid diagnostic options. The engine and probe are not replaced automatically.'
+    DoctorDetails = 'Observed: {0}; baseline: {1}'
+    DoctorSummary = 'Summary: OK={0}, WARN={1}, ERROR={2}'
+    DoctorRuntimeSupported = 'Windows and PowerShell are supported'
+    DoctorRuntimeUnsupported = 'Unsupported Windows or PowerShell'
+    DoctorRuntimeUnknown = 'Runtime is unknown'
+    DoctorConfigValid = 'Settings are valid'
+    DoctorConfigMissing = 'No settings; automatic selection'
+    DoctorConfigLegacy = 'Legacy settings read without migration'
+    DoctorConfigInvalid = 'Invalid settings; discovery canceled'
+    DoctorEngineAvailable = 'Engine found'
+    DoctorEngineMissing = 'Selected engine is missing'
+    DoctorEngineNotSelected = 'Engine selection is required'
+    DoctorEngineUnknown = 'Engine is unknown'
+    DoctorVersionTested = 'Version matches the tested baseline'
+    DoctorVersionDifferent = 'Version is outside the exact tested baseline'
+    DoctorVersionUnknown = 'Version is unknown'
+    DoctorVersionTimeout = 'Version query timed out'
+    DoctorVersionError = 'Engine could not be started'
+    DoctorPairSupported = 'Engine/probe pair is supported; command capabilities differ'
+    DoctorPairUnsupported = 'Unsupported engine/probe pair'
+    DoctorPairUnknown = 'Probe type needs selection'
+    DoctorInventoryUnknown = 'USB inventory is unconfirmed; device absence is not established'
+    DoctorInventoryTimeout = 'USB query timed out; check the connection and retry doctor'
+    DoctorInventoryError = 'USB query failed; inventory may be incomplete'
+    DoctorProbeTypeUnknown = 'Probe type is unknown'
+    DoctorSerialFound = 'Selected serial found'
+    DoctorSerialUnknown = 'A device has an unknown serial'
+    DoctorSerialMissing = 'Selected serial is absent from the confirmed inventory'
+    DoctorProbeMissing = 'No suitable probe in the confirmed inventory'
+    DoctorProbeChoice = 'Multiple probes found; selection is required'
+    DoctorProbeFound = 'One suitable probe found'
+    DoctorTargetAvailable = 'OpenOCD target configuration is available'
+    DoctorTargetMissing = 'Specified OpenOCD target is missing'
+    DoctorTargetUnset = 'Target is unset; check and core control are limited'
+    DoctorTargetUnknown = 'Target availability is unknown'
+    DoctorAutoDetectionUnavailable = 'st-info is missing; automatic detection is limited'
+    DoctorDeviceConfigured = 'J-Link device name is configured; MCU was not checked'
+    DoctorDeviceUnset = 'J-Link device is unset; hardware operations require a model'
     VerifyName         = "Compare HEX with MCU memory"
     VerifySuccess      = "MCU memory matches HEX data"
     VerifyError        = "MCU memory verification failed"
@@ -351,6 +443,8 @@ $LangEn = @{
     BackupFailed       = "Read failed or file size does not match the requested range"
     BackupSizeConflict = "Flash size register differs from the selected MCU model. Specify the size explicitly using -Size."
     InfoEnvironment    = "PC environment"
+    InfoHashUnavailable = "hash unavailable"
+    JLinkWindowsOnly = 'Windows detects J-Link, but access through SEGGER Commander is unconfirmed. Check USB, probe ownership and the driver (including a Zadig replacement with WinUSB). The driver is not changed automatically.'
     InfoTools          = "Discovered tools and versions"
     InfoVersionUnknown = "version unavailable"
     InfoActiveTool     = "* Engine selected by current settings or automatic selection"
@@ -643,6 +737,240 @@ function Get-DoctorAssessment([hashtable]$Facts) {
     [pscustomobject]@{ Findings=@($rows.ToArray()); ExitCode=$exitCode; NoticeCode='McuAndImageNotChecked'; BaselineRelease=$passport.baselineRelease }
 }
 
+function Invoke-DoctorQuery($exe, $arguments, $inputText = '', [int]$timeoutMs = 10000) {
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName=$exe; $start.Arguments=$arguments; $start.UseShellExecute=$false
+    $start.CreateNoWindow=$true; $start.RedirectStandardOutput=$true
+    $start.RedirectStandardError=$true; $start.RedirectStandardInput=$true
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo=$start
+    $started=$false
+    try {
+        [void]$process.Start(); $started=$true
+        $stdout=$process.StandardOutput.ReadToEndAsync(); $stderr=$process.StandardError.ReadToEndAsync()
+        if ($inputText) { $process.StandardInput.WriteLine($inputText) }
+        $process.StandardInput.Close()
+        if (-not $process.WaitForExit($timeoutMs)) {
+            $process.Kill(); [void]$process.WaitForExit(1000)
+            return @{ State='Timeout'; Text=''; ExitCode=$null }
+        }
+        if (-not [Threading.Tasks.Task]::WaitAll([Threading.Tasks.Task[]]@($stdout,$stderr),1000)) {
+            return @{ State='Timeout'; Text=''; ExitCode=$process.ExitCode }
+        }
+        $state=if ($process.ExitCode -eq 0) { 'Known' } else { 'Unknown' }
+        return @{ State=$state; Text=($stdout.Result + "`n" + $stderr.Result); ExitCode=$process.ExitCode }
+    } catch {
+        return @{ State=$(if ($started) { 'Unknown' } else { 'Error' }); Text=''; ExitCode=$null }
+    } finally {
+        if ($started -and -not $process.HasExited) { try { $process.Kill(); [void]$process.WaitForExit(1000) } catch {} }
+        $process.Dispose()
+    }
+}
+
+function Test-WindowsJLinkPresent {
+    # Bound the OS query as well; unknown/failed discovery must not claim presence.
+    $code=@'
+$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$devices=@(Get-PnpDevice -PresentOnly -ErrorAction Stop | Where-Object {
+    $_.InstanceId -match '^USB\\VID_1366&' -and
+    ($_.InstanceId -match '^USB\\VID_1366&PID_(0101|0105)(?:&|\\)' -or $_.FriendlyName -match '^J-?Link\b')
+})
+if ($devices.Count) { [Console]::WriteLine('JLINK_USB_PRESENT') }
+'@
+    $exe=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code))
+    $query=Invoke-DoctorQuery $exe ("-NoProfile -NonInteractive -EncodedCommand " + $encoded)
+    return ($query.State -eq 'Known' -and $query.Text.Trim() -ceq 'JLINK_USB_PRESENT')
+}
+
+function Get-DoctorInventory($type, $cube, $jlink) {
+    $result=@{ State='Unknown'; Entries=@(); Source='' }
+    if ($type -eq 'STLINK' -and $cube) {
+        $result.Source=$cube
+        $help=Invoke-DoctorQuery $cube '--help'
+        if ($help.State -ne 'Known') { $result.State=$help.State; return $result }
+        # Older CLIs may use -l st to connect to targets. Only the documented USB-only mode is allowed.
+        if ($help.Text -notmatch '<stlink-only>') { return $result }
+        $query=Invoke-DoctorQuery $cube '-l stlink-only'
+        $result.State=$query.State
+        if ($query.State -ne 'Known') { return $result }
+        $parsed=ConvertFrom-CubeProbeList $query.Text
+        $entries=@(); if ($parsed) { $entries=@($parsed.Entries) }
+        $blocks=[regex]::Matches($query.Text,'(?m)^\s*ST-Link Probe \d+\s*:').Count
+        if ($blocks -gt 0 -and $blocks -eq $entries.Count -and -not $parsed.Warning -and $query.Text -notmatch '(?im)^\s*(Error|Warning)\s*:') {
+            $result.Entries=$entries
+        } elseif ($blocks -eq 0 -and $query.Text -notmatch '(?i)\b(error|warning)\b' -and $query.Text -match '(?im)^\s*No ST-?LINK (?:device|probe)s? (?:found|detected|connected)\.?\s*$') {
+            $result.Entries=@()
+        } else { $result.State='Unknown' }
+    } elseif ($type -eq 'JLINK' -and $jlink) {
+        $result.Source=$jlink
+        $query=Invoke-DoctorQuery $jlink '-nogui 1' "ShowEmuList USB`nq"
+        $result.State=$query.State
+        if ($query.State -ne 'Known') {
+            if (Test-WindowsJLinkPresent) { $result.Warning='JLinkWindowsOnly' }
+            return $result
+        }
+        $entries=@(ConvertFrom-JLinkProbeList $query.Text)
+        $blocks=[regex]::Matches($query.Text,'J-Link\[\d+\]:').Count
+        if ($blocks -gt 0 -and $blocks -eq $entries.Count -and $query.Text -notmatch '(?im)^\s*(Error|Warning)\s*:') {
+            $result.Entries=$entries
+        } else { $result.State='Unknown' }
+    }
+    if ($type -eq 'JLINK' -and $result.State -ne 'Known' -and (Test-WindowsJLinkPresent)) { $result.Warning='JLinkWindowsOnly' }
+    return $result
+}
+
+function Get-DoctorRuntime {
+    $os=[Environment]::OSVersion
+    if ($os.Platform -ne 'Win32NT' -or $os.Version.Major -ne 10 -or
+        -not (($PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -ge 1) -or $PSVersionTable.PSVersion.Major -eq 7)) { return 'Unsupported' }
+    # Windows Server also reports NT 10; it is not a tested Windows 10/11 workstation.
+    try { $product=(Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ProductOptions' -Name ProductType -ErrorAction Stop).ProductType }
+    catch { return 'Unknown' }
+    switch ($product) { 'WinNT' { return 'Supported' } { $_ -in @('ServerNT','LanmanNT') } { return 'Unsupported' } default { return 'Unknown' } }
+}
+
+function Get-DoctorEnvironment {
+    $facts=@{
+        Runtime='Unsupported'; Config='Invalid'
+        Engine=@{State='NotSelected'; Name=''; VersionState='Unknown'; Version=''}
+        Probe=@{Type=''; SerialRequested=$false; SerialFound=$false}
+        Inventory=@{State='Unknown'; Count=0; UnknownSerialCount=0}
+        Target='Unset'; Device=$false; StInfo=$false
+    }
+    $os=[Environment]::OSVersion
+    $facts.Runtime=Get-DoctorRuntime
+    $details=New-Object 'Collections.Generic.List[string]'
+    $details.Add("Windows: $($os.Version); PowerShell: $($PSVersionTable.PSVersion)")
+    try {
+        $config=Read-LaunchConfiguration
+        $values=$config.Values
+        # Apply the same validation to legacy values without migrating them.
+        $document=[ordered]@{schemaVersion=1}
+        $map=Get-LaunchSettingMap
+        foreach ($key in $map.Keys) { $document[$map[$key]]=$values[$key] }
+        [void](ConvertFrom-LaunchJson ($document | ConvertTo-Json -Compress))
+        $facts.Config=switch ($config.Source) { '.flash.json' {'Valid'} 'legacy' {'Legacy'} default {'Missing'} }
+    } catch { return @{Facts=$facts; Details=$details.ToArray()} }
+    $details.Add((T 'ConfigSource') + ': ' + $config.Source)
+    $choice=if ($Engine) { $Engine } else { $values['.flash_engine'] }
+    $probeType=if ($Probe) { $Probe.ToUpperInvariant() } else { $values['.probe_type'] }
+    $targetValue=if ($Target) { $Target } else { $values['.openocd_target'] }
+    $deviceValue=if ($Device) { $Device } else { $values['.jlink_device'] }
+    if ($probeType -and $probeType -notin @('STLINK','JLINK')) { throw (T 'DoctorOptions') }
+    if (($Serial -and $Serial -notmatch '^[A-Za-z0-9_.-]+$') -or
+        ($deviceValue -and $deviceValue -notmatch '^[A-Za-z0-9_.-]+$') -or
+        ($targetValue -and $targetValue -notmatch '^target/[A-Za-z0-9_.-]+\.cfg$')) { throw (T 'DoctorOptions') }
+    $cube=@(Find-CubeProgrammerCli); $jlink=Find-JLinkExe
+    $openocd=Find-OpenOcdInstallation (Join-Path $ToolDir 'xpack-openocd-0.12.0-3/bin/openocd.exe')
+    if (-not $choice) {
+        if (@(Get-ChildItem -LiteralPath $CurrentDir -File -Filter '*.hex').Count -gt 1 -and ($cube.Count -or $jlink)) {
+            return @{Facts=$facts; Details=$details.ToArray()}
+        }
+        $choice=if ($cube.Count) { $cube[0] } elseif ($jlink) { 'JLINK' } else { 'OPENOCD' }
+    }
+    $exe=''; $name=''
+    switch ($choice) {
+        { $_ -in @('CUBE','CUBEPROGRAMMER') } { $name='CUBEPROGRAMMER'; if ($cube.Count) { $exe=$cube[0] } }
+        'OPENOCD' { $name='OPENOCD'; if ($openocd) { $exe=$openocd.Exe } }
+        'JLINK' { $name='JLINK'; $exe=$jlink }
+        default {
+            $exe=$choice
+            $name=switch ([IO.Path]::GetFileName($exe)) {
+                'STM32_Programmer_CLI.exe' {'CUBEPROGRAMMER'} 'openocd.exe' {'OPENOCD'} 'JLink.exe' {'JLINK'} default { throw (T 'DoctorOptions') }
+            }
+        }
+    }
+    $facts.Engine.Name=$name
+    $facts.Engine.State=if ($exe -and (Test-Path -LiteralPath $exe -PathType Leaf)) { 'Available' } else { 'Missing' }
+    if ($exe) { $details.Add($exe) }
+    if ($facts.Engine.State -eq 'Available') {
+        $query=if ($name -eq 'JLINK') { Invoke-DoctorQuery $exe '-nogui 1' 'q' } else { Invoke-DoctorQuery $exe '--version' }
+        $facts.Engine.VersionState=$query.State
+        if ($query.State -eq 'Known') {
+            $pattern=switch ($name) {
+                'CUBEPROGRAMMER' { 'STM32CubeProgrammer\s+(?:version:\s*|v)([\w.+-]+)' }
+                'OPENOCD' { '(?m)Open On-Chip Debugger\s+([^\r\n]+)' }
+                'JLINK' { 'SEGGER J-Link Commander\s+(V\S+)' }
+            }
+            if ($query.Text -match $pattern) { $facts.Engine.Version=$Matches[1].Trim() }
+            else { $facts.Engine.VersionState='Unknown' }
+        }
+    }
+    if (-not $probeType) {
+        $probeType=switch ($name) { 'OPENOCD' {'STLINK'} 'JLINK' {'JLINK'} default { '' } }
+    }
+    $inventory=@{State='Unknown'; Entries=@(); Source=''}
+    if ($probeType) {
+        $inventoryCube=if ($name -eq 'CUBEPROGRAMMER' -and $facts.Engine.State -eq 'Available') { $exe } elseif ($cube.Count) { $cube[0] } else { '' }
+        $inventoryJlink=if ($name -eq 'JLINK' -and $facts.Engine.State -eq 'Available') { $exe } else { $jlink }
+        $inventory=Get-DoctorInventory $probeType $inventoryCube $inventoryJlink
+    } else {
+        # Without a selected type, inspect both inventories but never infer absence from an unknown response.
+        $st=Get-DoctorInventory 'STLINK' $(if ($cube.Count) { $cube[0] } else { '' }) $jlink
+        $jl=Get-DoctorInventory 'JLINK' '' $jlink
+        foreach ($item in @($st,$jl)) {
+            if ($item.Warning) { $details.Add('[WARN] ' + (T $item.Warning)) }
+            if ($item.Source) { $details.Add('USB: ' + $item.Source + ' [' + $item.State + ']') }
+            foreach ($entry in $item.Entries) { $details.Add($entry.Type + ': ' + $entry.Serial) }
+        }
+        if ($st.State -eq 'Known' -and $jl.State -eq 'Known') {
+            if (@($st.Entries).Count -gt 0 -and @($jl.Entries).Count -eq 0) { $probeType='STLINK'; $inventory=$st }
+            elseif (@($jl.Entries).Count -gt 0 -and @($st.Entries).Count -eq 0) { $probeType='JLINK'; $inventory=$jl }
+        }
+    }
+    $serialValue=if ($Serial) { $Serial } elseif ($probeType -eq 'STLINK') { $values['.stlink_serial'] } elseif ($probeType -eq 'JLINK') { $values['.jlink_serial'] } else { '' }
+    $facts.Probe.Type=[string]$probeType
+    $facts.Probe.SerialRequested=[bool]$serialValue
+    $facts.Probe.SerialFound=[bool](@($inventory.Entries | Where-Object { $_.Serial -and $_.Serial -eq $serialValue }).Count)
+    $facts.Inventory.State=$inventory.State
+    $facts.Inventory.Count=[int]@($inventory.Entries).Count
+    $facts.Inventory.UnknownSerialCount=[int]@($inventory.Entries | Where-Object { -not $_.Serial }).Count
+    if ($inventory.Source) { $details.Add('USB: ' + $inventory.Source) }
+    if ($inventory.Warning) { $details.Add('[WARN] ' + (T $inventory.Warning)) }
+    if ($probeType) { $details.Add("$probeType $serialValue".Trim()) }
+    if ($name -eq 'OPENOCD') {
+        $facts.StInfo=[bool](Find-StInfoExe)
+        if ($targetValue) {
+            $facts.Target='Unknown'
+            $root=if ($exe) { Split-Path -Parent (Split-Path -Parent $exe) } else { '' }
+            if ($root) {
+                foreach ($relative in @('openocd/scripts','share/openocd/scripts','scripts')) {
+                    $scripts=Join-Path $root $relative
+                    if (Test-Path -LiteralPath (Join-Path $scripts 'interface/stlink.cfg') -PathType Leaf) {
+                        $facts.Target=if (Test-Path -LiteralPath (Join-Path $scripts $targetValue) -PathType Leaf) { 'Available' } else { 'Missing' }
+                        break
+                    }
+                }
+            }
+            $details.Add($targetValue)
+        }
+    }
+    $facts.Device=[bool]$deviceValue
+    if ($deviceValue) { $details.Add('Device: ' + $deviceValue) }
+    return @{Facts=$facts; Details=$details.ToArray()}
+}
+
+function Invoke-Doctor {
+    Write-Host ((T 'DoctorTitle') -f (Get-DoctorPassport).baselineRelease)
+    if ($DryRun) { Write-Host (T 'DoctorPlan'); Write-Host (T 'DoctorNotice'); return 0 }
+    $environment=Get-DoctorEnvironment
+    $assessment=Get-DoctorAssessment $environment.Facts
+    foreach ($detail in $environment.Details) { Write-Host "   $detail" }
+    foreach ($row in $assessment.Findings) {
+        Write-Host ("[{0}] {1}" -f $row.Status, (T ('Doctor' + $row.Code)))
+        if ($row.Actual -or $row.Expected) { Write-Host ('   ' + ((T 'DoctorDetails') -f $row.Actual,$row.Expected)) }
+    }
+    $ok=@($assessment.Findings | Where-Object Status -eq 'OK').Count
+    $warn=@($assessment.Findings | Where-Object Status -eq 'WARN').Count
+    $warn+=@($environment.Details | Where-Object { $_.StartsWith('[WARN] ') }).Count
+    $errors=@($assessment.Findings | Where-Object Status -eq 'ERROR').Count
+    Write-Host ((T 'DoctorSummary') -f $ok,$warn,$errors)
+    Write-Host (T 'DoctorNotice')
+    return $assessment.ExitCode
+}
+
 function Resolve-HexPath($value) {
     if (-not $value) { return $null }
     $candidate = $value.Trim('"')
@@ -677,9 +1005,9 @@ if ($Command -and $Command -notin @('check','halt','go','reset')) { Write-Host (
 $Verify = $Command -ieq 'check'
 $CoreControl = $Command -in @('halt','go','reset')
 if ($CoreControl) { $Command = $Command.ToLowerInvariant() }
-$NoFirmware = $Erase -or $Backup -or $Info -or $Setup -or $CoreControl
+$NoFirmware = $Erase -or $Backup -or $Info -or $Doctor -or $Setup -or $CoreControl
 $FreshProbeSelection = $Erase -or $Backup -or ($Info -and $ProbeTarget)
-if ((@($Erase, $Backup, $Info, $Setup, $ResetConfig, $Clean, $Verify, $CoreControl | Where-Object { $_ }).Count -gt 1) -or
+if ((@($Erase, $Backup, $Info, $Doctor, $Setup, $ResetConfig, $Clean, $Verify, $CoreControl | Where-Object { $_ }).Count -gt 1) -or
     ($Setup -and ($Engine -or $Device -or $Target -or $Probe -or $Serial -or $Silent)) -or
     ($ProbeTarget -and -not $Info) -or (($Output -or $Size -or $Address) -and -not $Backup) -or
     ($NoFirmware -and ($HexFile -or $Sha256 -or ($Input -and $Input -notin @('ru','en')))) -or
@@ -737,7 +1065,7 @@ if ($HexFile -and -not $DryRun) {
 }
 
 $SelectedEngine = ""
-if ($Engine -and -not $DryRun) {
+if ($Engine -and -not $DryRun -and -not $Doctor) {
     if (($Engine -ieq 'OPENOCD') -or ($Engine -ieq 'JLINK') -or ($Engine -ieq 'CUBEPROGRAMMER') -or ($Engine -ieq 'CUBE') -or (Test-Path -LiteralPath $Engine -PathType Leaf)) {
         $SelectedEngine = $Engine
     } else {
@@ -1541,6 +1869,21 @@ function Get-InfoEnginePath($cubePaths, $jlinkPath) {
     return $null
 }
 
+function Get-RunningScriptHash([string]$path = $env:SCRIPT_PATH) {
+    # SCRIPT_PATH is set by the CMD launcher; never substitute a same-named file in cwd.
+    if ([string]::IsNullOrWhiteSpace($path)) { return $null }
+    $stream=$null; $sha=$null
+    try {
+        $stream=[IO.File]::OpenRead($path)
+        $sha=[Security.Cryptography.SHA256]::Create()
+        return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    } catch { return $null }
+    finally {
+        if ($sha) { $sha.Dispose() }
+        if ($stream) { $stream.Dispose() }
+    }
+}
+
 function Show-EnvironmentInfo {
     $jLinkEntries = @()
     $jLinkError = $null
@@ -1551,6 +1894,9 @@ function Show-EnvironmentInfo {
     }
     Write-Step '1' (T 'InfoEnvironment')
     Write-Info "stm32-flasher: $VERSION"
+    $scriptHash=Get-RunningScriptHash
+    if (-not $scriptHash) { $scriptHash=T 'InfoHashUnavailable' }
+    Write-Info "flash.cmd SHA-256: $scriptHash"
     Write-Info "Windows: $([Environment]::OSVersion.VersionString)"
     Write-Info "PowerShell: $($PSVersionTable.PSVersion)"
     Write-Info "$(T 'InfoDirectory'): $CurrentDir"
@@ -1594,6 +1940,7 @@ function Show-EnvironmentInfo {
         if ($jLinkTimedOut) { Write-Info (T 'InfoJLinkRetry') }
     }
     foreach ($entry in $jLinkEntries) { Write-Info "$($entry.Type) | $($entry.Serial) | $($entry.Family)" }
+    if (-not $jLinkEntries.Count -and (Test-WindowsJLinkPresent)) { Write-Warn (T 'JLinkWindowsOnly') }
     Write-Step '5' (T 'InfoFirmware')
     $firmwareFiles = @(Get-ChildItem -LiteralPath $CurrentDir -File -Filter '*.hex' | Sort-Object Name)
     if (-not $firmwareFiles.Count) { Write-Info (T 'InfoNone') }
@@ -2096,6 +2443,10 @@ $LogFile        = Join-Path $CurrentDir "flash_log.txt"
 $HtmlReport     = Join-Path $CurrentDir "report.html"
 
 $DirectoryMutex = $null
+if ($Doctor) {
+    try { exit (Invoke-Doctor) }
+    catch { Write-Host (('[ERROR] ' + (T 'DoctorFailure')) -f $_.Exception.Message); Write-Host (T 'DoctorNotice'); exit 1 }
+}
 # Cover all operation exits, including cleanup, setup cancellation and failures.
 try {
 if (-not $DryRun -and (-not $Info -or $ProbeTarget)) {

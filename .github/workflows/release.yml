@@ -66,6 +66,7 @@ jobs:
             'forget.cmd',
             'backup.cmd',
             'info.cmd',
+            'doctor.cmd',
             'setup.cmd',
             'check.cmd',
             'halt.cmd',
@@ -80,6 +81,8 @@ jobs:
             'docs/archive/TECHNICAL_SPECIFICATION_INFO_R2.md',
             'docs/reference/stlink-inventory.md',
             'docs/reference/launch-configuration.md',
+            'docs/reference/doctor.md',
+            'docs/reference/doctor.en.md',
             'docs/user-guide.md',
             'docs/testing.md'
           )

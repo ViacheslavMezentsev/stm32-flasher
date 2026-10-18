@@ -35,11 +35,15 @@ Multiple probes without a saved selection require a choice.
 | `backup` | Save Flash as Intel HEX with SHA-256 |
 | `halt` / `go` / `reset` | Halt / resume without reset / reset and run |
 | `info` | Tools, versions, settings, probes and local HEX files |
+| `doctor` | Compare the environment with the release baseline, without MCU access or settings changes |
 | `setup` | Reconfigure while preserving history and firmware |
 | `forget` | Remove settings and working artifacts; preserve firmware and backups |
 
 Every command supports `--help`, `--version`, `-Lang ru` / `-Lang en`.
 Help/version perform no operations and do not read settings.
+The working branch adds [doctor](docs/reference/doctor.en.md): OK/WARN/ERROR,
+exit 0 when there are no ERROR findings. A different tool version is WARN,
+not proof of incompatibility. Diagnostics do not confirm board readiness.
 `-DryRun` validates the plan, HEX and supplied SHA-256 locally, without hardware,
 external tools, network or file changes. Exit 0 means a ready plan, not MCU success.
 

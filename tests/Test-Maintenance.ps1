@@ -54,7 +54,7 @@ try {
     $source = Get-Content -LiteralPath $scriptPath -Raw -Encoding UTF8
     $position = $source.IndexOf('$CurrentDir     =')
     Assert ($position -gt 0) 'Cannot inject discovery mocks'
-    $source = $source.Insert($position, "function Find-StInfoExe { return `$null }`nfunction Get-JLinkProbes { }`n")
+    $source = $source.Insert($position, "function Find-StInfoExe { return `$null }`nfunction Get-JLinkProbes { }`nfunction Test-WindowsJLinkPresent { `$false }`n")
     $scriptPath = Join-Path $fixture 'mock-flash.ps1'
     Set-Content -LiteralPath $scriptPath -Value $source -Encoding UTF8
     $CurrentDir = $fixture

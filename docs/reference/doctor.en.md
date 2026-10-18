@@ -2,15 +2,15 @@
 
 [Русский](doctor.md) | **English**
 
-Status: agreed contract; embedded passport and pure policy implemented.
-The doctor.cmd wrapper, environment collection and user-facing output are not implemented yet.
+Status: embedded passport, policy, doctor.cmd, environment collection and RU/EN
+output are implemented; tests use EXE stubs without MCU access.
 The runtime version stays 0.3.0; the published tag is not changed.
 
 ## Scope
 
 Info lists the environment. Doctor compares observations with requirements and
 recorded release tests, without asserting that a board or HEX is ready to flash.
-The future wrapper calls flash.cmd -Doctor. Other operating modes conflict.
+The wrapper calls flash.cmd -Doctor. Other operating modes conflict.
 Engine/Probe/Serial/Target/Device overrides, Lang, help, version and DryRun are supported
 by the contract; CLI overrides saved settings.
 
@@ -74,9 +74,33 @@ Probe has Type, SerialRequested and SerialFound. Target: Available/Unset/Missing
 Device and StInfo are boolean presence facts. An unknown probe type does not
 permit the collector to assert reliable absence of a suitable device.
 Output contains Findings (Id/Status/Code/Actual/Expected), ExitCode, NoticeCode
-and BaselineRelease. Codes are stable identifiers for future RU/EN messages.
+and BaselineRelease. Codes are stable identifiers for RU/EN messages.
 
-Test-DoctorPolicy covers the passport, versions, ambiguity, proven blockers,
-incomplete evidence and input preservation in PS5.1/7. Integration still needs
-real CMD with stub executables, both languages, mode conflicts, early help/version,
-no-query DryRun, bounded timeouts, and absence of writes or migration.
+Test-DoctorPolicy covers the passport and pure policy. Test-Doctor runs real CMD
+with EXE stubs in both languages: conflicts, early help/version, no-query DryRun,
+timeouts, incomplete inventories, start failures and unchanged working files.
+
+## Usage and Limits
+
+```bat
+doctor.cmd
+doctor.cmd -Engine CUBEPROGRAMMER -Probe STLINK -Lang ru
+doctor.cmd -Engine JLINK -Probe JLINK -Device STM32F103CB -Lang en
+doctor.cmd -DryRun
+```
+
+Only the selected engine is queried for its version. ST-Link inventory uses
+CubeProgrammer with help-confirmed `-l stlink-only`; the older `-l st` is never
+called. J-Link uses only `ShowEmuList USB` and `q` through stdin.
+Each query has a 10-second limit plus up to 1 second to drain output streams.
+Unknown or incomplete inventories, including an unconfirmed empty J-Link
+response, mean WARN. Without a selected type, available USB observations are
+shown but incomplete lists cannot select a type: pass `-Probe` or run setup.
+Missing engines are not downloaded automatically.
+When J-Link inventory is unconfirmed, a separate bounded Windows query checks
+present USB devices. Confirmed presence adds a WARN about unavailable SEGGER
+access and possible driver/ownership issues. A failed or timed-out Windows
+query proves neither presence nor absence. This does not validate or fix drivers.
+NT 10 alone does not identify Windows 10/11: Server editions are outside the
+support contract; an unavailable product type means WARN.
+DryRun prints only a plan; it neither validates settings nor assesses the environment.

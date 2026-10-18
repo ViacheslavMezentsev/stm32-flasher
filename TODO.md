@@ -2,12 +2,30 @@
 
 ## Текущее состояние
 
-- codex/doctor: согласован контракт 4.12.1–4.12.5, TC-41. Первый этап:
-  встроенный JSON-паспорт базы 0.3.0 и чистые правила OK/WARN/ERROR.
-  Test-DoctorPolicy, Test-FlashEntry и Test-Localization прошли PS5.1/7
-  (3/26 наборов, не полный CI); Validate/ТЗ strict без ошибок и предупреждений.
-  doctor.cmd, сбор окружения и RU/EN вывод пока не реализованы; следующий
-  этап в той же ветке — интеграция без MCU/записи/миграции и CMD/EXE-тесты.
+- Info/doctor: добавлено подтверждаемое Windows предупреждение J-Link RU/EN.
+  Отдельный USB-запрос ограничен 10 с; неизвестный ответ не означает отсутствие.
+  На ПК предупреждение подтверждено в Info EN и Doctor RU; без MCU/смены драйверов.
+  PASS PS5.1/7: Doctor, ProbeInventory, Localization, Maintenance, LaunchConfig
+  (5/27, не полный CI; 228 ключей). Validate/ТЗ strict без замечаний.
+  Далее: подписанный коммит, push и полный CI; затем land. Push/land у владельца.
+
+- Info: SHA-256 запущенного flash.cmd; тесты разных копий, cwd и недоступного
+  файла добавлены в ProbeInventory. ProbeInventory/Localization PASS PS5.1/7
+  (2/27; 227 ключей), Validate strict PASS. Без MCU и изменения настроек.
+  Повторный безопасный USB-опрос подтвердил пять ST-Link и присутствие J-Link
+  в Windows; у BULK-интерфейса J-Link WinUSB, Commander не может его открыть.
+  Драйверы не менялись. Далее: ручной вывод info и полный CI после push.
+  Настоящий CMD-запуск info на текущем ПК: exit 0, напечатанный SHA-256
+  совпал с Get-FileHash; пять ST-Link. MCU не опрашивался. Далее: полный CI.
+
+- codex/doctor: контракт 4.12.1–4.12.5, TC-41; встроенный JSON-паспорт базы
+  0.3.0, правила OK/WARN/ERROR, doctor.cmd, сбор окружения и RU/EN вывод.
+  Новые CMD/EXE-тесты без MCU проверяют конфликты, help/version, DryRun,
+  таймауты, неполные списки и неизменность файлов. Локально PASS PS5.1/7:
+  Doctor, DoctorPolicy, FlashEntry, Help, Localization, PackageLayout (6/27).
+  Финальные правки повторно проверены Doctor/Localization в обеих оболочках;
+  Validate/ТЗ strict без ошибок и предупреждений. Полный CI ещё не выполнен.
+  Следующий этап: полный CI после push, затем ручная диагностика без MCU.
   Версия скрипта остаётся 0.3.0. Тег и опубликованный релиз не меняются.
 
 - codex/release-0.3.0: подготовка выпуска без нового рабочего функционала.

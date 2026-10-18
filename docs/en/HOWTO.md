@@ -5,9 +5,13 @@ Examples do not authorize an agent to push or operate hardware.
 
 ## Local CI
 
-First doctor stage: [contract and fact format](../reference/doctor.en.md).
-Test-DoctorPolicy.ps1 checks policy without running flash or accessing USB.
-The doctor command is not wired yet; the passport does not verify the attached board.
+Doctor: [contract, examples and limits](../reference/doctor.en.md).
+`doctor.cmd -Lang en` compares the environment with the baseline without changing settings.
+`doctor.cmd -DryRun` prints a plan without discovery. The baseline does not verify the board.
+
+For feedback, include `info.cmd` output: `flash.cmd SHA-256` distinguishes copies
+with the same version. It hashes the launched file bytes, not a same-named file
+in the working directory. This identifies content; it is not a signature.
 
 Ordinary GitHub CI uses two workers per shell, a checkout snapshot and all suites.
 Use the example below to reproduce locally; Invoke-Local stays sequential.
