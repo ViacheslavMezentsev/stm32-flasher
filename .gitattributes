@@ -1,0 +1,10 @@
+# Line endings: LF in the repository, native endings in the working tree.
+* text=auto
+
+# cmd.exe scripts are tested with CRLF; keep them CRLF on every platform.
+*.cmd text eol=crlf
+
+# Binary release and image files.
+*.zip binary
+*.png binary
+*.ico binary
