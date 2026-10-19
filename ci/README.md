@@ -5,6 +5,7 @@
 ## GitHub
 
 Справочник GitHub Pages проверяется через `Test-Pages.ps1` в обычной матрице.
+Формы issues проверяет `Test-IssueForms.ps1`; без PyYAML он сообщает SKIP, а не PASS.
 Публикация отдельным workflow после land: [сборка и настройка Pages](../site/README.md).
 
 Контролируемое сравнение 1/2 worker запускается отдельно и вручную:

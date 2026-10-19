@@ -85,5 +85,6 @@ Successful reports are saved quietly; failed operations open the report in a bro
 The directory lock prevents concurrent operations there, not access to one probe from different directories.
 
 [User guide (RU)](docs/user-guide.md) · [Settings](docs/reference/launch-configuration.md#english) ·
+[Report an issue](https://github.com/ViacheslavMezentsev/stm32-flasher/issues/new/choose) ·
 [CHANGELOG](CHANGELOG.en.md) · [Releases](https://github.com/ViacheslavMezentsev/stm32-flasher/releases) ·
 [CI and local checks](https://github.com/ViacheslavMezentsev/stm32-flasher/blob/main/ci/README.en.md)

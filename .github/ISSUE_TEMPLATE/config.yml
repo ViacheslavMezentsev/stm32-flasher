@@ -1,0 +1,9 @@
+# Issue chooser: only the forms below, plus reference links.
+blank_issues_enabled: false
+contact_links:
+  - name: Справочник команд / Command handbook
+    url: https://viacheslavmezentsev.github.io/stm32-flasher/
+    about: Назначение, маршруты и ограничения каждой команды. Purpose, routes and limits of every command.
+  - name: Инструкция / User guide (RU)
+    url: https://github.com/ViacheslavMezentsev/stm32-flasher/blob/main/docs/user-guide.md
+    about: Параметры, настройки .flash.json, движки и отладчики. Parameters, settings, engines and probes.

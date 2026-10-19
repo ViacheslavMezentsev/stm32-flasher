@@ -1,0 +1,54 @@
+name: Предложение / Feature request
+description: Новая возможность или улучшение. A new capability or improvement.
+title: "[Предложение / Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Задача / Problem
+      description: Что вы хотите сделать и что мешает сейчас. What you want to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предложение / Proposal
+      description: "Как это могло бы выглядеть: команда, параметр, вывод. How it could look: command, parameter, output."
+      placeholder: "flash.cmd -HexFile app.hex -..."
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Влияние на MCU / Effect on the MCU
+      description: Помогает оценить меры безопасности. Helps judge the required safeguards.
+      options:
+        - не обращается к MCU / does not access the MCU
+        - только чтение / read only
+        - запись или стирание / writes or erases
+        - управление ядром / core control
+        - не знаю / not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область / Area
+      multiple: true
+      options:
+        - STM32CubeProgrammer
+        - OpenOCD
+        - SEGGER J-Link
+        - настройки / settings
+        - отчёты и история / reports and history
+        - документация и сайт / docs and site
+        - другое / other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Как обходитесь сейчас / Current workaround
+  - type: textarea
+    id: context
+    attributes:
+      label: Дополнительно / Additional context

@@ -1,0 +1,99 @@
+name: Совместимость / Hardware report
+description: Результат на конкретном MCU, отладчике и версии утилиты. Results on a specific MCU, probe and tool version.
+title: "[Совместимость / Hardware]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Помогает расширить список проверенных сочетаний — и удачные, и неудачные результаты полезны.
+        Helps extend the list of verified combinations; both successful and failed results are useful.
+
+        Сначала сохраните Flash (`backup.cmd`) и проверьте копию (`check.cmd`). Не снимайте защиту и не меняйте option bytes ради проверки.
+        Back up and verify Flash first. Do not remove protection or change option bytes for a test.
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Итог / Outcome
+      options:
+        - работает / works
+        - частично / partially
+        - не работает / does not work
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия stm32-flasher / Version
+      placeholder: "0.3.1"
+    validations:
+      required: true
+  - type: input
+    id: mcu
+    attributes:
+      label: MCU
+      description: Точная модель с маркировки. Exact part number.
+      placeholder: "STM32G474RE"
+    validations:
+      required: true
+  - type: input
+    id: board
+    attributes:
+      label: Плата / Board
+      placeholder: "NUCLEO-G474RE, своя плата / custom board"
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Движок / Engine
+      options:
+        - STM32CubeProgrammer
+        - OpenOCD
+        - SEGGER J-Link Commander
+    validations:
+      required: true
+  - type: input
+    id: tool
+    attributes:
+      label: Версия утилиты / Tool version
+      placeholder: "CubeProgrammer 2.19.0 / OpenOCD 0.12.0 / J-Link V8.32"
+    validations:
+      required: true
+  - type: input
+    id: probe
+    attributes:
+      label: Отладчик и его прошивка / Probe and firmware
+      placeholder: "ST-Link V2-1, V2J45M31"
+    validations:
+      required: true
+  - type: checkboxes
+    id: operations
+    attributes:
+      label: Проверенные команды / Tested commands
+      description: Отметьте выполненные. Подробности результата — ниже. Tick what you ran; details below.
+      options:
+        - label: flash
+        - label: check
+        - label: backup
+        - label: erase
+        - label: halt
+        - label: go
+        - label: reset
+  - type: textarea
+    id: details
+    attributes:
+      label: Подробности / Details
+      description: Что сработало, что нет, длительность, особенности подключения. What worked, what did not, timings, wiring notes.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Вывод doctor.cmd / doctor.cmd output
+      render: text
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Проверка / Checklist
+      options:
+        - label: Серийные номера и личные пути заменены. Serial numbers and personal paths are masked.
+          required: true
+        - label: Содержимое Flash сохранено и восстановлено после опыта. Flash contents were preserved and restored after the test.

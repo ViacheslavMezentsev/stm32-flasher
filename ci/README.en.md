@@ -42,6 +42,7 @@ match the captured implementation; older snapshots lacking it cannot be used.
 ## GitHub
 
 The GitHub Pages handbook is checked by `Test-Pages.ps1` in the regular matrix.
+Issue forms are checked by `Test-IssueForms.ps1`; without PyYAML it reports SKIP, not PASS.
 Deployment uses a separate workflow after land: [Pages setup and build](../site/README.en.md).
 
 Controlled 1/2-worker comparison is separate and manual:

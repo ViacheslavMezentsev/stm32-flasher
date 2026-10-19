@@ -85,5 +85,6 @@ CubeProgrammer/J-Link после прошивки не выполняет про
 Блокировка защищает папку от параллельных операций, но не общий отладчик из разных папок.
 
 [Инструкция](docs/user-guide.md) · [Настройки](docs/reference/launch-configuration.md) ·
+[Сообщить о проблеме](https://github.com/ViacheslavMezentsev/stm32-flasher/issues/new/choose) ·
 [CHANGELOG](CHANGELOG.md) · [Релизы](https://github.com/ViacheslavMezentsev/stm32-flasher/releases) ·
 [CI и локальные проверки](https://github.com/ViacheslavMezentsev/stm32-flasher/tree/main/ci)

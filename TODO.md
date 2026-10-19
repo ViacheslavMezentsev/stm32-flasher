@@ -2,6 +2,18 @@
 
 ## Текущее состояние
 
+- claude/issue-forms: формы issues RU/EN в .github/ISSUE_TEMPLATE — ошибка
+  (label bug), совместимость MCU/отладчика и предложение (label enhancement);
+  config.yml отключает пустые issues и ведёт на справочник и инструкцию.
+  Формы требуют скрыть серийные номера и личные пути, не прикладывать прошивки.
+  Ссылка «Сообщить о проблеме» в README RU/EN и подвале Pages.
+  Test-IssueForms/ci/test_issue_forms.py проверяют синтаксис по правилам GitHub,
+  уникальность id/вариантов и полноту списка команд; без PyYAML — SKIP.
+  Локально PASS (Python 3.10 на ПК, 3.13); test_site.py PASS. Отображение форм
+  на GitHub и наличие PyYAML в CI ещё не проверены. Далее: коммит, push, CI,
+  land, затем открыть Issues → New issue и проверить три формы; при желании
+  создать label hardware и добавить его в форму совместимости.
+
 - claude/pages-unified-style: Pages переведены на общий стиль STM32-сайтов
   (как demo-stm32-skills): цвета GitHub Primer, тёмная тема по умолчанию,
   круглая кнопка «тёмная → светлая → системная» с общим для семейства ключом
@@ -13,7 +25,7 @@
   test_site.py PASS (Python 3.10 на ПК и 3.13); скриншоты тёмной/светлой темы
   и ширины 390 px без горизонтальной прокрутки. Test-Pages в PS5.1/7 и полный CI
   не выполнялись. Далее: просмотр владельцем, подписанные коммиты, push, CI, land,
-  проверка deployment Pages; затем перенести дополнения site.css/theme.js
+  проверка deployment Pages (выполнено: влито в main f554954); затем перенести дополнения site.css/theme.js
   в demo-stm32-skills, чтобы файлы стиля совпадали во всех STM32-репозиториях.
 
 - codex/command-pages: каталог 11 команд RU/EN влит в main (f6d1f74), Pages

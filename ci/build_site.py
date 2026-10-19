@@ -59,7 +59,7 @@ TEXT = {
         'support_note': 'Для check и управления: OpenOCD требует target, SEGGER требует device. Автоопределения модели здесь нет. Неподдерживаемый движок не заменяется автоматически.',
         'source': 'Полная инструкция', 'checked': 'Аппаратные проверки и границы',
         'scope': f'Поведение выпуска {VERSION} · паспорт doctor: {DOCTOR_BASE}',
-        'license': 'лицензия MIT', 'family': 'навыки demo-stm32-skills',
+        'license': 'лицензия MIT', 'issue': 'Сообщить о проблеме', 'family': 'навыки demo-stm32-skills',
         'skip': 'К содержимому', 'engine': 'Движок / отладчик', 'yes': 'Да', 'no': 'Нет',
         'check_note': 'При несовпадении остановитесь и выясните причину: check не исправляет память. При совпадении: go для OpenOCD/ST-Link или SEGGER/J-Link, reset для поддерживаемого перезапуска. CubeProgrammer не выполняет go.',
     },
@@ -98,7 +98,7 @@ TEXT = {
         'support_note': 'For check and core control, OpenOCD requires a target and SEGGER requires a device. There is no model autodetection here. Unsupported engines are not silently replaced.',
         'source': 'Full guide (RU)', 'checked': 'Hardware evidence and limits (RU)',
         'scope': f'Release {VERSION} behavior · doctor baseline: {DOCTOR_BASE}',
-        'license': 'MIT license', 'family': 'demo-stm32-skills',
+        'license': 'MIT license', 'issue': 'Report an issue', 'family': 'demo-stm32-skills',
         'skip': 'Skip to content', 'engine': 'Engine / probe', 'yes': 'Yes', 'no': 'No',
         'check_note': 'Stop and investigate a mismatch: check does not repair memory. After a match: go for OpenOCD/ST-Link or SEGGER/J-Link, or reset for a supported restart. CubeProgrammer cannot go.',
     },
@@ -164,6 +164,7 @@ def shell(lang, title, body, command=None):
   <div class="inner">
     <span>stm32-flasher · {t['license']} · {t['scope']}</span>
     <a href="{REPO}">{t['sources']}</a>
+    <a href="{REPO}/issues/new/choose">{t['issue']}</a>
     <a href="{REPO}/blob/v{VERSION}/docs/user-guide.md">{t['source']}</a>
     <a href="{REPO}/blob/v{VERSION}/docs/testing.md">{t['checked']}</a>
     <a href="{FAMILY}">{t['family']}</a>

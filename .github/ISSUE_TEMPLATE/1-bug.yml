@@ -1,0 +1,136 @@
+name: Ошибка / Bug report
+description: Команда работает не так, как описано. A command does not behave as documented.
+title: "[Ошибка / Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за сообщение! Перед отправкой / Before submitting:
+        1. Запустите в той же папке / run in the same folder: `doctor.cmd` и `info.cmd`. Они не подключаются к MCU и не меняют настройки. They do not connect to the MCU or change settings.
+        2. **Замените серийные номера отладчиков и личные пути** на `XXXX` и `C:\fw`. **Mask probe serial numbers and personal paths.**
+        3. Не прикладывайте прошивки, резервные копии и `.flash.json` с реальными данными. Do not attach firmware, backups or real settings.
+  - type: input
+    id: version
+    attributes:
+      label: Версия / Version
+      description: "`flash.cmd --version`"
+      placeholder: "0.3.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: command
+    attributes:
+      label: Команда / Command
+      options:
+        - flash
+        - check
+        - backup
+        - erase
+        - halt
+        - go
+        - reset
+        - info
+        - doctor
+        - setup
+        - forget
+        - другое / other
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Движок / Engine
+      options:
+        - STM32CubeProgrammer
+        - OpenOCD
+        - SEGGER J-Link Commander
+        - не знаю / not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: probe
+    attributes:
+      label: Отладчик / Probe
+      options:
+        - ST-Link
+        - J-Link
+        - несколько / several
+        - не знаю / not sure
+    validations:
+      required: true
+  - type: input
+    id: mcu
+    attributes:
+      label: MCU и плата / MCU and board
+      placeholder: "STM32F103CB, Blue Pill"
+    validations:
+      required: true
+  - type: dropdown
+    id: shell
+    attributes:
+      label: Где запускали / Shell
+      options:
+        - CMD
+        - Windows PowerShell 5.1
+        - PowerShell 7
+        - перетаскивание на flash.cmd / drag and drop
+        - другое / other
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows
+      placeholder: "Windows 11 24H2"
+  - type: textarea
+    id: invocation
+    attributes:
+      label: Команда запуска / Command line
+      description: Точно как вводили. Exactly as typed.
+      render: bat
+      placeholder: "flash.cmd -HexFile firmware.hex"
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Что произошло / What happened
+      description: Сообщение об ошибке, код выхода, что осталось на плате. Error message, exit code, board state.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что ожидали / Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Вывод doctor.cmd / doctor.cmd output
+      description: Если doctor не запускается, напишите, что он выводит. If doctor fails, paste what it prints.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: info
+    attributes:
+      label: Вывод info.cmd / info.cmd output
+      render: text
+  - type: textarea
+    id: log
+    attributes:
+      label: Фрагмент flash_log.txt / flash_log.txt excerpt
+      description: Последние строки до ошибки. report.html можно приложить в ZIP. The last lines before the error; report.html may be attached as ZIP.
+      render: text
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Проверка / Checklist
+      options:
+        - label: Серийные номера и личные пути заменены. Serial numbers and personal paths are masked.
+          required: true
+        - label: Прошивки, резервные копии и реальные настройки не приложены. No firmware, backups or real settings attached.
+          required: true
+        - label: Похожего issue нет или он указан выше. No similar issue exists, or it is linked above.

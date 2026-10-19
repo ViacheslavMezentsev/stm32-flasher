@@ -7,6 +7,7 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- RU/EN issue forms: bug, MCU/probe compatibility and feature request. Version, command, engine, probe, doctor output and confirmation that serial numbers and personal paths are masked are required; blank issues are disabled, with links to the handbook and guide. Offline form checks: Test-IssueForms and ci/test_issue_forms.py.
 - GitHub Pages: RU/EN handbook for 11 commands, dedicated pages with purpose, routes, examples and limits; workflow overview, themes, static build and hardware-free link checks.
 
 ### Changed
