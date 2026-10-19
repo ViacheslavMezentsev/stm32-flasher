@@ -27,6 +27,9 @@ HEX можно передать аргументом или перетащить
 
 ## Команды
 
+[Каталог команд и маршрутов (GitHub Pages)](https://viacheslavmezentsev.github.io/stm32-flasher/)
+· [исходники и локальный предпросмотр](https://github.com/ViacheslavMezentsev/stm32-flasher/blob/main/site/README.md).
+
 | Команда | Действие |
 | --- | --- |
 | `flash` | Запись и проверка прошивки |

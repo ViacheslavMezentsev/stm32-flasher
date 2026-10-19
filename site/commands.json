@@ -1,0 +1,291 @@
+[
+  {
+    "name": "info",
+    "example": "info.cmd\ninfo.cmd -Lang en",
+    "route": [
+      "info",
+      "doctor",
+      "setup"
+    ],
+    "next": "doctor",
+    "ru": {
+      "title": "Обзор окружения",
+      "when": "Перед первым запуском, после смены ПК или при обращении за помощью.",
+      "before": "Скопируйте все CMD в папку с HEX и откройте терминал в этой папке.",
+      "result": "Пути и версии утилит, выбранный движок (*), сохранённые настройки, USB-программаторы, HEX и SHA-256 самого flash.cmd. Наличие файла SHA-256 не означает, что его содержимое проверено.",
+      "warning": "Без -ProbeTarget не подключается к MCU и не меняет файлы. -ProbeTarget подключается к плате и может влиять на выполнение. Неизвестный USB-ответ не доказывает отсутствие отладчика.",
+      "effect": "Осмотр"
+    },
+    "en": {
+      "title": "Environment overview",
+      "when": "Before the first operation, after changing PCs, or when requesting support.",
+      "before": "Copy all CMD files beside the HEX and open a terminal in that directory.",
+      "result": "Tool paths and versions, selected engine (*), saved settings, USB probes, HEX files and the hash of flash.cmd itself. Finding a checksum file does not validate it.",
+      "warning": "Without -ProbeTarget, it does not connect to the MCU or change files. -ProbeTarget connects and can affect execution. Unknown USB results do not prove probe absence.",
+      "effect": "Inspect"
+    }
+  },
+  {
+    "name": "doctor",
+    "example": "doctor.cmd -Lang ru\ndoctor.cmd -Lang en",
+    "route": [
+      "info",
+      "doctor",
+      "setup"
+    ],
+    "next": "setup",
+    "ru": {
+      "title": "Диагностика окружения",
+      "when": "Если утилита не найдена, выбранный отладчик недоступен или нужно сравнить окружение с проверенной базой.",
+      "before": "Сначала прочитайте info. Проверьте выбранные движок и программатор; настройки не считаются результатом обнаружения.",
+      "result": "OK/WARN/ERROR и итог. Код 0 допускает WARN; код 1 означает ERROR. База паспорта 0.3.0, версия набора 0.3.1. Другая версия утилиты сама по себе означает WARN, а не несовместимость.",
+      "warning": "Без MCU, меню, загрузок и изменения настроек или драйверов. Все OK не проверяют питание, SWD и образ. Windows видит J-Link, но Commander не открывает его: проверьте USB, занятость и драйвер вручную.",
+      "effect": "Осмотр"
+    },
+    "en": {
+      "title": "Environment diagnostics",
+      "when": "When a tool is missing, a selected probe is unavailable, or you need to compare the environment with the tested baseline.",
+      "before": "Read info first. Check the selected engine and probe; saved settings are not detected hardware.",
+      "result": "OK/WARN/ERROR findings and a summary. Exit 0 permits WARN; exit 1 means ERROR. Passport baseline 0.3.0, suite version 0.3.1. A different tool version alone is a warning, not proof of incompatibility.",
+      "warning": "No MCU access, menus, downloads, settings or driver changes. All OK does not validate power, SWD or the image. If Windows sees J-Link but Commander cannot open it, inspect USB, tool ownership and drivers manually.",
+      "effect": "Inspect"
+    }
+  },
+  {
+    "name": "setup",
+    "example": "setup.cmd\ninfo.cmd",
+    "route": [
+      "info",
+      "setup",
+      "doctor",
+      "flash"
+    ],
+    "next": "flash",
+    "ru": {
+      "title": "Выбор движка и отладчика",
+      "when": "При смене платы, J-Link на ST-Link, установке другого движка или выборе одного из нескольких программаторов.",
+      "before": "Посмотрите info. Знайте модель MCU для SEGGER и target для OpenOCD; мастер не определяет и не проверяет модель платы.",
+      "result": "Мастер показывает текущие значения, предлагает выбор и сохраняет .flash.json только после подтверждения. q или пустой ответ в меню отменяет настройку без изменения файлов.",
+      "warning": "Не подключается к MCU, не удаляет историю и резервные копии. Настройки относятся к папке вызова. Одновременная рабочая операция в этой папке блокирует мастер.",
+      "effect": "Настройка"
+    },
+    "en": {
+      "title": "Select engine and probe",
+      "when": "After changing boards, replacing J-Link with ST-Link, installing another engine, or selecting among several probes.",
+      "before": "Inspect info. Know the MCU device for SEGGER and target for OpenOCD; the wizard does not detect or validate the board model.",
+      "result": "The wizard shows current values, offers choices and saves .flash.json only after confirmation. q or an empty menu answer cancels without changing files.",
+      "warning": "No MCU connection; history and backups remain. Settings belong to the working directory. Another active operation in that directory blocks the wizard.",
+      "effect": "Configure"
+    }
+  },
+  {
+    "name": "flash",
+    "example": "flash.cmd -HexFile firmware.hex -DryRun\nflash.cmd -HexFile firmware.hex",
+    "route": [
+      "setup",
+      "backup",
+      "flash",
+      "check"
+    ],
+    "next": "check",
+    "ru": {
+      "title": "Запись прошивки",
+      "when": "Когда нужно загрузить новую сборку или восстановить ранее сохранённый HEX.",
+      "before": "Проверьте плату, настройки и совместимость образа. Если содержимое нужно сохранить, сначала backup и check копии. Отключите опасные нагрузки.",
+      "result": "Единственный HEX выбирается автоматически; при нескольких появляется меню. SHA-256 рядом с HEX проверяется до записи. Движок записывает и проверяет данные; выводятся результат и длительность, сохраняются лог, отчёт и история.",
+      "warning": "Запись начинается без дополнительного подтверждения. Отдельный erase обычно не нужен. CubeProgrammer/J-Link не выполняет проблемный -rst: запуск приложения может требовать отдельного сброса. Совпадение HEX не подтверждает правильность сборки для платы.",
+      "effect": "Запись Flash"
+    },
+    "en": {
+      "title": "Program firmware",
+      "when": "To install a new build or restore a previously saved HEX.",
+      "before": "Check the board, configuration and image compatibility. If existing contents matter, first back up and check the backup. Disconnect hazardous loads.",
+      "result": "A single HEX is selected automatically; multiple files prompt a menu. A neighbouring SHA-256 is validated before writing. The engine programs and verifies data; result, duration, log, report and history are produced.",
+      "warning": "Writing starts without another confirmation. A separate erase is normally unnecessary. CubeProgrammer/J-Link omits the problematic -rst; starting the application may require a separate reset. A matching HEX does not prove it is the right build for the board.",
+      "effect": "Writes Flash"
+    }
+  },
+  {
+    "name": "check",
+    "example": "check.cmd -HexFile firmware.hex -DryRun\ncheck.cmd -HexFile firmware.hex",
+    "route": [
+      "flash",
+      "check",
+      "go"
+    ],
+    "next": "go",
+    "ru": {
+      "title": "Сравнение HEX с памятью",
+      "when": "Для независимого сравнения платы с конкретным HEX или проверки копии перед экспериментом.",
+      "before": "Задайте HEX; для OpenOCD нужен сохранённый или явный -Target, для SEGGER -Device. Приведите оборудование в безопасное состояние.",
+      "result": "Читаются и сравниваются только диапазоны данных HEX. Совпадение даёт код 0, ошибка или несовпадение код 1. SHA-256 файла и сравнение памяти являются разными проверками.",
+      "warning": "Ничего не исправляет, не пишет Flash, не сбрасывает и не запускает ядро. OpenOCD и SEGGER останавливают его; состояние после CubeProgrammer зависит от платы. Промежутки HEX не проверяются. После проверки выберите go или reset осознанно.",
+      "effect": "Чтение MCU"
+    },
+    "en": {
+      "title": "Compare HEX with memory",
+      "when": "To compare a board with a specific HEX or validate a backup before an experiment.",
+      "before": "Select a HEX; OpenOCD requires a saved or explicit -Target, SEGGER requires -Device. Put the equipment in a safe state.",
+      "result": "Only HEX data ranges are read and compared. A match returns 0; an error or mismatch returns 1. File SHA-256 and memory comparison are different checks.",
+      "warning": "It never repairs, writes Flash, resets or resumes the core. OpenOCD and SEGGER halt it; state after CubeProgrammer depends on the board. HEX gaps are not checked. Choose go or reset deliberately afterwards.",
+      "effect": "Reads MCU"
+    }
+  },
+  {
+    "name": "backup",
+    "example": "backup.cmd -Size 65536 -Output backups/before.hex\ncheck.cmd -HexFile backups/before.hex",
+    "route": [
+      "backup",
+      "check",
+      "erase",
+      "flash"
+    ],
+    "next": "check",
+    "ru": {
+      "title": "Сохранение Flash",
+      "when": "Перед стиранием, заменой неизвестной прошивки или экспериментом, после которого нужно восстановить плату.",
+      "before": "Уточните весь затрагиваемый диапазон Flash. Если размер неизвестен, задайте -Size в байтах; пример 65536 подходит только для подтверждённых 64 КиБ.",
+      "result": "В backups создаются Intel HEX и .hex.sha256. Имя включает дату, время, ID MCU (или IDunknown) и размер. Существующая копия не перезаписывается. Перед разрушительной операцией сравните копию с MCU командой check.",
+      "warning": "Не включает автоматически option bytes, OTP, RAM и внешнюю память. J-Link/OpenOCD останавливают и затем запускают ядро; это не незаметное чтение и не атомарный снимок. При защите чтения остановитесь: снятие защиты не выполняется.",
+      "effect": "Чтение MCU"
+    },
+    "en": {
+      "title": "Back up Flash",
+      "when": "Before erasing, replacing unknown firmware, or an experiment that requires restoring the board.",
+      "before": "Determine the entire affected Flash range. If size is unknown, specify -Size in bytes; the 65536 example is only for a confirmed 64 KiB range.",
+      "result": "Intel HEX and .hex.sha256 are created in backups. The name contains date, time, MCU ID (or IDunknown) and size. Existing backups are not overwritten. Compare the backup with the MCU using check before a destructive operation.",
+      "warning": "Option bytes, OTP, RAM and external memory are not automatically included. J-Link/OpenOCD halt and then run the core; this is not nonintrusive or an atomic snapshot. Stop on read protection; protection is not removed.",
+      "effect": "Reads MCU"
+    }
+  },
+  {
+    "name": "erase",
+    "example": "erase.cmd -DryRun\nerase.cmd",
+    "route": [
+      "backup",
+      "check",
+      "erase",
+      "flash",
+      "check"
+    ],
+    "next": "flash",
+    "ru": {
+      "title": "Полное стирание Flash",
+      "when": "Только когда нужна пустая Flash, а не обычное обновление прошивки.",
+      "before": "Сохраните всю затрагиваемую Flash через backup, проверьте копию и подготовьте восстановление. При непригодной копии не стирайте. Уберите опасные нагрузки.",
+      "result": "Стирается пользовательская Flash, включая загрузчик в ней. Единственный программатор выбирается автоматически, при нескольких появляется меню; явный -Serial выбирает конкретный. Результат и длительность попадают в отчёт.",
+      "warning": "Начинается сразу, без отдельного подтверждения. Не снимает защиту и не меняет option bytes. Для OpenOCD стираются банки, объявленные target. Сохранённый serial не обходит меню стирания. Это не очистка файлов ПК.",
+      "effect": "Стирание Flash"
+    },
+    "en": {
+      "title": "Erase all Flash",
+      "when": "Only when blank Flash is required, not for a routine firmware update.",
+      "before": "Back up all affected Flash, verify the backup and prepare restoration. Do not erase with an unusable backup. Remove hazardous loads.",
+      "result": "User Flash is erased, including a bootloader stored there. A single probe is selected automatically; several prompt a menu, and explicit -Serial selects one. The report records result and duration.",
+      "warning": "Starts immediately, without a separate confirmation. No protection removal or option-byte changes. OpenOCD erases banks declared by the target. A saved serial does not bypass the erase menu. This is not PC file cleanup.",
+      "effect": "Erases Flash"
+    }
+  },
+  {
+    "name": "halt",
+    "example": "halt.cmd -DryRun\nhalt.cmd",
+    "route": [
+      "info",
+      "halt",
+      "go"
+    ],
+    "next": "go",
+    "ru": {
+      "title": "Остановка ядра",
+      "when": "Для контролируемой паузы выполнения во время тестирования.",
+      "before": "HEX не нужен. Для OpenOCD задайте target, для SEGGER device. Проверьте поддержку движка и безопасность нагрузки.",
+      "result": "Ядро останавливается без сброса; успех требует подтверждения состояния движком. Flash не меняется, сохраняются отчёт и история.",
+      "warning": "Периферия и watchdog могут продолжать работать. Это не аварийная остановка устройства. Поддержаны OpenOCD/ST-Link, SEGGER/J-Link, CubeProgrammer/ST-Link; не CubeProgrammer/J-Link.",
+      "effect": "Состояние ядра"
+    },
+    "en": {
+      "title": "Halt the core",
+      "when": "For a controlled execution pause during testing.",
+      "before": "No HEX required. Supply an OpenOCD target or SEGGER device. Check engine support and load safety.",
+      "result": "The core halts without reset; success requires engine confirmation of state. Flash stays unchanged; report and history are saved.",
+      "warning": "Peripherals and watchdog may keep running. This is not an emergency stop. Supported: OpenOCD/ST-Link, SEGGER/J-Link, CubeProgrammer/ST-Link; not CubeProgrammer/J-Link.",
+      "effect": "Core state"
+    }
+  },
+  {
+    "name": "go",
+    "example": "go.cmd -DryRun\ngo.cmd",
+    "route": [
+      "halt",
+      "go"
+    ],
+    "next": "info",
+    "ru": {
+      "title": "Продолжение без сброса",
+      "when": "После halt или check, если нужно продолжить с текущего PC, а не начать программу заново.",
+      "before": "Поддерживаются OpenOCD/ST-Link и SEGGER/J-Link. Нужны target/device и правильный отладчик. HEX не требуется.",
+      "result": "Продолжение выполнения без сброса и записи Flash. Успех означает, что движок подтвердил ожидаемое состояние ядра, а не исправность приложения.",
+      "warning": "CubeProgrammer не поддерживается для go; движок не заменяется автоматически. Для начала с точки сброса выберите reset. Учитывайте состояние периферии после паузы.",
+      "effect": "Состояние ядра"
+    },
+    "en": {
+      "title": "Resume without reset",
+      "when": "After halt or check, to continue from the current PC rather than restart the program.",
+      "before": "Supported: OpenOCD/ST-Link and SEGGER/J-Link. A target/device and the correct probe are required. No HEX needed.",
+      "result": "Execution resumes without reset or Flash writing. Success means the engine confirmed the expected core state, not that the application is healthy.",
+      "warning": "CubeProgrammer is not supported for go; the engine is never silently replaced. Use reset to start from reset. Account for peripheral state after a pause.",
+      "effect": "Core state"
+    }
+  },
+  {
+    "name": "reset",
+    "example": "reset.cmd -DryRun\nreset.cmd",
+    "route": [
+      "check",
+      "reset"
+    ],
+    "next": "info",
+    "ru": {
+      "title": "Сброс с запуском",
+      "when": "Когда нужно запустить прошивку заново, в том числе после сравнения памяти.",
+      "before": "Проверьте безопасность повторной инициализации платы. Нужен target/device для OpenOCD/SEGGER; HEX не нужен.",
+      "result": "MCU сбрасывается с запуском. Flash и настройки запуска инструмента не очищаются. Результат подтверждается движком и сохраняется в отчёте.",
+      "warning": "Это не go и не forget. Поддержаны OpenOCD/ST-Link, SEGGER/J-Link и CubeProgrammer/ST-Link. CubeProgrammer/J-Link отклоняется. Ошибка не вызывает скрытого перехода на другой движок.",
+      "effect": "Состояние ядра"
+    },
+    "en": {
+      "title": "Reset and run",
+      "when": "To restart firmware, including after comparing memory.",
+      "before": "Make sure reinitializing the board is safe. OpenOCD/SEGGER require target/device; no HEX is required.",
+      "result": "The MCU resets and runs. Flash and tool launch settings are not cleared. The engine confirms the result, which is recorded in a report.",
+      "warning": "This is neither go nor forget. Supported: OpenOCD/ST-Link, SEGGER/J-Link and CubeProgrammer/ST-Link. CubeProgrammer/J-Link is rejected. An error does not silently select another engine.",
+      "effect": "Core state"
+    }
+  },
+  {
+    "name": "forget",
+    "example": "forget.cmd -DryRun\nforget.cmd",
+    "route": [
+      "info",
+      "forget",
+      "setup"
+    ],
+    "next": "setup",
+    "ru": {
+      "title": "Очистка рабочей папки",
+      "when": "Чтобы убрать известные настройки и артефакты инструмента из папки вызова. Для простой смены отладчика лучше setup.",
+      "before": "Сначала сохраните нужные отчёты и историю в другом месте. Посмотрите план удаления через -DryRun.",
+      "result": "Удаляет .flash.json, старые настройки, логи, отчёты, .history и известные локальные загрузки. CMD, HEX, SHA-256, backups и неизвестные инструменты остаются.",
+      "warning": "Не обращается к MCU. Удаляет известные артефакты независимо от времени создания; это не точное восстановление содержимого папки до первого запуска. Junction и символические ссылки в удаляемых путях вызывают отказ.",
+      "effect": "Удаление файлов"
+    },
+    "en": {
+      "title": "Clean working artifacts",
+      "when": "To remove known tool settings and artifacts from the working directory. Prefer setup just to change probes.",
+      "before": "First preserve needed reports and history elsewhere. Inspect the deletion plan with -DryRun.",
+      "result": "Removes .flash.json, legacy settings, logs, reports, .history and known local downloads. CMD, HEX, SHA-256, backups and unknown tools remain.",
+      "warning": "No MCU access. Known artifacts are removed regardless of creation time; this is not an exact restoration of the folder before its first run. Junctions and symlinks in deletion paths cause refusal.",
+      "effect": "Deletes files"
+    }
+  }
+]

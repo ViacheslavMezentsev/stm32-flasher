@@ -27,6 +27,9 @@ Multiple probes without a saved selection require a choice.
 
 ## Commands
 
+[Command handbook and workflows (GitHub Pages)](https://viacheslavmezentsev.github.io/stm32-flasher/index.en.html)
+· [sources and local preview](https://github.com/ViacheslavMezentsev/stm32-flasher/blob/main/site/README.en.md).
+
 | Command | Action |
 | --- | --- |
 | `flash` | Program and verify firmware |

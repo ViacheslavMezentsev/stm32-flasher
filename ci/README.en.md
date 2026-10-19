@@ -41,6 +41,9 @@ match the captured implementation; older snapshots lacking it cannot be used.
 
 ## GitHub
 
+The GitHub Pages handbook is checked by `Test-Pages.ps1` in the regular matrix.
+Deployment uses a separate workflow after land: [Pages setup and build](../site/README.en.md).
+
 Controlled 1/2-worker comparison is separate and manual:
 [method and owner steps](comparison.en.md). This is not part of ordinary push CI.
 

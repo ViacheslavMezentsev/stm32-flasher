@@ -5,6 +5,10 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- GitHub Pages: RU/EN handbook for 11 commands, dedicated pages with purpose, routes, examples and limits; workflow overview, themes, static build and hardware-free link checks.
+
 ## [0.3.1] - 2026-10-19: Environment diagnostics and script identity
 
 ### Added
