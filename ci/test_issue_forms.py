@@ -60,4 +60,9 @@ class IssueFormTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    import sys
+    # Report to stdout: Windows PowerShell 5.1 turns redirected stderr into errors.
+    result = unittest.main(testRunner=unittest.TextTestRunner(stream=sys.stdout), exit=False).result
+    if yaml is None:
+        print('ISSUE_FORMS_SKIPPED: PyYAML is not installed')
+    sys.exit(0 if result.wasSuccessful() else 1)
