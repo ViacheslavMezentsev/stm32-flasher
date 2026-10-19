@@ -4,7 +4,7 @@
 
 A static handbook for release 0.3.1. `commands.json` holds RU/EN content for
 11 commands; `ci/build_site.py` builds 24 HTML pages using a shared template.
-`assets` contains local CSS and the theme selector. Content and navigation
+`assets` contains the shared CSS and theme toggle. Content and navigation
 work without JavaScript, a server or external libraries. No MCU tools run.
 
 ## Check and preview
@@ -21,6 +21,17 @@ Start-Process tests/.tmp-pages-preview/index.html
 all `bin/*.cmd` entries, RU/EN, routes, local links/anchors, assets, absence of
 external scripts and deterministic builds. This is not a browser visual test
 or a hardware test.
+
+## Shared STM32 site style
+
+`assets/site.css` and `assets/theme.js` come from demo-stm32-skills: GitHub
+Primer colours, dark theme by default, round dark → light → system toggle.
+The `demo-stm32-skills-theme` key is shared: sites on
+viacheslavmezentsev.github.io share storage, so one theme choice applies to all.
+The last CSS section holds project-neutral additions (language, buttons,
+callouts, `danger` colour); copy them unchanged to other repositories.
+Colour classes: `offline` inspection, `alt` configuration, `live` MCU reads,
+`view` core state, `danger` writes, erases and deletes.
 
 ## Publish
 

@@ -9,6 +9,11 @@ Based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - GitHub Pages: RU/EN handbook for 11 commands, dedicated pages with purpose, routes, examples and limits; workflow overview, themes, static build and hardware-free link checks.
 
+### Changed
+
+- GitHub Pages: shared STM32 site style matching demo-stm32-skills: GitHub Primer colours, dark theme by default, round theme toggle with a shared key, header with logo, staged workflow diagram, node and label colours by command effect. Content and working CMD files are unchanged.
+- `.gitattributes`: LF in Git and `text=auto` for text files; CMD files always use CRLF in the working tree. CMD contents are unchanged.
+
 ## [0.3.1] - 2026-10-19: Environment diagnostics and script identity
 
 ### Added
